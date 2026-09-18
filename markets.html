@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Crypto Terminal & DEX Arbitrage Monitor | CRYPTRON</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex flex-col">
+
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-40 backdrop-blur-xl bg-[#080d1a]/90 border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Logo -->
+        <a href="index.html" class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/20">
+            <div class="w-full h-full bg-[#090e1d] rounded-xl flex items-center justify-center">
+              <i data-lucide="zap" class="w-5 h-5 text-emerald-400"></i>
+            </div>
+          </div>
+          <span class="text-xl font-black tracking-tight text-white">
+            CRYP<span class="text-cyan-400">TERMINAL</span>
+          </span>
+        </a>
+
+        <!-- Desktop Links -->
+        <div class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
+          <a href="index.html" class="hover:text-emerald-400 transition-colors">Home</a>
+          <a href="plans.html" class="hover:text-emerald-400 transition-colors">Staking Vaults</a>
+          <a href="markets.html" class="text-cyan-400 transition-colors font-bold">Crypto Terminal</a>
+          <a href="transactions.html" class="hover:text-emerald-400 transition-colors">Ledger</a>
+          <a href="dashboard.html" class="hover:text-emerald-400 transition-colors">Dashboard</a>
+        </div>
+
+        <!-- Right CTA -->
+        <div class="flex items-center space-x-4">
+          <button class="theme-toggle-btn p-2 rounded-xl border border-white/10 text-slate-400 hover:text-white transition-colors" title="Toggle Theme">
+            <i data-lucide="moon" class="w-4 h-4"></i>
+          </button>
+          <a href="dashboard.html" class="px-4 py-2 rounded-xl font-bold text-xs sm:text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 transition-all">
+            Stake Crypto
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+  <!-- Market Header Bar -->
+  <div class="bg-[#0b1224] border-b border-white/5 py-3 px-4 sm:px-8">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider">Active Crypto Pairs:</span>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="changeSymbol('BINANCE:BTCUSDT')" class="symbol-btn px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs font-mono font-bold border border-cyan-500/30">BTC/USDT</button>
+          <button onclick="changeSymbol('BINANCE:ETHUSDT')" class="symbol-btn px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono border border-transparent">ETH/USDT</button>
+          <button onclick="changeSymbol('BINANCE:SOLUSDT')" class="symbol-btn px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono border border-transparent">SOL/USDT</button>
+          <button onclick="changeSymbol('BINANCE:BNBUSDT')" class="symbol-btn px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono border border-transparent">BNB/USDT</button>
+          <button onclick="changeSymbol('BINANCE:AVAXUSDT')" class="symbol-btn px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono border border-transparent">AVAX/USDT</button>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4 text-xs font-mono text-slate-400">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Web3 WebSocket: Connected (8ms)</span>
+        </div>
+        <div class="hidden sm:block">|</div>
+        <div class="hidden sm:flex items-center gap-1.5 text-emerald-400">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+          <span>MEV Protection: Armed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terminal Content Area -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    
+    <!-- Top Grid: Terminal Chart + Side Watchlist -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Chart Area (8 cols) -->
+      <div class="lg:col-span-8 glass-panel p-4 rounded-2xl border border-white/10 flex flex-col h-[560px]">
+        <div class="flex justify-between items-center mb-3 px-2">
+          <div class="flex items-center gap-2">
+            <span id="active-symbol-title" class="text-sm font-bold text-white font-mono">BINANCE:BTCUSDT</span>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-bold">LIVE ON-CHAIN</span>
+          </div>
+          <div class="text-xs text-slate-400 font-mono">TradingView Pro Institutional Engine</div>
+        </div>
+
+        <!-- TradingView Embed Container -->
+        <div id="tradingview_widget_container" class="flex-1 w-full h-full rounded-xl overflow-hidden bg-[#060a14]"></div>
+      </div>
+
+      <!-- Watchlist & Arbitrage Gauges (4 cols) -->
+      <div class="lg:col-span-4 space-y-6">
+        
+        <!-- Live Crypto Watchlist -->
+        <div class="glass-panel p-5 rounded-2xl border border-white/10">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">Crypto Watchlist</h3>
+            <span class="text-[11px] text-slate-400 font-mono">24h Gain</span>
+          </div>
+
+          <div class="space-y-3 font-mono text-xs">
+            
+            <div onclick="changeSymbol('BINANCE:BTCUSDT')" class="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/5 border border-white/5 cursor-pointer transition-all">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-[10px]">₿</div>
+                <div>
+                  <div class="font-bold text-white">BTC / USDT</div>
+                  <div class="text-[10px] text-slate-500">Bitcoin</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-white">$68,432.50</div>
+                <div class="text-[10px] text-emerald-400">+3.42%</div>
+              </div>
+            </div>
+
+            <div onclick="changeSymbol('BINANCE:ETHUSDT')" class="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/5 border border-white/5 cursor-pointer transition-all">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold text-[10px]">Ξ</div>
+                <div>
+                  <div class="font-bold text-white">ETH / USDT</div>
+                  <div class="text-[10px] text-slate-500">Ethereum</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-white">$3,594.10</div>
+                <div class="text-[10px] text-emerald-400">+2.84%</div>
+              </div>
+            </div>
+
+            <div onclick="changeSymbol('BINANCE:SOLUSDT')" class="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/5 border border-white/5 cursor-pointer transition-all">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-[10px]">◎</div>
+                <div>
+                  <div class="font-bold text-white">SOL / USDT</div>
+                  <div class="text-[10px] text-slate-500">Solana</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-white">$164.30</div>
+                <div class="text-[10px] text-emerald-400">+6.18%</div>
+              </div>
+            </div>
+
+            <div onclick="changeSymbol('BINANCE:BNBUSDT')" class="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/5 border border-white/5 cursor-pointer transition-all">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-[10px]">BNB</div>
+                <div>
+                  <div class="font-bold text-white">BNB / USDT</div>
+                  <div class="text-[10px] text-slate-500">BNB Chain</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-white">$592.60</div>
+                <div class="text-[10px] text-emerald-400">+1.95%</div>
+              </div>
+            </div>
+
+            <div onclick="changeSymbol('BINANCE:AVAXUSDT')" class="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/5 border border-white/5 cursor-pointer transition-all">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-[10px]">AV</div>
+                <div>
+                  <div class="font-bold text-white">AVAX / USDT</div>
+                  <div class="text-[10px] text-slate-500">Avalanche</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-white">$29.40</div>
+                <div class="text-[10px] text-emerald-400">+4.22%</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- DEX Arbitrage Telemetry -->
+        <div class="glass-panel p-5 rounded-2xl border border-white/10 space-y-4">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono">DEX Arbitrage Telemetry</h3>
+          
+          <div class="space-y-2.5 text-xs font-mono">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400">Crypto Fear & Greed:</span>
+              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">GREED (76/100)</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400">Uniswap / Binance Spread:</span>
+              <span class="text-cyan-400 font-bold">+$22.50 (0.032%)</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400">Cross-Chain Gas Index:</span>
+              <span class="text-emerald-400 font-bold">Low (14 Gwei)</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400">Active Flash-Loan Bots:</span>
+              <span class="text-emerald-400 font-bold">54 Active</span>
+            </div>
+          </div>
+
+          <a href="dashboard.html" class="block w-full py-2.5 rounded-xl font-bold text-center text-xs text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-md transition-colors font-sans">
+            Deploy Capital to Quant Vaults
+          </a>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto bg-[#050811] border-t border-white/10 py-8 text-slate-400 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>© 2026 CRYPTRON Protocol. Real-time Web3 market data provided by TradingView.</div>
+      <div class="flex gap-6">
+        <a href="index.html" class="hover:text-white">Home</a>
+        <a href="plans.html" class="hover:text-white">Vaults</a>
+        <a href="dashboard.html" class="hover:text-white">Dashboard</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/app.js"></script>
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <script>
+    function renderTradingViewWidget(symbol = 'BINANCE:BTCUSDT') {
+      const container = document.getElementById('tradingview_widget_container');
+      container.innerHTML = '';
+
+      const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+
+      new TradingView.widget({
+        "autosize": true,
+        "symbol": symbol,
+        "interval": "D",
+        "timezone": "Etc/UTC",
+        "theme": theme === 'dark' ? 'dark' : 'light',
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#0f172a",
+        "enable_publishing": false,
+        "hide_top_toolbar": false,
+        "allow_symbol_change": true,
+        "container_id": "tradingview_widget_container"
+      });
+    }
+
+    function changeSymbol(symbol) {
+      document.getElementById('active-symbol-title').textContent = symbol;
+      
+      const buttons = document.querySelectorAll('.symbol-btn');
+      buttons.forEach(btn => {
+        const pairCode = symbol.split(':')[1] ? symbol.split(':')[1].replace('USDT', '') : '';
+        if (btn.textContent.includes(pairCode)) {
+          btn.className = "symbol-btn px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-xs font-mono font-bold border border-cyan-500/30";
+        } else {
+          btn.className = "symbol-btn px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono border border-transparent";
+        }
+      });
+
+      renderTradingViewWidget(symbol);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      renderTradingViewWidget('BINANCE:BTCUSDT');
+    });
+  </script>
+</body>
+</html>

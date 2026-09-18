@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect & Authenticate | CRYPTRON Protocol</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+
+  <!-- Ambient Light Orbs -->
+  <div class="bg-ambient-orb w-96 h-96 bg-emerald-600 top-0 left-10 opacity-25"></div>
+  <div class="bg-ambient-orb w-96 h-96 bg-cyan-600 bottom-0 right-10 opacity-20"></div>
+
+  <div class="w-full max-w-md relative z-10 space-y-6">
+    
+    <!-- Brand Header -->
+    <div class="text-center space-y-2">
+      <a href="index.html" class="inline-flex items-center gap-3 group">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/25">
+          <div class="w-full h-full bg-[#090e1d] rounded-xl flex items-center justify-center">
+            <i data-lucide="zap" class="w-6 h-6 text-emerald-400"></i>
+          </div>
+        </div>
+        <span class="text-3xl font-black tracking-tight text-white">
+          CRYP<span class="text-emerald-400">TRON</span>
+        </span>
+      </a>
+      <p class="text-xs text-slate-400 font-mono">Secured by On-Chain Database & Multi-Sig Vaults</p>
+    </div>
+
+    <!-- Login Card Container -->
+    <div class="glass-panel p-8 rounded-3xl border border-white/10 glow-emerald space-y-6">
+      
+      <!-- Tab Switcher -->
+      <div id="auth-tab-header" class="grid grid-cols-2 p-1 bg-[#090e1d] rounded-xl border border-white/10 text-xs font-semibold">
+        <button id="tab-signin" onclick="switchTab('signin')" class="py-2.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all">
+          Sign In
+        </button>
+        <button id="tab-signup" onclick="switchTab('signup')" class="py-2.5 rounded-lg text-slate-400 hover:text-white transition-all">
+          Sign Up
+        </button>
+      </div>
+
+      <!-- Sign In Form -->
+      <form id="signin-form" onsubmit="handleAuthSubmit(event, 'signin')" class="space-y-4">
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Staker Email / Web3 ID</label>
+          <div class="relative">
+            <i data-lucide="mail" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input type="email" id="signin-email" required placeholder="staker@domain.com" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors font-mono">
+          </div>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="text-xs font-mono uppercase tracking-wider text-slate-300">Security Password</label>
+            <button type="button" onclick="switchTab('forgot')" class="text-[11px] text-emerald-400 hover:underline">Forgot Password?</button>
+          </div>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input type="password" id="signin-password" required placeholder="Enter password" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-sm">
+          Enter Staking Dashboard
+        </button>
+      </form>
+
+      <!-- Sign Up Form (Inserts into Database) -->
+      <form id="signup-form" onsubmit="handleAuthSubmit(event, 'signup')" class="hidden space-y-4">
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Full Legal Name</label>
+          <div class="relative">
+            <i data-lucide="user" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="signup-name" required placeholder="e.g. John Doe" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Email Address (Stored in DB)</label>
+          <div class="relative">
+            <i data-lucide="mail" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input type="email" id="signup-email" required placeholder="staker@domain.com" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors font-mono">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Create Password</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input type="password" id="signup-password" required placeholder="Minimum 8 characters" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-black text-slate-950 bg-cyan-400 hover:bg-cyan-300 shadow-lg shadow-cyan-500/25 transition-all text-sm uppercase tracking-wider font-mono">
+          Proceed
+        </button>
+      </form>
+
+      <!-- Forgot Password Form (Multi-Step Flow) -->
+      <div id="forgot-form" class="hidden space-y-4">
+        
+        <!-- Step 1: Request 6-Digit Code -->
+        <form id="forgot-step1-form" onsubmit="handleRequestResetCode(event)" class="space-y-4">
+          <div class="text-center space-y-1 pb-3 border-b border-white/10">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-2 shadow-lg shadow-amber-500/20">
+              <i data-lucide="key-round" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">Reset Account Password</h3>
+            <p class="text-xs text-slate-400 font-mono">Enter your registered email to receive a 6-digit security code</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Registered Email Address</label>
+            <div class="relative">
+              <i data-lucide="mail" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+              <input type="email" id="forgot-email" required placeholder="e.g. investor@cryptron.io" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 transition-colors font-mono">
+            </div>
+          </div>
+
+          <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 shadow-lg shadow-amber-500/25 transition-all text-sm font-sans">
+            Send 6-Digit Security Code
+          </button>
+
+          <div class="text-center pt-2">
+            <button type="button" onclick="switchTab('signin')" class="text-xs text-slate-400 hover:text-white font-mono transition-colors">
+              ← Return to Sign In
+            </button>
+          </div>
+        </form>
+
+        <!-- Step 2: Verify Code & Set New Password -->
+        <form id="forgot-step2-form" onsubmit="handleVerifyAndResetPassword(event)" class="hidden space-y-4">
+          <div class="text-center space-y-1 pb-3 border-b border-white/10">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2 shadow-lg shadow-emerald-500/20">
+              <i data-lucide="shield-check" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">Enter Security Code</h3>
+            <p class="text-xs text-slate-400 font-mono">Code sent to: <span id="reset-email-display" class="text-emerald-400 font-bold"></span></p>
+          </div>
+
+          <!-- Code Display / Auto-fill helper for convenience -->
+          <div id="reset-code-banner" class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs font-mono text-emerald-300 flex items-center justify-between">
+            <span>Your Code: <strong id="reset-preview-code" class="text-white tracking-widest text-sm font-black font-mono"></strong></span>
+            <button type="button" onclick="autoFillCode()" class="px-2.5 py-1 rounded bg-emerald-400 text-slate-950 text-[10px] font-bold uppercase tracking-wider">
+              Auto-Fill
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">6-Digit Code</label>
+            <div class="relative">
+              <i data-lucide="hash" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+              <input type="text" id="reset-code-input" required maxlength="6" placeholder="123456" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-lg text-white font-mono font-black tracking-widest focus:outline-none focus:border-emerald-500 transition-colors text-center">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">New Security Password</label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+              <input type="password" id="reset-new-password" required minlength="6" placeholder="At least 6 characters" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Confirm New Password</label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+              <input type="password" id="reset-confirm-password" required minlength="6" placeholder="Repeat new password" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+            </div>
+          </div>
+
+          <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-sm font-sans">
+            Update Password & Sign In
+          </button>
+
+          <div class="flex justify-between items-center pt-2 text-xs font-mono">
+            <button type="button" onclick="backToStep1()" class="text-slate-400 hover:text-white">
+              ← Change Email
+            </button>
+            <button type="button" onclick="switchTab('signin')" class="text-emerald-400 hover:underline">
+              Cancel & Sign In
+            </button>
+          </div>
+        </form>
+
+      </div>
+
+    </div>
+
+    <!-- Return to Homepage -->
+    <div class="text-center">
+      <a href="index.html" class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        <span>Return to CRYPTRON Homepage</span>
+      </a>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/email.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let activeResetEmail = '';
+    let currentGeneratedCode = '';
+
+    function switchTab(tab) {
+      const tabHeader = document.getElementById('auth-tab-header');
+      const signinBtn = document.getElementById('tab-signin');
+      const signupBtn = document.getElementById('tab-signup');
+      const signinForm = document.getElementById('signin-form');
+      const signupForm = document.getElementById('signup-form');
+      const forgotForm = document.getElementById('forgot-form');
+
+      if (tab === 'forgot') {
+        tabHeader.classList.add('hidden');
+        signinForm.classList.add('hidden');
+        signupForm.classList.add('hidden');
+        forgotForm.classList.remove('hidden');
+        document.getElementById('forgot-step1-form').classList.remove('hidden');
+        document.getElementById('forgot-step2-form').classList.add('hidden');
+      } else {
+        tabHeader.classList.remove('hidden');
+        forgotForm.classList.add('hidden');
+
+        if (tab === 'signin') {
+          signinBtn.className = "py-2.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all";
+          signupBtn.className = "py-2.5 rounded-lg text-slate-400 hover:text-white transition-all";
+          signinForm.classList.remove('hidden');
+          signupForm.classList.add('hidden');
+        } else {
+          signupBtn.className = "py-2.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 transition-all";
+          signinBtn.className = "py-2.5 rounded-lg text-slate-400 hover:text-white transition-all";
+          signupForm.classList.remove('hidden');
+          signinForm.classList.add('hidden');
+        }
+      }
+      lucide.createIcons();
+    }
+
+    function handleAuthSubmit(e, type) {
+      e.preventDefault();
+
+      if (type === 'signup') {
+        const name = document.getElementById('signup-name').value;
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+
+        try {
+          const newUser = UserDatabase.registerUser(name, email, password);
+          showToast(`Account created for ${newUser.name}! Recorded in database.`, 'success');
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 800);
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      } else {
+        const email = document.getElementById('signin-email').value;
+        const password = document.getElementById('signin-password').value;
+
+        try {
+          const user = UserDatabase.loginUser(email, password);
+          showToast(`Welcome back, ${user.name}! Loading staker dashboard...`, 'success');
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 800);
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      }
+    }
+
+    function handleRequestResetCode(e) {
+      e.preventDefault();
+      const email = document.getElementById('forgot-email').value.trim();
+      try {
+        const result = UserDatabase.requestPasswordReset(email);
+        activeResetEmail = email;
+        currentGeneratedCode = result.resetCode;
+
+        document.getElementById('reset-email-display').textContent = email;
+        document.getElementById('reset-preview-code').textContent = result.resetCode;
+        document.getElementById('forgot-step1-form').classList.add('hidden');
+        document.getElementById('forgot-step2-form').classList.remove('hidden');
+        lucide.createIcons();
+
+        showToast(`✉️ Verification code generated & dispatched to ${email}!`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function autoFillCode() {
+      if (currentGeneratedCode) {
+        document.getElementById('reset-code-input').value = currentGeneratedCode;
+      }
+    }
+
+    function backToStep1() {
+      document.getElementById('forgot-step1-form').classList.remove('hidden');
+      document.getElementById('forgot-step2-form').classList.add('hidden');
+      lucide.createIcons();
+    }
+
+    function handleVerifyAndResetPassword(e) {
+      e.preventDefault();
+      const code = document.getElementById('reset-code-input').value.trim();
+      const newPass = document.getElementById('reset-new-password').value;
+      const confirmPass = document.getElementById('reset-confirm-password').value;
+
+      if (newPass !== confirmPass) {
+        showToast("Passwords do not match. Please ensure both fields match.", "error");
+        return;
+      }
+
+      try {
+        const user = UserDatabase.resetPasswordWithCode(activeResetEmail, code, newPass);
+        showToast(`✅ Password successfully reset for ${user.name}! Signing in...`, 'success');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 900);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      // Check if URL specifies tab=signup
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('tab') === 'signup') {
+        switchTab('signup');
+      }
+    });
+  </script>
+</body>
+</html>

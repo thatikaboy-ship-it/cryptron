@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Spin the Wheel | Win up to $10,000 | CRYPTRON</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex flex-col">
+
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-40 backdrop-blur-xl bg-[#080d1a]/90 border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Logo -->
+        <a href="index.html" class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/20">
+            <div class="w-full h-full bg-[#090e1d] rounded-xl flex items-center justify-center">
+              <i data-lucide="zap" class="w-5 h-5 text-emerald-400"></i>
+            </div>
+          </div>
+          <span class="text-xl font-black tracking-tight text-white">
+            CRYP<span class="text-emerald-400">TRON</span>
+          </span>
+        </a>
+
+        <!-- Desktop Links -->
+        <div class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
+          <a href="index.html" class="hover:text-emerald-400 transition-colors">Home</a>
+          <a href="plans.html" class="hover:text-emerald-400 transition-colors">The $10 Vault</a>
+          <a href="spin.html" class="text-amber-400 font-bold transition-colors flex items-center gap-1">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>Daily $10,000 Spin</span>
+          </a>
+          <a href="dashboard.html" class="hover:text-emerald-400 transition-colors">Dashboard</a>
+          <a href="transactions.html" class="hover:text-emerald-400 transition-colors">Ledger</a>
+        </div>
+
+        <!-- Right CTA -->
+        <div class="flex items-center space-x-3">
+          <button class="theme-toggle-btn p-2 rounded-xl border border-white/10 text-slate-400 hover:text-white transition-colors" title="Toggle Theme">
+            <i data-lucide="moon" class="w-4 h-4"></i>
+          </button>
+          <a href="dashboard.html" class="px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md transition-all">
+            Dashboard
+          </a>
+          <button onclick="localStorage.removeItem('cryptron_current_user_id'); showToast('Logged out.', 'info'); setTimeout(() => window.location.href='login.html', 500);" class="p-2 rounded-xl border border-rose-500/30 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-all" title="Logout">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+  <!-- Header Banner -->
+  <section class="py-12 border-b border-white/5 bg-gradient-to-b from-[#131006] via-[#090e1d] to-transparent text-center">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold font-mono mb-4">
+        <i data-lucide="crown" class="w-4 h-4"></i>
+        <span>DAILY CLIENT PROMOTION: STAND A CHANCE TO WIN $10,000</span>
+      </div>
+      <h1 class="text-4xl sm:text-5xl font-black text-white tracking-tight">
+        The <span class="text-amber-400 font-mono">$10,000</span> Daily Lucky Wheel
+      </h1>
+      <p class="text-slate-300 text-sm sm:text-base mt-2 max-w-xl mx-auto">
+        Every active $10 staker gets 1 free daily spin. Stand a chance to hit the $10,000 grand jackpot!
+      </p>
+    </div>
+  </section>
+
+  <!-- Main Game Container -->
+  <main class="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    
+    <div class="grid lg:grid-cols-12 gap-8 items-center">
+      
+      <!-- Left: Interactive Canvas Wheel (7 cols) -->
+      <div class="lg:col-span-7 flex flex-col items-center">
+        
+        <!-- Wheel Outer Frame with Pointer -->
+        <div class="relative p-4 rounded-full bg-gradient-to-tr from-amber-500/30 via-emerald-500/20 to-cyan-500/30 border-2 border-amber-500/50 shadow-2xl shadow-amber-500/20 glow-gold">
+          
+          <!-- Top Arrow Pointer -->
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 z-20 w-0 h-0 border-l-[14px] border-l-transparent border-r-[14px] border-r-transparent border-t-[26px] border-t-amber-400 drop-shadow-[0_4px_8px_rgba(251,191,36,0.8)]"></div>
+
+          <!-- Canvas Element -->
+          <canvas id="wheelCanvas" width="360" height="360" class="rounded-full cursor-pointer" onclick="handleSpinClick()"></canvas>
+        </div>
+
+        <!-- Spin Action Button -->
+        <div class="mt-8 text-center space-y-3 w-full max-w-sm">
+          <button id="spin-btn" onclick="handleSpinClick()" class="btn-shimmer w-full py-4 rounded-2xl font-black text-slate-950 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:from-amber-300 hover:to-yellow-200 shadow-xl shadow-amber-500/30 transition-all text-lg uppercase tracking-wider font-mono">
+            🎰 SPIN FOR $10,000
+          </button>
+          
+          <!-- Investment Check Status Badge -->
+          <div id="spin-status-badge" class="text-xs font-mono text-emerald-400 flex items-center justify-center gap-1.5">
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+            <span>Active $10 Investment Verified • Spin Ready</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right: Rules, Requirements & Referral Gating Info (5 cols) -->
+      <div class="lg:col-span-5 space-y-6">
+        
+        <!-- Prerequisite 1: $10 Plan Required -->
+        <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-3">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+              1
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white">Prerequisite: $10 Investment</h3>
+              <p class="text-[11px] text-slate-400 font-mono">Must hold an active $10 staking plan to spin.</p>
+            </div>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Only verified investors participating in the $10 ➔ $25 (7-day) contract are eligible for the daily spin.
+          </p>
+          <a href="plans.html" class="block text-center py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-colors">
+            Stake $10 Plan to Unlock Spins
+          </a>
+        </div>
+
+        <!-- Rule 2: 5 Referral Requirement for Withdrawal -->
+        <div class="glass-panel p-6 rounded-2xl border border-amber-500/30 bg-[#120e06]/60 space-y-3">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+              2
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white">Withdrawal Qualification Rule</h3>
+              <p class="text-[11px] text-amber-400 font-mono">Invite 5 Clients to Spin Before Withdrawal</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-300 leading-relaxed">
+            To withdraw any wheel winnings and maturity returns, each client must have invited at least <strong>5 clients</strong> who have completed a spin.
+          </p>
+
+          <!-- Referral Progress Bar -->
+          <div class="p-3 bg-black/40 rounded-xl border border-white/5 space-y-2 font-mono text-xs">
+            <div class="flex justify-between">
+              <span class="text-slate-400">Your Referral Progress:</span>
+              <span id="spin-ref-progress" class="text-amber-400 font-bold">3 / 5 Invited</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div id="spin-ref-bar" class="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full" style="width: 60%"></div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="copyReferralLink()" class="flex-1 py-2 rounded-xl border border-white/20 text-xs font-mono text-slate-200 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center gap-1.5 min-w-[140px]">
+              <i data-lucide="copy" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Copy Invite Link</span>
+            </button>
+            <button onclick="simulateInviteFriend()" class="px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-mono text-amber-300 transition-all" title="Simulate +1 referral">
+              +1 Demo Ref
+            </button>
+            <button onclick="resetDailySpinForTesting()" class="px-3 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-xs font-mono text-cyan-300 transition-all" title="Reset daily cooldown to test spinning again">
+              ⚡ Reset Spin (Demo)
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent Wheel Activity Ticker -->
+        <div class="glass-panel p-4 rounded-2xl border border-white/5 space-y-2 text-xs font-mono">
+          <div class="text-[11px] text-slate-400 uppercase tracking-wider font-bold">Live Winner Feed</div>
+          <div class="space-y-1.5 text-slate-300 text-[11px]">
+            <div class="flex justify-between">
+              <span>User 0x91a...48</span>
+              <span class="text-emerald-400 font-bold">+$1.00 USDT</span>
+            </div>
+            <div class="flex justify-between">
+              <span>User 0xb42...12</span>
+              <span class="text-emerald-400 font-bold">+$0.50 USDT</span>
+            </div>
+            <div class="flex justify-between">
+              <span>User 0xc77...80</span>
+              <span class="text-cyan-400 font-bold">+1 Free Spin</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto bg-[#050811] border-t border-white/10 py-8 text-slate-400 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>© 2026 CRYPTRON Protocol. Daily promotional spin program.</div>
+      <div class="flex gap-6 font-mono">
+        <a href="index.html" class="hover:text-white">Home</a>
+        <a href="plans.html" class="hover:text-white">The $10 Vault</a>
+        <a href="dashboard.html" class="hover:text-white">Dashboard</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Verified Investors Only Modal -->
+  <div id="verified-investor-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel max-w-md w-full p-6 sm:p-8 rounded-3xl border border-amber-500/40 bg-gradient-to-b from-[#120e06] via-[#090e1d] to-[#050811] shadow-2xl glow-amber text-center space-y-5 animate-scale-up relative">
+      <button onclick="closeVerifiedInvestorModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+      
+      <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-lg shadow-amber-500/20">
+        <i data-lucide="shield-alert" class="w-9 h-9"></i>
+      </div>
+
+      <div>
+        <span class="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          RESTRICTED PROMOTION
+        </span>
+        <h3 class="text-2xl font-black text-white mt-2">Verified Investors Only</h3>
+        <p class="text-slate-300 text-sm mt-2 leading-relaxed">
+          The <strong>$10,000 Daily Lucky Wheel</strong> is exclusively available to verified investors who have deposited and activated an active <span class="text-emerald-400 font-bold">$10 Staking Vault</span>.
+        </p>
+
+        <div class="mt-4 p-3 rounded-xl bg-black/40 border border-white/5 text-xs text-slate-300 font-mono text-left space-y-1.5">
+          <div class="flex items-center gap-2 text-emerald-400">
+            <i data-lucide="check-circle" class="w-4 h-4 flex-shrink-0"></i>
+            <span>Deposit $10 to unlock 1 free spin every single day</span>
+          </div>
+          <div class="flex items-center gap-2 text-emerald-400">
+            <i data-lucide="check-circle" class="w-4 h-4 flex-shrink-0"></i>
+            <span>Receive guaranteed $25 return in 7 days</span>
+          </div>
+          <div class="flex items-center gap-2 text-amber-300">
+            <i data-lucide="sparkles" class="w-4 h-4 flex-shrink-0"></i>
+            <span>Win instant USDT cash drops up to $10,000</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2.5 pt-2">
+        <button onclick="goToDepositOrSignup()" class="btn-shimmer w-full py-3.5 rounded-xl font-black text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 font-mono text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25">
+          <i data-lucide="arrow-right-circle" class="w-4 h-4"></i>
+          <span>Deposit $10 to Unlock Spin</span>
+        </button>
+        <button onclick="closeVerifiedInvestorModal()" class="w-full py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white font-mono text-xs transition-colors">
+          Dismiss
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    function checkSpinEligibility() {
+      const account = getAccountData();
+      const hasPlan = account.activePlans && account.activePlans.length > 0;
+      const statusBadge = document.getElementById('spin-status-badge');
+      const spinBtn = document.getElementById('spin-btn');
+      const alreadySpun = (window.hasUserSpunToday && hasUserSpunToday(account.user.lastSpinTimestamp));
+
+      if (!hasPlan) {
+        statusBadge.innerHTML = `<i data-lucide="shield-alert" class="w-4 h-4 text-amber-400"></i><span class="text-amber-400">Verified Investors Only: Invest $10 in vault first to spin!</span>`;
+        spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        spinBtn.classList.add('btn-shimmer', 'cursor-pointer');
+        spinBtn.disabled = false;
+        spinBtn.innerHTML = `<span>🎰 SPIN FOR $10,000</span>`;
+      } else if (alreadySpun) {
+        const cd = window.getTimeUntilTomorrow ? getTimeUntilTomorrow() : { hours: 0, minutes: 0 };
+        statusBadge.innerHTML = `<i data-lucide="clock" class="w-4 h-4 text-amber-400"></i><span class="text-amber-400">Daily spin completed! Next free spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).</span>`;
+        spinBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        spinBtn.disabled = true;
+        spinBtn.innerHTML = `<span>⏳ SPUN TODAY • UNLOCKS TOMORROW (${cd.hours}h ${cd.minutes}m)</span>`;
+      } else {
+        statusBadge.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i><span class="text-emerald-400">Active $10 Investment Verified • Spin Ready</span>`;
+        spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        spinBtn.disabled = false;
+        spinBtn.innerHTML = `<span>🎰 SPIN FOR $10,000</span>`;
+      }
+
+      // Update referral progress
+      const count = account.user.referralCount || 0;
+      const needed = account.user.requiredReferrals || 5;
+      const percent = Math.min(100, Math.round((count / needed) * 100));
+      const refProg = document.getElementById('spin-ref-progress');
+      if (refProg) refProg.textContent = `${count} / ${needed} Invited`;
+      const refBar = document.getElementById('spin-ref-bar');
+      if (refBar) refBar.style.width = `${percent}%`;
+
+      lucide.createIcons();
+    }
+
+    function openVerifiedInvestorModal() {
+      const modal = document.getElementById('verified-investor-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    function closeVerifiedInvestorModal() {
+      const modal = document.getElementById('verified-investor-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function goToDepositOrSignup() {
+      const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : null;
+      if (!currentId || !UserDatabase.getUserById(currentId)) {
+        window.location.href = 'login.html?tab=signup';
+      } else {
+        window.location.href = 'plans.html';
+      }
+    }
+
+    function handleSpinClick() {
+      const account = getAccountData();
+      const hasPlan = account.activePlans && account.activePlans.length > 0;
+      if (!hasPlan) {
+        openVerifiedInvestorModal();
+        showToast("🔒 Verified Investors Only: You must deposit and activate a $10 investment contract to spin.", "warning");
+        return;
+      }
+
+      if (window.hasUserSpunToday && hasUserSpunToday(account.user.lastSpinTimestamp)) {
+        const cd = window.getTimeUntilTomorrow ? getTimeUntilTomorrow() : { hours: 0, minutes: 0 };
+        showToast(`⏳ You have already completed your daily spin! Your next spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).`, "warning");
+        return;
+      }
+
+      executeSpin('wheelCanvas', (prize) => {
+        checkSpinEligibility();
+      });
+    }
+
+    function copyReferralLink() {
+      const account = getAccountData();
+      const code = account.user.referralCode || "CRYP-STAKER88";
+      const link = `https://cryptron.io/spin?ref=${code}`;
+      navigator.clipboard.writeText(link).then(() => {
+        showToast("Referral link copied! Share with friends to unlock withdrawals.", "success");
+      }).catch(() => {
+        showToast(`Referral link: ${link}`, "info");
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      drawWheel('wheelCanvas');
+      checkSpinEligibility();
+    });
+
+    window.addEventListener('storage', (e) => {
+      if (!e.key || e.key === 'cryptron_registered_users_v2' || e.key === 'cryptron_account_v3_countdown') {
+        checkSpinEligibility();
+      }
+    });
+
+    window.addEventListener('cryptron_users_updated', () => {
+      checkSpinEligibility();
+    });
+  </script>
+</body>
+</html>

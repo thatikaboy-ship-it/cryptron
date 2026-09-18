@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The $10 Crypto Yield Vault | CRYPTRON</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex flex-col">
+
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-40 backdrop-blur-xl bg-[#080d1a]/90 border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Logo -->
+        <a href="index.html" class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/20">
+            <div class="w-full h-full bg-[#090e1d] rounded-xl flex items-center justify-center">
+              <i data-lucide="zap" class="w-5 h-5 text-emerald-400"></i>
+            </div>
+          </div>
+          <span class="text-xl font-black tracking-tight text-white">
+            CRYP<span class="text-emerald-400">TRON</span>
+          </span>
+        </a>
+
+        <!-- Desktop Links -->
+        <div class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
+          <a href="index.html" class="hover:text-emerald-400 transition-colors">Home</a>
+          <a href="plans.html" class="text-emerald-400 transition-colors font-bold">The $10 Vault</a>
+          <a href="spin.html" class="text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 font-bold">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+            <span>Daily $10,000 Spin</span>
+          </a>
+          <a href="markets.html" class="hover:text-emerald-400 transition-colors">Crypto Terminal</a>
+          <a href="transactions.html" class="hover:text-emerald-400 transition-colors">On-Chain Ledger</a>
+          <a href="dashboard.html" class="hover:text-emerald-400 transition-colors">Client Portal</a>
+        </div>
+
+        <!-- Right CTA -->
+        <div class="flex items-center space-x-3">
+          <button class="theme-toggle-btn p-2 rounded-xl border border-white/10 text-slate-400 hover:text-white transition-colors" title="Toggle Theme">
+            <i data-lucide="moon" class="w-4 h-4"></i>
+          </button>
+          <a href="dashboard.html" class="px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md transition-all">
+            Launch Portal
+          </a>
+          <button onclick="localStorage.removeItem('cryptron_current_user_id'); showToast('Logged out.', 'info'); setTimeout(() => window.location.href='login.html', 500);" class="p-2 rounded-xl border border-rose-500/30 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-all" title="Logout">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+  <!-- Header Banner -->
+  <section class="py-16 border-b border-white/5 bg-gradient-to-b from-[#0a1122] to-transparent text-center">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold font-mono mb-4">
+        ⚡ 7-DAY REAL-TIME COUNTDOWN TO $25 PAYOUT
+      </div>
+      <h1 class="text-4xl sm:text-5xl font-black text-white tracking-tight">The 7-Day Crypto Vault</h1>
+      <p class="text-slate-300 text-base sm:text-lg mt-3">
+        Invest exactly <span class="text-emerald-400 font-bold font-mono">$10.00</span>. Watch your real-time countdown. Collect <span class="text-cyan-400 font-bold font-mono">$25.00</span> in exactly <span class="text-white font-bold font-mono">7 Days</span>.
+      </p>
+    </div>
+  </section>
+
+  <!-- Single Investment Plan Showcase -->
+  <section class="py-16 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <div class="glass-panel p-8 sm:p-12 rounded-3xl border-2 border-emerald-500/60 glow-emerald relative">
+      
+      <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-6 border-b border-white/10">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold font-mono">7-DAY COUNTDOWN</span>
+            <span class="text-xs text-amber-400 font-mono flex items-center gap-1">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>Unlocks Daily $10,000 Spin!</span>
+            </span>
+          </div>
+          <h2 class="text-3xl font-black text-white mt-2">7-Day High-Yield Crypto Vault</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Live timer displays Days, Hours, Minutes, and Seconds remaining.</p>
+        </div>
+
+        <div class="text-left sm:text-right">
+          <div class="text-xs uppercase text-slate-400 font-mono">Guaranteed Payout</div>
+          <div class="text-4xl sm:text-5xl font-black text-emerald-400 font-mono">$25.00</div>
+          <div class="text-xs text-cyan-400 font-mono">Per $10 Investment</div>
+        </div>
+      </div>
+
+      <!-- Contract Parameter Breakdown Grid -->
+      <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-4 py-8 text-xs font-mono">
+        <div class="bg-[#070b16] p-4 rounded-xl border border-white/10">
+          <span class="text-slate-400 block mb-1">Required Deposit</span>
+          <span class="text-white font-black text-base">$10.00 USDT</span>
+        </div>
+        <div class="bg-[#070b16] p-4 rounded-xl border border-white/10">
+          <span class="text-slate-400 block mb-1">Total Payout</span>
+          <span class="text-emerald-400 font-black text-base">$25.00 USDT</span>
+        </div>
+        <div class="bg-[#070b16] p-4 rounded-xl border border-white/10">
+          <span class="text-slate-400 block mb-1">Net Profit</span>
+          <span class="text-cyan-400 font-black text-base">+$15.00 (+150%)</span>
+        </div>
+        <div class="bg-[#070b16] p-4 rounded-xl border border-white/10">
+          <span class="text-slate-400 block mb-1">Contract Term</span>
+          <span class="text-white font-black text-base">7 Days Flat</span>
+        </div>
+      </div>
+
+      <!-- Bonus Privileges -->
+      <div class="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 mb-8 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-lg">
+            🎰
+          </div>
+          <div>
+            <div class="text-xs font-bold text-white font-mono">Includes 1 Free Daily Wheel Spin</div>
+            <div class="text-[11px] text-slate-400">Stand a chance to win the $10,000 grand prize every single day!</div>
+          </div>
+        </div>
+        <a href="spin.html" class="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black font-mono transition-colors flex-shrink-0">
+          View Wheel
+        </a>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col sm:flex-row items-center gap-4">
+        <button id="plans-main-invest-btn" onclick="openInvestModal(1)" class="btn-shimmer w-full py-4 rounded-2xl font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-xl shadow-emerald-500/25 transition-all text-base uppercase tracking-wider">
+          Invest $10 Now (Get $25 in 7 Days)
+        </button>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- Plan Activation Modal -->
+  <div id="invest-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-emerald relative">
+      <button onclick="closeModal('invest-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+          ⚡
+        </div>
+        <div>
+          <h3 class="text-xl font-black text-white">Activate $10 Contract</h3>
+          <p class="text-xs text-slate-400 font-mono">Starts 7-Day Live Countdown</p>
+        </div>
+      </div>
+
+      <form id="invest-form" onsubmit="handleInvestSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 font-mono">Contract Selection</label>
+          <select id="invest-units" onchange="updateModalCalculations()" class="w-full bg-[#0a1122] border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-emerald-500">
+            <option value="1" selected>1 Contract ($10 ➔ Get $25 in 7 Days)</option>
+          </select>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[#070b16] border border-white/10 space-y-2 text-xs font-mono">
+          <div class="flex justify-between text-slate-400">
+            <span>You Invest Today:</span>
+            <span class="text-white font-bold" id="modal-invest-amount">$10.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>You Get in 7 Days:</span>
+            <span class="text-emerald-400 font-black text-sm" id="modal-payout-amount">$25.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Guaranteed Net Profit:</span>
+            <span class="text-cyan-400 font-bold" id="modal-profit-amount">+$15.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400 pt-1 border-t border-white/10">
+            <span>Available Balance:</span>
+            <span class="text-slate-200" id="modal-avail-balance">$40.00</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/20 transition-all font-sans">
+          Confirm & Start 7-Day Countdown
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-auto bg-[#050811] border-t border-white/10 py-10 text-slate-400 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>© 2026 CRYPTRON Protocol. $10 to $25 in 7 Days Guaranteed Contract.</div>
+      <div class="flex gap-6 font-mono">
+        <a href="index.html" class="hover:text-white">Home</a>
+        <a href="spin.html" class="text-amber-400 hover:underline">Daily Spin</a>
+        <a href="dashboard.html" class="hover:text-white">Dashboard</a>
+        <a href="transactions.html" class="hover:text-white">Ledger</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/calculator.js"></script>
+  <script>
+    function openInvestModal(units = 1) {
+      const currentUserId = window.UserDatabase ? UserDatabase.getCurrentUserId() : null;
+      if (!currentUserId || !UserDatabase.getUserById(currentUserId)) {
+        window.location.href = 'login.html?tab=signup';
+        return;
+      }
+
+      const account = getAccountData();
+      const isApprovedAndActive = (account.activePlans && account.activePlans.length > 0) || (account.user && account.user.investmentStatus === 'active');
+      if (isApprovedAndActive) {
+        showToast("🔒 You already have an approved $10 contract currently running!", "info");
+        return;
+      }
+
+      const select = document.getElementById('invest-units');
+      if (select) select.value = units;
+      
+      document.getElementById('modal-avail-balance').textContent = formatUSD(account.wallet.availableBalance);
+      
+      updateModalCalculations();
+      document.getElementById('invest-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function updateModalCalculations() {
+      const units = parseInt(document.getElementById('invest-units').value) || 1;
+      const principal = units * 10;
+      const payout = units * 25;
+      const profit = payout - principal;
+
+      document.getElementById('modal-invest-amount').textContent = formatUSD(principal);
+      document.getElementById('modal-payout-amount').textContent = formatUSD(payout);
+      document.getElementById('modal-profit-amount').textContent = `+${formatUSD(profit)}`;
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function handleInvestSubmit(e) {
+      e.preventDefault();
+      const units = parseInt(document.getElementById('invest-units').value) || 1;
+      if (investInSevenDayPlan(units)) {
+        closeModal('invest-modal');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 1200);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      const account = getAccountData();
+      const isApprovedAndActive = (account.activePlans && account.activePlans.length > 0) || (account.user && account.user.investmentStatus === 'active');
+      const mainBtn = document.getElementById('plans-main-invest-btn');
+      if (isApprovedAndActive && mainBtn) {
+        mainBtn.disabled = true;
+        mainBtn.className = "w-full py-4 rounded-2xl font-black text-emerald-400 bg-slate-800/90 border border-emerald-500/30 text-base uppercase tracking-wider font-mono cursor-not-allowed flex items-center justify-center gap-2";
+        mainBtn.innerHTML = `<i data-lucide="shield-check" class="w-5 h-5"></i><span>Active 7-Day Contract Running (1 Max)</span>`;
+        lucide.createIcons();
+      }
+    });
+  </script>
+</body>
+</html>

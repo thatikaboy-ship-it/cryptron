@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Test Runner & Diagnostics | CRYPTRON Protocol</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen p-4 sm:p-8 font-sans">
+
+  <div class="max-w-5xl mx-auto space-y-8">
+    
+    <!-- Top Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/20">
+          <div class="w-full h-full bg-[#090e1d] rounded-2xl flex items-center justify-center">
+            <i data-lucide="check-check" class="w-6 h-6 text-emerald-400"></i>
+          </div>
+        </div>
+        <div>
+          <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-bold mb-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            PROTOCOL VERIFICATION CONSOLE
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-black text-white">System Diagnostics & Test Runner</h1>
+          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">End-to-end automated verification for Quick-Maturity, USDT Payout Addresses, and Targeted Messaging.</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 flex-wrap font-mono text-xs">
+        <button onclick="runAllTests()" class="btn-shimmer px-5 py-3 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black flex items-center gap-2 shadow-lg shadow-emerald-500/25 transition-all">
+          <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+          <span>Run All Tests</span>
+        </button>
+        <button onclick="resetTestData()" class="px-4 py-3 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 border border-white/10 flex items-center gap-2 transition-all">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          <span>Reset Demo Data</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Launch Hub -->
+    <div class="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-bold uppercase tracking-wider font-mono text-slate-300 flex items-center gap-2">
+          <i data-lucide="external-link" class="w-4 h-4 text-cyan-400"></i>
+          <span>Interactive Quick Launch Station</span>
+        </h2>
+        <span class="text-xs text-slate-400 font-mono">1-Click Session Switcher</span>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-3 font-mono text-xs">
+        <!-- Admin Portal -->
+        <a href="admin.html" class="p-4 rounded-2xl bg-[#0a1122] border border-amber-500/30 hover:border-amber-400 hover:bg-amber-500/5 transition-all group block">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-amber-400 font-bold flex items-center gap-1.5">
+              <i data-lucide="shield" class="w-4 h-4"></i>
+              <span>Admin Portal</span>
+            </span>
+            <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">Key: admin123</span>
+          </div>
+          <p class="text-[11px] text-slate-400 font-sans">Access user directory, "Mature Now" button, USDT settlements, and "Drop Message" broadcast engine.</p>
+        </a>
+
+        <!-- Client: Demo Investor -->
+        <button onclick="switchUserAndLaunch('USR-1001')" class="p-4 rounded-2xl bg-[#0a1122] border border-emerald-500/30 hover:border-emerald-400 hover:bg-emerald-500/5 transition-all group text-left">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-emerald-400 font-bold flex items-center gap-1.5">
+              <i data-lucide="user-check" class="w-4 h-4"></i>
+              <span>Demo Investor</span>
+            </span>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">Active / Matured</span>
+          </div>
+          <p class="text-[11px] text-slate-400 font-sans">Open dashboard to view matured 7-day contract, test "Paste USDT Address", and view admin messages.</p>
+        </button>
+
+        <!-- Client: Marcus Chen -->
+        <button onclick="switchUserAndLaunch('USR-1003')" class="p-4 rounded-2xl bg-[#0a1122] border border-cyan-500/30 hover:border-cyan-400 hover:bg-cyan-500/5 transition-all group text-left">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-cyan-400 font-bold flex items-center gap-1.5">
+              <i data-lucide="user-plus" class="w-4 h-4"></i>
+              <span>Marcus Chen</span>
+            </span>
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-bold">Non-Active Client</span>
+          </div>
+          <p class="text-[11px] text-slate-400 font-sans">Open dashboard as uninvested user: verify withdrawal modal requires investment and non-active messages appear.</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- Test Progress Bar & Summary Metrics -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="glass-panel p-4 rounded-2xl border border-white/10 text-center font-mono">
+        <span class="text-[11px] text-slate-400 uppercase">Total Tests</span>
+        <div id="stat-total-tests" class="text-2xl font-bold text-white mt-1">8</div>
+      </div>
+      <div class="glass-panel p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 text-center font-mono">
+        <span class="text-[11px] text-emerald-400 uppercase">Passed</span>
+        <div id="stat-passed-tests" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+      </div>
+      <div class="glass-panel p-4 rounded-2xl border border-rose-500/30 bg-rose-500/5 text-center font-mono">
+        <span class="text-[11px] text-rose-400 uppercase">Failed</span>
+        <div id="stat-failed-tests" class="text-2xl font-bold text-rose-400 mt-1">0</div>
+      </div>
+      <div class="glass-panel p-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/5 text-center font-mono">
+        <span class="text-[11px] text-cyan-400 uppercase">Status</span>
+        <div id="stat-status-text" class="text-sm font-bold text-cyan-300 mt-2">Ready to Run</div>
+      </div>
+    </div>
+
+    <!-- Automated Test Case Cards -->
+    <div class="space-y-3 font-mono text-xs" id="test-results-container">
+      <!-- Test 1 -->
+      <div id="test-card-1" class="glass-panel p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 transition-all">
+        <div class="flex items-center gap-3">
+          <div id="test-status-1" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold">1</div>
+          <div>
+            <div class="font-bold text-white text-sm font-sans">Admin Quick-Maturity Engine (7-Day Fast-Forward)</div>
+            <div class="text-[11px] text-slate-400">Verifies UserDatabase.matureUserInvestment() resets countdown to 0, sets status to Matured, and credits +$25.00 payout.</div>
+          </div>
+        </div>
+        <div id="test-badge-1" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase text-[10px]">Pending</div>
+      </div>
+
+      <!-- Test 2 -->
+      <div id="test-card-2" class="glass-panel p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 transition-all">
+        <div class="flex items-center gap-3">
+          <div id="test-status-2" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold">2</div>
+          <div>
+            <div class="font-bold text-white text-sm font-sans">Pasting USDT Tether Wallet Address for Payout</div>
+            <div class="text-[11px] text-slate-400">Verifies submitWithdrawalRequest() records destination USDT address, amount, network, and 'Pending Settlement' status.</div>
+          </div>
+        </div>
+        <div id="test-badge-2" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase text-[10px]">Pending</div>
+      </div>
+
+      <!-- Test 3 -->
+      <div id="test-card-3" class="glass-panel p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 transition-all">
+        <div class="flex items-center gap-3">
+          <div id="test-status-3" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold">3</div>
+          <div>
+            <div class="font-bold text-white text-sm font-sans">Admin Settlement & On-Chain Payout Confirmation</div>
+            <div class="text-[11px] text-slate-400">Verifies settleWithdrawalRequest() generates settlementTxHash, clears pending request, and saves to withdrawalHistory.</div>
+          </div>
+        </div>
+        <div id="test-badge-3" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase text-[10px]">Pending</div>
+      </div>
+
+      <!-- Test 4 -->
+      <div id="test-card-4" class="glass-panel p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 transition-all">
+        <div class="flex items-center gap-3">
+          <div id="test-status-4" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold">4</div>
+          <div>
+            <div class="font-bold text-white text-sm font-sans">Targeted Admin Messaging: Individual Client Delivery</div>
+            <div class="text-[11px] text-slate-400">Verifies sendMessage({ targetType: 'individual' }) delivers exclusively to target client and not to other users.</div>
+          </div>
+        </div>
+        <div id="test-badge-4" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase text-[10px]">Pending</div>
+      </div>
+
+      <!-- Test 5 -->
+      <div id="test-card-5" class="glass-panel p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 transition-all">
+        <div class="flex items-center gap-3">
+          <div id="test-status-5" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold">5</div>
+          <div>
+            <div class="font-bold text-white text-sm font-sans">Targeted Admin Messaging: "All Active Clients" Segment</div>
+            <div class="text-[11px] text-slate-400">Verifies broadcast to 'all_active' reaches users with running/matured contracts and excludes uninvested clients.</div>
+          </div>
+        </div>
+        <div id="test-badge-5" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase text-[10px]">Pending</div>
+      </div>
+
+      <!-- Test 6 -->
+      <div id="test-card-6" class="glass-panel p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 transition-all">
+        <div class="flex items-center gap-3">
+          <div id="test-status-6" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold">6</div>
+          <div>
+            <div class="font-bold text-white text-sm font-sans">Targeted Admin Messaging: "All Non-Active Clients" Segment</div>
+            <div class="text-[11px] text-slate-400">Verifies broadcast to 'all_inactive' reaches uninvested accounts (Marcus Chen) and excludes active stakers.</div>
+          </div>
+        </div>
+        <div id="test-badge-6" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase text-[10px]">Pending</div>
+      </div>
+
+      <!-- Test 7 -->
+      <div id="test-card-7" class="glass-panel p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 transition-all">
+        <div class="flex items-center gap-3">
+          <div id="test-status-7" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold">7</div>
+          <div>
+            <div class="font-bold text-white text-sm font-sans">Targeted Admin Messaging: "Clients with Withdrawal Request"</div>
+            <div class="text-[11px] text-slate-400">Verifies broadcast to 'withdrawal_requested' delivers to clients who have a pending payout request.</div>
+          </div>
+        </div>
+        <div id="test-badge-7" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase text-[10px]">Pending</div>
+      </div>
+
+      <!-- Test 8 -->
+      <div id="test-card-8" class="glass-panel p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 transition-all">
+        <div class="flex items-center gap-3">
+          <div id="test-status-8" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold">8</div>
+          <div>
+            <div class="font-bold text-white text-sm font-sans">Daily Spin 1-Per-Day Enforcement & Demo Reset Helper</div>
+            <div class="text-[11px] text-slate-400">Verifies hasUserSpunToday() locks the wheel on the same calendar day and resetDailySpinForTesting() unlocks it.</div>
+          </div>
+        </div>
+        <div id="test-badge-8" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase text-[10px]">Pending</div>
+      </div>
+    </div>
+
+    <!-- Real-time Diagnostic Log Console -->
+    <div class="glass-panel p-6 rounded-3xl border border-white/10 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-mono uppercase text-slate-400 font-bold flex items-center gap-2">
+          <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
+          <span>Live Execution Console</span>
+        </h3>
+        <button onclick="document.getElementById('console-output').innerHTML=''" class="text-[11px] text-slate-500 hover:text-white font-mono">
+          Clear Console
+        </button>
+      </div>
+
+      <div id="console-output" class="bg-[#040812] p-4 rounded-2xl border border-white/5 font-mono text-xs text-slate-300 h-64 overflow-y-auto space-y-1">
+        <div class="text-slate-500">// Diagnostics console ready. Click "Run All Tests" to begin automated verification...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    function log(msg, type = 'info') {
+      const colors = {
+        info: 'text-slate-300',
+        success: 'text-emerald-400 font-bold',
+        error: 'text-rose-400 font-bold',
+        warn: 'text-amber-400 font-bold'
+      };
+      const c = document.getElementById('console-output');
+      const time = new Date().toISOString().substring(11, 19);
+      const line = document.createElement('div');
+      line.className = colors[type] || colors.info;
+      line.textContent = `[${time}] ${msg}`;
+      c.appendChild(line);
+      c.scrollTop = c.scrollHeight;
+    }
+
+    function setCardStatus(id, passed, error = null) {
+      const card = document.getElementById(`test-card-${id}`);
+      const statusIcon = document.getElementById(`test-status-${id}`);
+      const badge = document.getElementById(`test-badge-${id}`);
+
+      if (passed) {
+        card.className = "glass-panel p-4 rounded-2xl border border-emerald-500/50 bg-emerald-500/5 flex items-center justify-between gap-4 transition-all";
+        statusIcon.className = "w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black";
+        statusIcon.innerHTML = "✓";
+        badge.className = "px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold uppercase text-[10px] border border-emerald-500/40";
+        badge.textContent = "PASSED";
+      } else {
+        card.className = "glass-panel p-4 rounded-2xl border border-rose-500/50 bg-rose-500/5 flex items-center justify-between gap-4 transition-all";
+        statusIcon.className = "w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center font-black";
+        statusIcon.innerHTML = "✕";
+        badge.className = "px-3 py-1 rounded-lg bg-rose-500/20 text-rose-300 font-bold uppercase text-[10px] border border-rose-500/40";
+        badge.textContent = "FAILED";
+      }
+    }
+
+    function switchUserAndLaunch(userId) {
+      UserDatabase.setCurrentUserId(userId);
+      log(`Switched active session to ${userId}. Launching dashboard...`, 'success');
+      setTimeout(() => {
+        window.location.href = 'dashboard.html';
+      }, 400);
+    }
+
+    function resetTestData() {
+      localStorage.removeItem("cryptron_registered_users_v2");
+      localStorage.removeItem("cryptron_account_v3_countdown");
+      localStorage.removeItem("cryptron_broadcast_messages");
+      localStorage.removeItem("cryptron_current_user_id");
+      UserDatabase.getAllUsers(); // Re-seeds initial users
+      log("All test data restored to original seed state.", "warn");
+      document.getElementById('stat-passed-tests').textContent = '0';
+      document.getElementById('stat-failed-tests').textContent = '0';
+      document.getElementById('stat-status-text').textContent = 'Reset Complete';
+      for (let i = 1; i <= 8; i++) {
+        const badge = document.getElementById(`test-badge-${i}`);
+        const card = document.getElementById(`test-card-${i}`);
+        const statusIcon = document.getElementById(`test-status-${i}`);
+        badge.className = "px-3 py-1 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase text-[10px]";
+        badge.textContent = "Pending";
+        card.className = "glass-panel p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 transition-all";
+        statusIcon.className = "w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center font-bold";
+        statusIcon.textContent = i;
+      }
+    }
+
+    async function runAllTests() {
+      log("Starting Automated System Diagnostics...", "info");
+      let passed = 0;
+      let failed = 0;
+
+      // -------------------------------------------------------------
+      // Test 1: Admin Quick-Maturity
+      // -------------------------------------------------------------
+      try {
+        log("Test 1: Testing UserDatabase.matureUserInvestment('USR-1001')...", "info");
+        const user = UserDatabase.matureUserInvestment('USR-1001');
+        const plan = user.activePlans[0];
+        if (plan.maturityTimestamp <= Date.now() && plan.status === 'Matured' && user.availableBalance >= 25) {
+          setCardStatus(1, true);
+          passed++;
+          log("✓ Test 1 Passed: Contract matured instantly, countdown is 0, payout unlocked ($25.00+).", "success");
+        } else {
+          throw new Error("Plan maturityTimestamp was not fast-forwarded or balance not credited.");
+        }
+      } catch (err) {
+        setCardStatus(1, false);
+        failed++;
+        log(`✕ Test 1 Failed: ${err.message}`, "error");
+      }
+
+      // -------------------------------------------------------------
+      // Test 2: USDT Address Pasting & Withdrawal Request
+      // -------------------------------------------------------------
+      try {
+        log("Test 2: Testing UserDatabase.submitWithdrawalRequest()...", "info");
+        // Ensure referral requirement is waived for USR-1001 in diagnostic test
+        UserDatabase.toggleReferralBypass('USR-1001');
+        const testUsdt = "0x86fe2A034190Db4f2074A9107BBB65B1B10E3f4d";
+        const wreq = UserDatabase.submitWithdrawalRequest('USR-1001', 25.00, testUsdt, "USDT (TRC-20)");
+        const user = UserDatabase.getUserById('USR-1001');
+        
+        if (user.withdrawalRequest && user.withdrawalRequest.usdtAddress === testUsdt && user.withdrawalRequest.amount === 25) {
+          setCardStatus(2, true);
+          passed++;
+          log(`✓ Test 2 Passed: Destination USDT address "${testUsdt.substring(0, 10)}..." registered with status "${wreq.status}".`, "success");
+        } else {
+          throw new Error("Withdrawal request address or amount did not match.");
+        }
+      } catch (err) {
+        setCardStatus(2, false);
+        failed++;
+        log(`✕ Test 2 Failed: ${err.message}`, "error");
+      }
+
+      // -------------------------------------------------------------
+      // Test 3: Admin Settlement
+      // -------------------------------------------------------------
+      try {
+        log("Test 3: Testing UserDatabase.settleWithdrawalRequest()...", "info");
+        const settled = UserDatabase.settleWithdrawalRequest('USR-1001');
+        const user = UserDatabase.getUserById('USR-1001');
+        
+        if (!user.withdrawalRequest && user.withdrawalHistory.length > 0 && settled.status === 'Settled') {
+          setCardStatus(3, true);
+          passed++;
+          log(`✓ Test 3 Passed: Payout settled with on-chain TxHash "${settled.settlementTxHash}".`, "success");
+        } else {
+          throw new Error("Withdrawal was not cleared from pending queue or not recorded in history.");
+        }
+      } catch (err) {
+        setCardStatus(3, false);
+        failed++;
+        log(`✕ Test 3 Failed: ${err.message}`, "error");
+      }
+
+      // -------------------------------------------------------------
+      // Test 4: Individual Client Messaging
+      // -------------------------------------------------------------
+      try {
+        log("Test 4: Testing UserDatabase.sendMessage() to individual recipient...", "info");
+        const msg = UserDatabase.sendMessage({
+          targetType: "individual",
+          targetUserId: "USR-1001",
+          targetUserName: "Demo Investor",
+          subject: "Personal Audit Notice",
+          body: "Direct confidential message for Demo Investor only.",
+          priority: "urgent"
+        });
+
+        const alexMsgs = UserDatabase.getMessagesForUser("USR-1001");
+        const marcusMsgs = UserDatabase.getMessagesForUser("USR-1003");
+
+        const alexHasIt = alexMsgs.some(m => m.id === msg.id);
+        const marcusHasIt = marcusMsgs.some(m => m.id === msg.id);
+
+        if (alexHasIt && !marcusHasIt) {
+          setCardStatus(4, true);
+          passed++;
+          log("✓ Test 4 Passed: Individual message delivered exclusively to Demo Investor and excluded Marcus Chen.", "success");
+        } else {
+          throw new Error("Message routing failed: either recipient did not receive or message leaked to non-targets.");
+        }
+      } catch (err) {
+        setCardStatus(4, false);
+        failed++;
+        log(`✕ Test 4 Failed: ${err.message}`, "error");
+      }
+
+      // -------------------------------------------------------------
+      // Test 5: "All Active Clients" Segment Messaging
+      // -------------------------------------------------------------
+      try {
+        log("Test 5: Testing broadcast to 'all_active' segment...", "info");
+        // Start fresh cycle with deposit so USR-1001 is active staker
+        UserDatabase.depositFunds('USR-1001', 10.00, '0xTEST_RESTART_CYCLE');
+        UserDatabase.approveDeposit('USR-1001');
+
+        const activeMsg = UserDatabase.sendMessage({
+          targetType: "all_active",
+          subject: "Active Vault Notice",
+          body: "Broadcast for all active stakers.",
+          priority: "info"
+        });
+
+        const alexMsgs = UserDatabase.getMessagesForUser("USR-1001"); // Active user
+        const marcusMsgs = UserDatabase.getMessagesForUser("USR-1003"); // Inactive user
+
+        const alexGotActive = alexMsgs.some(m => m.id === activeMsg.id);
+        const marcusGotActive = marcusMsgs.some(m => m.id === activeMsg.id);
+
+        if (alexGotActive && !marcusGotActive) {
+          setCardStatus(5, true);
+          passed++;
+          log("✓ Test 5 Passed: 'all_active' broadcast correctly routed to active staker and filtered out inactive client.", "success");
+        } else {
+          throw new Error(`Broadcast routing failed: Alex=${alexGotActive}, Marcus=${marcusGotActive}`);
+        }
+      } catch (err) {
+        setCardStatus(5, false);
+        failed++;
+        log(`✕ Test 5 Failed: ${err.message}`, "error");
+      }
+
+      // -------------------------------------------------------------
+      // Test 6: "All Non-Active Clients" Segment Messaging
+      // -------------------------------------------------------------
+      try {
+        log("Test 6: Testing broadcast to 'all_inactive' segment...", "info");
+        const inactiveMsg = UserDatabase.sendMessage({
+          targetType: "all_inactive",
+          subject: "Deposit Activation Invitation",
+          body: "Reminder for users who have not yet deposited $10.",
+          priority: "warning"
+        });
+
+        const alexMsgs = UserDatabase.getMessagesForUser("USR-1001"); // Active
+        const marcusMsgs = UserDatabase.getMessagesForUser("USR-1003"); // Inactive
+
+        const alexGotInactive = alexMsgs.some(m => m.id === inactiveMsg.id);
+        const marcusGotInactive = marcusMsgs.some(m => m.id === inactiveMsg.id);
+
+        if (!alexGotInactive && marcusGotInactive) {
+          setCardStatus(6, true);
+          passed++;
+          log("✓ Test 6 Passed: 'all_inactive' broadcast correctly targeted Marcus Chen and excluded active staker.", "success");
+        } else {
+          throw new Error(`Inactive routing failed: Alex=${alexGotInactive}, Marcus=${marcusGotInactive}`);
+        }
+      } catch (err) {
+        setCardStatus(6, false);
+        failed++;
+        log(`✕ Test 6 Failed: ${err.message}`, "error");
+      }
+
+      // -------------------------------------------------------------
+      // Test 7: "Clients with Withdrawal Request" Segment Messaging
+      // -------------------------------------------------------------
+      try {
+        log("Test 7: Testing broadcast to 'withdrawal_requested' segment...", "info");
+        // Create withdrawal request on USR-1002 (Elena)
+        UserDatabase.toggleReferralBypass('USR-1002');
+        UserDatabase.approveDeposit('USR-1002');
+        UserDatabase.matureUserInvestment('USR-1002');
+        UserDatabase.submitWithdrawalRequest('USR-1002', 25.00, "0x39a1fe7c02b98811e9f45d8b8a7321");
+
+        const wreqMsg = UserDatabase.sendMessage({
+          targetType: "withdrawal_requested",
+          subject: "Withdrawal Batch Processing",
+          body: "Notice for all clients waiting for payout.",
+          priority: "success"
+        });
+
+        const elenaMsgs = UserDatabase.getMessagesForUser("USR-1002"); // Has withdrawal request
+        const marcusMsgs = UserDatabase.getMessagesForUser("USR-1003"); // No withdrawal request
+
+        const elenaGot = elenaMsgs.some(m => m.id === wreqMsg.id);
+        const marcusGot = marcusMsgs.some(m => m.id === wreqMsg.id);
+
+        if (elenaGot && !marcusGot) {
+          setCardStatus(7, true);
+          passed++;
+          log("✓ Test 7 Passed: 'withdrawal_requested' broadcast delivered only to clients with pending withdrawal.", "success");
+        } else {
+          throw new Error(`Withdrawal requested routing failed: Elena=${elenaGot}, Marcus=${marcusGot}`);
+        }
+      } catch (err) {
+        setCardStatus(7, false);
+        failed++;
+        log(`✕ Test 7 Failed: ${err.message}`, "error");
+      }
+
+      // -------------------------------------------------------------
+      // Test 8: Daily Spin 1-Per-Day Limit & Demo Reset
+      // -------------------------------------------------------------
+      try {
+        log("Test 8: Testing Daily Spin 1-per-day enforcement...", "info");
+        const now = Date.now();
+        const hasSpunTodayBefore = hasUserSpunToday(now);
+        resetDailySpinForTesting();
+        const hasSpunTodayAfter = hasUserSpunToday(getAccountData().user.lastSpinTimestamp);
+
+        if (hasSpunTodayBefore === true && hasSpunTodayAfter === false) {
+          setCardStatus(8, true);
+          passed++;
+          log("✓ Test 8 Passed: Daily spin cooldown enforced on same day and unlocked by demo reset helper.", "success");
+        } else {
+          throw new Error("Daily spin cooldown or reset helper mismatch.");
+        }
+      } catch (err) {
+        setCardStatus(8, false);
+        failed++;
+        log(`✕ Test 8 Failed: ${err.message}`, "error");
+      }
+
+      // -------------------------------------------------------------
+      // Final Summary
+      // -------------------------------------------------------------
+      document.getElementById('stat-passed-tests').textContent = passed;
+      document.getElementById('stat-failed-tests').textContent = failed;
+      document.getElementById('stat-status-text').textContent = failed === 0 ? "All 8 Passed!" : `${failed} Failed`;
+      document.getElementById('stat-status-text').className = failed === 0 ? "text-sm font-bold text-emerald-400 mt-2" : "text-sm font-bold text-rose-400 mt-2";
+
+      if (failed === 0) {
+        log("🎉 All 8 system verification tests passed with 100% success rate!", "success");
+      } else {
+        log(`⚠️ Testing completed with ${failed} failure(s). Review console output above.`, "warn");
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      setTimeout(runAllTests, 400);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Database & Admin Portal | CRYPTRON</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- EmailJS CDN for live inbox delivery -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex flex-col font-sans">
+
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-40 backdrop-blur-xl bg-[#080d1a]/90 border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Logo -->
+        <a href="index.html" class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/20">
+            <div class="w-full h-full bg-[#090e1d] rounded-xl flex items-center justify-center">
+              <i data-lucide="database" class="w-5 h-5 text-emerald-400"></i>
+            </div>
+          </div>
+          <span class="text-xl font-black tracking-tight text-white">
+            CRYP<span class="text-emerald-400">ADMIN</span>
+          </span>
+          <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-mono font-bold">USER DATABASE</span>
+        </a>
+
+        <!-- Desktop Links -->
+        <div class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-300">
+          <a href="admin.html" class="text-emerald-400 font-bold transition-colors">Users Table</a>
+          <a href="dashboard.html" class="hover:text-emerald-400 transition-colors">Client Portal</a>
+          <a href="transactions.html" class="hover:text-emerald-400 transition-colors">Ledger</a>
+          <a href="index.html" class="hover:text-emerald-400 transition-colors">View Site</a>
+        </div>
+
+        <!-- Right Action: Outbox, Messages, Export CSV, Undo, and Lock Admin -->
+        <div class="flex items-center space-x-3">
+          <button id="admin-nav-undo-btn" onclick="undoLastAction()" disabled class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold border border-white/10 text-slate-500 bg-white/5 transition-all cursor-not-allowed opacity-50" title="Undo last administrative action">
+            <i data-lucide="undo-2" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Undo</span>
+            <span id="admin-undo-count-badge" class="hidden px-1.5 py-0.2 bg-purple-400 text-slate-950 rounded-full text-[10px] font-black">0</span>
+          </button>
+          <button onclick="openAdminMessageModal()" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border border-amber-500/30 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-all font-mono" title="Drop message for individual or groups">
+            <i data-lucide="message-square" class="w-4 h-4 text-amber-400"></i>
+            <span class="hidden sm:inline">Drop Message</span>
+            <span id="admin-msg-count-badge" class="px-1.5 py-0.2 bg-amber-400 text-slate-950 rounded-full text-[10px] font-black">0</span>
+          </button>
+          <button onclick="openEmailOutboxModal()" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border border-cyan-500/30 text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 transition-all font-mono">
+            <i data-lucide="mail" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Email Outbox</span>
+            <span id="outbox-count-badge" class="px-1.5 py-0.2 bg-cyan-400 text-slate-950 rounded-full text-[10px] font-black">0</span>
+          </button>
+          <button onclick="exportCSV()" class="btn-shimmer flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-md shadow-emerald-500/20 transition-all font-mono">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Export CSV</span>
+          </button>
+          <button onclick="adminLogout()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-bold border border-rose-500/30 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-all" title="Lock Admin Portal">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+            <span>Lock Admin</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+  <!-- Master Admin Passcode Screen (Visible when not authenticated) -->
+  <div id="admin-lock-screen" class="fixed inset-0 z-50 bg-[#060a14]/95 backdrop-blur-2xl flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-8 rounded-3xl border border-white/20 glow-emerald text-center space-y-6">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500/20 to-cyan-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto text-2xl shadow-lg shadow-emerald-500/20">
+        <i data-lucide="shield-alert" class="w-8 h-8"></i>
+      </div>
+      <div>
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 text-[10px] font-mono font-bold uppercase tracking-widest mb-2 border border-rose-500/20">
+          🔒 Restricted Area
+        </div>
+        <h2 class="text-2xl font-black text-white">Administrator Portal</h2>
+        <p class="text-xs text-slate-400 mt-1">Authorized personnel only. Please enter the master admin key to view registered users and activate client timers.</p>
+      </div>
+
+      <form id="admin-auth-form" onsubmit="handleAdminLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 text-left mb-2">Admin Master Key / PIN</label>
+          <div class="relative">
+            <i data-lucide="key" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="password" 
+              id="admin-passcode-input" 
+              required 
+              placeholder="Enter passcode (e.g. admin123 or 8899)" 
+              class="w-full bg-[#040812] border border-white/15 rounded-xl pl-11 pr-4 py-3.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all text-center tracking-widest"
+            >
+          </div>
+          <p id="admin-auth-error" class="hidden text-xs text-rose-400 font-mono mt-2 flex items-center justify-center gap-1">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+            <span>Incorrect Admin Passcode. Please try again.</span>
+          </p>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-xs font-mono uppercase tracking-wider">
+          Unlock Admin Portal
+        </button>
+
+        <div class="text-[11px] text-slate-400 font-mono pt-1">
+          Master Key: <code class="text-emerald-400 font-bold bg-white/5 px-2 py-0.5 rounded">admin123</code> or <code class="text-emerald-400 font-bold bg-white/5 px-2 py-0.5 rounded">8899</code>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Protected Admin Content Wrapper -->
+  <div id="admin-main-content" class="hidden flex-1 flex flex-col">
+
+  <!-- Header Banner -->
+  <section class="py-10 border-b border-white/5 bg-gradient-to-b from-[#0a1122] to-transparent">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-emerald-500/10 text-emerald-400 text-xs font-bold font-mono mb-2">
+            DATABASE REGISTRY
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Registered Users Database</h1>
+          <p class="text-xs sm:text-sm text-slate-400 mt-1">Every person who signs up is recorded here with their email, registration timestamp, and referral details.</p>
+        </div>
+
+        <!-- Metric Badges -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div class="glass-panel px-4 py-2.5 rounded-xl border border-white/10 text-center">
+            <div class="text-[10px] uppercase font-mono text-slate-400">Total Signups</div>
+            <div id="stat-total-users" class="text-xl sm:text-2xl font-black text-white font-mono">3</div>
+          </div>
+          <div class="glass-panel px-4 py-2.5 rounded-xl border border-amber-500/30 text-center bg-amber-500/5">
+            <div class="text-[10px] uppercase font-mono text-amber-400">Pending Approval</div>
+            <div id="stat-pending-approvals" class="text-xl sm:text-2xl font-black text-amber-400 font-mono">1</div>
+          </div>
+          <div class="glass-panel px-4 py-2.5 rounded-xl border border-emerald-500/30 text-center bg-emerald-500/5">
+            <div class="text-[10px] uppercase font-mono text-emerald-400">Active 7-Day Timers</div>
+            <div id="stat-active-timers" class="text-xl sm:text-2xl font-black text-emerald-400 font-mono">1</div>
+          </div>
+          <div class="glass-panel px-4 py-2.5 rounded-xl border border-cyan-500/30 text-center bg-cyan-500/5">
+            <div class="text-[10px] uppercase font-mono text-cyan-400">Withdrawal Requests</div>
+            <div id="stat-pending-withdrawals" class="text-xl sm:text-2xl font-black text-cyan-400 font-mono">0</div>
+          </div>
+          <div class="glass-panel px-4 py-2.5 rounded-xl border border-white/10 text-center">
+            <div class="text-[10px] uppercase font-mono text-slate-400">No Investment</div>
+            <div id="stat-inactive-users" class="text-xl sm:text-2xl font-black text-slate-400 font-mono">1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Users Database Table Section -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    
+    <div class="glass-panel p-6 rounded-2xl border border-white/10">
+      
+      <!-- Top Search, Filter Tabs, and Action Bar -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+        
+        <!-- Live Search -->
+        <div class="relative w-full lg:w-72">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input 
+            type="text" 
+            id="user-search" 
+            oninput="handleSearch(event)" 
+            placeholder="Search by name, email, or user ID..." 
+            class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+          />
+        </div>
+
+        <!-- Filter Status Tabs -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-2 lg:pb-0 font-mono text-xs">
+          <button id="filter-all" onclick="setFilter('all')" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold whitespace-nowrap transition-all">All Users</button>
+          <button id="filter-pending" onclick="setFilter('pending')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white border border-transparent whitespace-nowrap transition-all">⚠️ Pending Approval</button>
+          <button id="filter-active" onclick="setFilter('active')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white border border-transparent whitespace-nowrap transition-all">🟢 Active Timers</button>
+          <button id="filter-withdrawals" onclick="setFilter('withdrawals')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white border border-transparent whitespace-nowrap transition-all flex items-center gap-1.5">
+            <span>💸 Withdrawal Requests</span>
+            <span id="filter-wreq-count" class="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-bold">0</span>
+          </button>
+          <button id="filter-inactive" onclick="setFilter('inactive')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white border border-transparent whitespace-nowrap transition-all">⚪ No Plan</button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="openModal('add-user-modal')" class="px-3.5 py-2 rounded-xl border border-white/15 hover:border-white/30 text-xs font-semibold text-white bg-slate-900 flex items-center gap-1.5 transition-all">
+            <i data-lucide="user-plus" class="w-4 h-4 text-emerald-400"></i>
+            <span>+ Add User</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Dedicated Pending Client Payouts Action Box -->
+      <div id="admin-pending-payouts-alert-box" class="hidden mb-6"></div>
+
+      <!-- Users Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs sm:text-sm">
+          <thead>
+            <tr class="border-b border-white/10 text-slate-400 font-mono text-[11px] uppercase tracking-wider">
+              <th class="pb-3 font-semibold">User Details</th>
+              <th class="pb-3 font-semibold">Registered Email</th>
+              <th class="pb-3 font-semibold">Registered At</th>
+              <th class="pb-3 font-semibold">$10 Investment & Countdown Timer</th>
+              <th class="pb-3 font-semibold text-right">Admin Controls</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody" class="divide-y divide-white/5 font-mono">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty Search Notice -->
+      <div id="no-users-found" class="hidden text-center py-12 text-slate-500 font-mono text-xs">
+        No registered users match your search query or filter.
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ==================== ADD USER MODAL ==================== -->
+  <div id="add-user-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-emerald relative">
+      <button onclick="closeModal('add-user-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+          <i data-lucide="user-plus" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Add New User</h3>
+          <p class="text-xs text-slate-400 font-mono">Inserts directly into registered database</p>
+        </div>
+      </div>
+
+      <form id="add-user-form" onsubmit="handleAddUserSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Full Legal Name</label>
+          <input type="text" id="new-user-name" required placeholder="e.g. John Doe" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Email Address</label>
+          <input type="email" id="new-user-email" required placeholder="john@domain.com" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/20 transition-all text-sm font-sans">
+          Save User to Database
+        </button>
+      </form>
+  <!-- ==================== EMAIL DISPATCHED PREVIEW MODAL ==================== -->
+  <div id="email-dispatch-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-xl p-6 sm:p-8 rounded-3xl border border-white/20 glow-emerald relative">
+      <button onclick="closeModal('email-dispatch-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <i data-lucide="mail-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 text-[11px] font-mono font-bold mb-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            EMAIL DISPATCHED TO INVESTOR
+          </div>
+          <h3 class="text-xl font-black text-white">Deposit Approved & Timer Started</h3>
+        </div>
+      </div>
+
+      <!-- Quick Delivery Status Card -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-[#060a14] border border-white/10 text-xs font-mono mb-4">
+        <div>
+          <div class="text-slate-400 text-[10px]">RECIPIENT</div>
+          <div id="disp-email-to" class="font-bold text-cyan-300 truncate">user@email.com</div>
+        </div>
+        <div>
+          <div class="text-slate-400 text-[10px]">AMOUNT VERIFIED</div>
+          <div id="disp-email-amt" class="font-bold text-emerald-400">$10.00 USDT</div>
+        </div>
+        <div>
+          <div class="text-slate-400 text-[10px]">PAYOUT TARGET</div>
+          <div id="disp-email-payout" class="font-bold text-emerald-400">$25.00 USDT (7d)</div>
+        </div>
+      </div>
+
+      <!-- Message Subject -->
+      <div class="mb-3">
+        <div class="text-[10px] uppercase font-mono tracking-wider text-slate-400 mb-1">Email Subject</div>
+        <div id="disp-email-subject" class="bg-[#0a1122] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-300 font-bold">
+          ✅ Deposit Approved: Your $10 USDT 7-Day Countdown Has Started!
+        </div>
+      </div>
+
+      <!-- Email Body Preview -->
+      <div class="mb-4">
+        <div class="flex justify-between items-center text-[10px] uppercase font-mono tracking-wider text-slate-400 mb-1">
+          <span>Sent Message Body</span>
+          <span class="text-emerald-400">✓ Logged in Outbox</span>
+        </div>
+        <pre id="disp-email-body" class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 max-h-56 overflow-y-auto whitespace-pre-wrap leading-relaxed select-all"></pre>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col sm:flex-row items-center gap-3">
+        <button type="button" onclick="copyDispatchedEmail()" class="w-full sm:w-auto flex-1 py-3 px-4 rounded-xl font-bold text-slate-900 bg-emerald-400 hover:bg-emerald-300 text-xs font-mono flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/20">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+          <span>Copy Message Text</span>
+        </button>
+        <button type="button" onclick="openDispatchedInMailClient()" class="w-full sm:w-auto px-4 py-3 rounded-xl border border-white/15 hover:border-white/30 text-xs font-semibold text-white bg-slate-900 flex items-center justify-center gap-1.5 transition-all font-mono">
+          <i data-lucide="external-link" class="w-4 h-4 text-cyan-400"></i>
+          <span>Open in Mail App</span>
+        </button>
+        <button type="button" onclick="closeModal('email-dispatch-modal')" class="w-full sm:w-auto px-5 py-3 rounded-xl border border-white/10 text-slate-400 hover:text-white text-xs font-mono">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== EMAIL OUTBOX MODAL ==================== -->
+  <div id="email-outbox-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-3xl p-6 sm:p-8 rounded-3xl border border-white/20 glow-cyan relative max-h-[90vh] flex flex-col">
+      <button onclick="closeModal('email-outbox-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+            <i data-lucide="mail" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white">Email Outbox & Delivery History</h3>
+            <p class="text-xs text-slate-400 font-mono">Record of all approved deposit messages dispatched to investors</p>
+          </div>
+        </div>
+
+        <button onclick="clearEmailOutbox()" class="text-xs text-slate-400 hover:text-rose-400 font-mono px-3 py-1.5 rounded-lg border border-white/10 hover:border-rose-500/30 transition-all">
+          Clear History
+        </button>
+      </div>
+
+      <!-- Outbox Table -->
+      <div class="overflow-y-auto flex-1 border border-white/10 rounded-2xl bg-[#060a14]/60 min-h-[220px]">
+        <table class="w-full text-left text-xs font-mono">
+          <thead class="sticky top-0 bg-[#080d1a] border-b border-white/10 text-slate-400 uppercase text-[10px] tracking-wider">
+            <tr>
+              <th class="p-3">Sent At</th>
+              <th class="p-3">Recipient</th>
+              <th class="p-3">Subject</th>
+              <th class="p-3">Status</th>
+              <th class="p-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="outbox-tbody" class="divide-y divide-white/5">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+        <div id="outbox-empty-msg" class="hidden text-center py-12 text-slate-500 text-xs">
+          No emails dispatched yet. Approve any user's $10 deposit to send an approval email.
+        </div>
+      </div>
+
+      <!-- Live Delivery Footer Note -->
+      <div class="mt-4 p-3 rounded-xl bg-[#050811] border border-white/10 text-xs font-mono flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div class="text-slate-400">
+          <span class="text-emerald-400 font-bold">✓ Automated Email Dispatch:</span> Approval messages are formatted, scheduled, and recorded with full transaction proofs.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== ADMIN RESET PASSWORD MODAL ==================== -->
+  <div id="admin-reset-pass-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-amber relative">
+      <button onclick="closeModal('admin-reset-pass-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+          <i data-lucide="key" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Reset User Password</h3>
+          <p id="admin-reset-user-label" class="text-xs text-slate-400 font-mono">Set a new password for this user</p>
+        </div>
+      </div>
+
+      <form id="admin-reset-pass-form" onsubmit="handleAdminResetPassSubmit(event)" class="space-y-4">
+        <input type="hidden" id="admin-reset-user-id">
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">New Security Password</label>
+          <input type="text" id="admin-new-pass-input" required minlength="6" placeholder="e.g. password123" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 font-mono">
+          <p class="text-[10px] text-slate-400 font-mono mt-1">Provide this password to the client so they can sign in immediately.</p>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 shadow-lg shadow-amber-500/20 transition-all text-sm font-sans">
+          Update User Password
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== ADMIN CLIENT MESSAGING & BROADCAST MODAL ==================== -->
+  <div id="admin-message-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-2xl p-6 sm:p-8 rounded-3xl border border-white/20 glow-amber relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeModal('admin-message-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/20">
+          <i data-lucide="message-square" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 text-[11px] font-mono font-bold mb-1">
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            PROTOCOL COMMUNICATIONS ENGINE
+          </div>
+          <h3 class="text-xl font-black text-white">Drop Client Message & Broadcast</h3>
+          <p id="admin-msg-subtitle" class="text-xs text-slate-400">Target individual clients or broadcast to segmented user groups.</p>
+        </div>
+      </div>
+
+      <!-- Quick Template Chips -->
+      <div class="mb-5 p-3 rounded-2xl bg-[#060a14] border border-white/10 space-y-2">
+        <span class="text-[11px] text-slate-400 font-mono uppercase tracking-wider block">Quick Fill Templates:</span>
+        <div class="flex flex-wrap gap-2 text-xs font-mono">
+          <button type="button" onclick="applyMsgTemplate('payout_ready')" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all">
+            🎉 Payout Ready
+          </button>
+          <button type="button" onclick="applyMsgTemplate('payout_sent')" class="px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 transition-all">
+            ✅ Payout Sent
+          </button>
+          <button type="button" onclick="applyMsgTemplate('deposit_reminder')" class="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-all">
+            ⚡ Deposit Reminder
+          </button>
+          <button type="button" onclick="applyMsgTemplate('security')" class="px-2.5 py-1 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/25 transition-all">
+            🔒 Vault Security
+          </button>
+        </div>
+      </div>
+
+      <!-- Message Form -->
+      <form id="admin-msg-form" onsubmit="handleAdminSendMessageSubmit(event)" class="space-y-4">
+        
+        <!-- Target Audience Selector -->
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Target Audience Segment</label>
+            <select id="msg-target-type" onchange="handleTargetTypeChange()" class="w-full bg-[#0a1122] border border-white/15 rounded-xl px-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-amber-500">
+              <option value="all_active">🟢 All Active Clients (7-Day Stakers)</option>
+              <option value="all_inactive">⚪ All Non-Active Clients (Uninvested)</option>
+              <option value="withdrawal_requested">💸 Clients with Withdrawal Request</option>
+              <option value="individual">👤 Individual Client (Select Below)</option>
+              <option value="all">🌐 All Registered Clients (Broadcast)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Priority Level</label>
+            <select id="msg-priority-select" class="w-full bg-[#0a1122] border border-white/15 rounded-xl px-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-amber-500">
+              <option value="info">Info (Standard Blue Notice)</option>
+              <option value="urgent">Urgent / Important (High Priority Alert)</option>
+              <option value="success">Success / Payout (Green Settlement Notice)</option>
+              <option value="warning">Warning / Action Required (Amber Notice)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Individual Client Selector (Toggled when 'individual' selected) -->
+        <div id="msg-individual-select-container" class="hidden">
+          <label class="block text-xs font-mono uppercase tracking-wider text-amber-300 mb-2">Select Individual Client</label>
+          <select id="msg-target-user-select" onchange="handleTargetUserSelectChange()" class="w-full bg-[#070b16] border border-amber-500/40 rounded-xl px-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-amber-400">
+            <!-- Injected dynamically -->
+          </select>
+        </div>
+
+        <!-- Subject -->
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Message Subject / Title</label>
+          <input 
+            type="text" 
+            id="msg-subject-input" 
+            required 
+            placeholder="e.g. 7-Day Maturity Settlement Ready" 
+            class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 font-sans"
+          >
+        </div>
+
+        <!-- Body -->
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Message Body Content</label>
+          <textarea 
+            id="msg-body-input" 
+            rows="4" 
+            required 
+            placeholder="Type message directly to the client or audience..." 
+            class="w-full bg-[#0a1122] border border-white/10 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-amber-500 font-sans"
+          ></textarea>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 shadow-lg shadow-amber-500/25 transition-all text-sm font-sans flex items-center justify-center gap-2">
+          <i data-lucide="send" class="w-4 h-4"></i>
+          <span>Dispatch Message to Target Clients</span>
+        </button>
+      </form>
+
+      <!-- Dispatched Message History Section -->
+      <div class="mt-8 pt-6 border-t border-white/10 space-y-4">
+        <div class="flex items-center justify-between">
+          <h4 class="text-sm font-bold text-white font-mono">Dispatched Messages History</h4>
+          <span id="dispatched-count" class="text-xs text-slate-400 font-mono">0 messages</span>
+        </div>
+        
+        <div class="overflow-x-auto max-h-48 overflow-y-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead>
+              <tr class="border-b border-white/10 text-slate-400 text-[10px] uppercase">
+                <th class="pb-2">Target Audience</th>
+                <th class="pb-2">Subject</th>
+                <th class="pb-2">Dispatched At</th>
+                <th class="pb-2 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="dispatched-msgs-tbody" class="divide-y divide-white/5">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Floating Interactive Undo Toast Bar -->
+  <div id="admin-undo-toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none">
+    <div class="glass-panel px-5 py-3.5 rounded-2xl border border-purple-500/50 bg-[#0c0a1d]/95 shadow-2xl shadow-purple-950/80 flex items-center gap-4 text-xs font-mono pointer-events-auto">
+      <div class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-400 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="sparkles" class="w-4 h-4 animate-spin"></i>
+      </div>
+      <div>
+        <div class="text-[10px] text-purple-300 uppercase tracking-wider font-bold">Action Performed</div>
+        <div id="admin-undo-action-desc" class="text-white font-sans font-medium text-xs max-w-xs sm:max-w-md truncate">Action recorded</div>
+      </div>
+      <div class="flex items-center gap-2 border-l border-white/10 pl-3">
+        <button onclick="undoLastAction()" class="btn-shimmer px-3.5 py-1.5 rounded-xl font-bold bg-purple-500 hover:bg-purple-400 text-slate-950 flex items-center gap-1.5 transition-all shadow-md shadow-purple-500/30">
+          <i data-lucide="undo-2" class="w-3.5 h-3.5"></i>
+          <span>Undo Action</span>
+        </button>
+        <button onclick="dismissUndoToast()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Dismiss">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  </div> <!-- End of admin-main-content -->
+
+  <!-- Footer -->
+  <footer class="mt-auto bg-[#050811] border-t border-white/10 py-8 text-slate-400 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>© 2026 CRYPTRON Admin System. Real-time user database.</div>
+      <div class="flex gap-6 font-mono">
+        <a href="index.html" class="hover:text-white">Homepage</a>
+        <a href="dashboard.html" class="hover:text-white">Client Portal</a>
+        <a href="login.html" class="hover:text-white">Registration Page</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/email.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Master Admin Passcodes (Protected Gate)
+    const ADMIN_MASTER_PASSCODES = ["admin123", "8899", "admin2026", "cryptron123"];
+
+    let searchQuery = '';
+    let currentFilter = 'all';
+    let adminCountdownTimer = null;
+    // Administrative Universal Undo Stack
+    const undoStack = [];
+    const MAX_UNDO_STACK = 25;
+    let undoToastTimeout = null;
+
+    /**
+     * Record snapshot of database state before an administrative action
+     */
+    function recordAdminAction(actionTitle, detail = '') {
+      try {
+        const snapshot = {
+          actionTitle,
+          detail,
+          timestamp: Date.now(),
+          usersDb: localStorage.getItem('cryptron_registered_users_v2') || localStorage.getItem('cryptron_users_db'),
+          broadcastMsgs: localStorage.getItem('cryptron_broadcast_messages'),
+          accountCountdown: localStorage.getItem('cryptron_account_v3_countdown'),
+          emailOutbox: localStorage.getItem('cryptron_email_outbox')
+        };
+        undoStack.push(snapshot);
+        if (undoStack.length > MAX_UNDO_STACK) {
+          undoStack.shift();
+        }
+        updateUndoUI(actionTitle);
+      } catch (err) {
+        console.error("Failed to record admin undo snapshot:", err);
+      }
+    }
+
+    /**
+     * Update UI for Undo button and Toast
+     */
+    function updateUndoUI(lastActionTitle = null) {
+      const navUndoBtn = document.getElementById('admin-nav-undo-btn');
+      const undoCountBadge = document.getElementById('admin-undo-count-badge');
+      const toast = document.getElementById('admin-undo-toast');
+      const toastDesc = document.getElementById('admin-undo-action-desc');
+
+      if (undoStack.length > 0) {
+        if (navUndoBtn) {
+          navUndoBtn.disabled = false;
+          navUndoBtn.className = "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold border border-purple-500/40 text-purple-300 bg-purple-500/15 hover:bg-purple-500/25 transition-all cursor-pointer shadow-md shadow-purple-500/20";
+          navUndoBtn.title = `Undo last action: "${undoStack[undoStack.length - 1].actionTitle}"`;
+        }
+        if (undoCountBadge) {
+          undoCountBadge.textContent = undoStack.length;
+          undoCountBadge.classList.remove('hidden');
+        }
+
+        if (lastActionTitle && toast && toastDesc) {
+          toastDesc.textContent = lastActionTitle;
+          toast.classList.remove('hidden');
+          requestAnimationFrame(() => {
+            toast.classList.remove('translate-y-4', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+          });
+
+          if (undoToastTimeout) clearTimeout(undoToastTimeout);
+          undoToastTimeout = setTimeout(() => {
+            dismissUndoToast();
+          }, 8000);
+        }
+      } else {
+        if (navUndoBtn) {
+          navUndoBtn.disabled = true;
+          navUndoBtn.className = "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold border border-white/10 text-slate-500 bg-white/5 transition-all cursor-not-allowed opacity-50";
+          navUndoBtn.title = "No actions to undo";
+        }
+        if (undoCountBadge) {
+          undoCountBadge.classList.add('hidden');
+        }
+        dismissUndoToast();
+      }
+      lucide.createIcons();
+    }
+
+    function dismissUndoToast() {
+      const toast = document.getElementById('admin-undo-toast');
+      if (!toast) return;
+      toast.classList.remove('translate-y-0', 'opacity-100');
+      toast.classList.add('translate-y-4', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 300);
+    }
+
+    /**
+     * Revert the most recent administrative action
+     */
+    function undoLastAction() {
+      if (undoStack.length === 0) {
+        showToast("No administrative actions to undo.", "info");
+        return;
+      }
+
+      const snapshot = undoStack.pop();
+      try {
+        if (snapshot.usersDb !== null) {
+          localStorage.setItem('cryptron_registered_users_v2', snapshot.usersDb);
+          localStorage.setItem('cryptron_users_db', snapshot.usersDb);
+        } else {
+          localStorage.removeItem('cryptron_registered_users_v2');
+          localStorage.removeItem('cryptron_users_db');
+        }
+
+        if (snapshot.broadcastMsgs !== null) {
+          localStorage.setItem('cryptron_broadcast_messages', snapshot.broadcastMsgs);
+        } else {
+          localStorage.removeItem('cryptron_broadcast_messages');
+        }
+
+        if (snapshot.accountCountdown !== null) {
+          localStorage.setItem('cryptron_account_v3_countdown', snapshot.accountCountdown);
+        }
+
+        if (snapshot.emailOutbox !== null) {
+          localStorage.setItem('cryptron_email_outbox', snapshot.emailOutbox);
+        }
+
+        // Trigger reactive storage event across tabs
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'cryptron_registered_users_v2',
+          newValue: snapshot.usersDb
+        }));
+        window.dispatchEvent(new CustomEvent('cryptron_users_updated', {
+          detail: snapshot.usersDb ? JSON.parse(snapshot.usersDb) : []
+        }));
+
+        dismissUndoToast();
+        updateUndoUI();
+        renderUsers();
+        renderDispatchedMessagesList();
+        updateMsgCountBadge();
+        updateOutboxBadge();
+
+        showToast(`↩️ Undone: "${snapshot.actionTitle}" has been reverted!`, 'success');
+      } catch (err) {
+        showToast("Failed to undo action: " + err.message, "error");
+      }
+    }
+
+    /**
+     * Security Gate: Check if Admin is authenticated in session
+     */
+    function checkAdminAuth() {
+      const isAuthed = sessionStorage.getItem('cryptron_admin_authenticated') === 'true';
+      const lockScreen = document.getElementById('admin-lock-screen');
+      const mainContent = document.getElementById('admin-main-content');
+      
+      if (isAuthed) {
+        if (lockScreen) lockScreen.classList.add('hidden');
+        if (mainContent) mainContent.classList.remove('hidden');
+        renderUsers();
+        startAdminCountdowns();
+      } else {
+        if (lockScreen) lockScreen.classList.remove('hidden');
+        if (mainContent) mainContent.classList.add('hidden');
+      }
+      lucide.createIcons();
+    }
+
+    /**
+     * Admin Passcode Submission
+     */
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const input = document.getElementById('admin-passcode-input').value.trim();
+      const errorEl = document.getElementById('admin-auth-error');
+
+      if (ADMIN_MASTER_PASSCODES.includes(input)) {
+        sessionStorage.setItem('cryptron_admin_authenticated', 'true');
+        if (errorEl) errorEl.classList.add('hidden');
+        showToast("Access Granted: Welcome, Administrator!", "success");
+        checkAdminAuth();
+      } else {
+        if (errorEl) errorEl.classList.remove('hidden');
+        showToast("Access Denied: Invalid Admin Key", "error");
+      }
+    }
+
+    /**
+     * Admin Logout / Lock Portal
+     */
+    function adminLogout() {
+      sessionStorage.removeItem('cryptron_admin_authenticated');
+      showToast("Admin portal locked successfully.", "info");
+      checkAdminAuth();
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      const filters = ['all', 'pending', 'active', 'withdrawals', 'inactive'];
+      filters.forEach(f => {
+        const btn = document.getElementById(`filter-${f}`);
+        if (!btn) return;
+        if (f === filter) {
+          btn.className = "px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold whitespace-nowrap transition-all";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-white border border-transparent whitespace-nowrap transition-all";
+        }
+      });
+      renderUsers();
+    }
+
+    function renderUsers() {
+      const allUsers = UserDatabase.getAllUsers();
+      
+      // Calculate Stats
+      const pendingCount = allUsers.filter(u => u.investmentStatus === 'pending_approval').length;
+      const activeCount = allUsers.filter(u => u.investmentStatus === 'active' || (u.activePlans && u.activePlans.length > 0)).length;
+      const withdrawalReqCount = allUsers.filter(u => !!u.withdrawalRequest).length;
+      const inactiveCount = allUsers.filter(u => !u.withdrawalRequest && u.investmentStatus !== 'pending_approval' && u.investmentStatus !== 'active' && (!u.activePlans || u.activePlans.length === 0)).length;
+
+      document.getElementById('stat-total-users').textContent = allUsers.length;
+      document.getElementById('stat-pending-approvals').textContent = pendingCount;
+      document.getElementById('stat-active-timers').textContent = activeCount;
+      const wreqStatEl = document.getElementById('stat-pending-withdrawals');
+      if (wreqStatEl) wreqStatEl.textContent = withdrawalReqCount;
+      const wreqBadgeEl = document.getElementById('filter-wreq-count');
+      if (wreqBadgeEl) wreqBadgeEl.textContent = withdrawalReqCount;
+      document.getElementById('stat-inactive-users').textContent = Math.max(0, inactiveCount);
+
+      // Render dedicated top alert box for pending withdrawal payouts
+      const pendingWithdrawals = allUsers.filter(u => !!u.withdrawalRequest);
+      const alertBox = document.getElementById('admin-pending-payouts-alert-box');
+      if (alertBox) {
+        if (pendingWithdrawals.length > 0) {
+          alertBox.classList.remove('hidden');
+          alertBox.innerHTML = `
+            <div class="p-5 rounded-2xl bg-gradient-to-r from-cyan-950/90 via-[#0a1b33] to-[#071324] border-2 border-cyan-400 shadow-2xl shadow-cyan-950/70 space-y-4">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2.5">
+                  <span class="w-3 h-3 rounded-full bg-cyan-400 animate-ping"></span>
+                  <h3 class="text-sm sm:text-base font-black text-white font-mono uppercase tracking-wider flex items-center gap-2">
+                    <i data-lucide="alert-circle" class="w-5 h-5 text-cyan-400"></i>
+                    <span>ACTION REQUIRED: Client Withdrawal Request (${pendingWithdrawals.length} Pending Payout)</span>
+                  </h3>
+                </div>
+                <span class="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold">Awaiting USDT Payment</span>
+              </div>
+              
+              <div class="grid gap-3">
+                ${pendingWithdrawals.map(u => `
+                  <div class="p-4 rounded-xl bg-black/60 border border-cyan-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="space-y-1">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-bold text-white text-sm">${u.name}</span>
+                        <span class="text-xs text-cyan-400 font-mono">${u.id} · ${u.email}</span>
+                      </div>
+                      <div class="text-xs font-mono text-slate-300 flex items-center gap-2 flex-wrap pt-1">
+                        <span class="text-slate-400">Payout Amount:</span>
+                        <span class="text-emerald-400 font-bold text-sm">$${u.withdrawalRequest.amount.toFixed(2)} USDT</span>
+                        <span class="text-slate-500">|</span>
+                        <span class="text-slate-400">Pasted USDT Tether Address:</span>
+                        <span class="text-amber-300 font-bold bg-slate-900 px-2 py-0.5 rounded border border-white/10 select-all">${u.withdrawalRequest.usdtAddress}</span>
+                        <button type="button" onclick="navigator.clipboard.writeText('${u.withdrawalRequest.usdtAddress}'); showToast('USDT Address copied to clipboard!', 'success');" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 text-xs font-bold border border-cyan-500/40">
+                          📋 Copy Address
+                        </button>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button onclick="confirmSettleWithdrawal('${u.id}')" class="btn-shimmer px-4 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider shadow-lg shadow-cyan-500/30 flex items-center gap-1.5 transition-all cursor-pointer">
+                        <i data-lucide="check-check" class="w-4 h-4"></i>
+                        <span>Confirm & Settle Payout ($${u.withdrawalRequest.amount.toFixed(2)})</span>
+                      </button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        } else {
+          alertBox.classList.add('hidden');
+          alertBox.innerHTML = '';
+        }
+      }
+
+      // Filter by Search Query
+      let filtered = allUsers;
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter(u => 
+          u.name.toLowerCase().includes(q) || 
+          u.email.toLowerCase().includes(q) || 
+          u.id.toLowerCase().includes(q) ||
+          (u.referralCode && u.referralCode.toLowerCase().includes(q)) ||
+          (u.pendingTxHash && u.pendingTxHash.toLowerCase().includes(q)) ||
+          (u.withdrawalRequest && u.withdrawalRequest.usdtAddress.toLowerCase().includes(q))
+        );
+      }
+
+      // Filter by Tab
+      if (currentFilter === 'pending') {
+        filtered = filtered.filter(u => u.investmentStatus === 'pending_approval');
+      } else if (currentFilter === 'active') {
+        filtered = filtered.filter(u => u.investmentStatus === 'active' || (u.activePlans && u.activePlans.length > 0));
+      } else if (currentFilter === 'withdrawals') {
+        filtered = filtered.filter(u => !!u.withdrawalRequest);
+      } else if (currentFilter === 'inactive') {
+        filtered = filtered.filter(u => !u.withdrawalRequest && u.investmentStatus !== 'pending_approval' && u.investmentStatus !== 'active' && (!u.activePlans || u.activePlans.length === 0));
+      }
+
+      const tbody = document.getElementById('users-tbody');
+      const noFound = document.getElementById('no-users-found');
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        noFound.classList.remove('hidden');
+        return;
+      }
+
+      noFound.classList.add('hidden');
+      tbody.innerHTML = filtered.map(user => {
+        const hasPlans = user.activePlans && user.activePlans.length > 0;
+        const isPending = user.investmentStatus === 'pending_approval';
+        const isActive = user.investmentStatus === 'active' || hasPlans;
+        const hasWreq = !!user.withdrawalRequest;
+
+        // Investment & Timer Status Column HTML
+        let statusHtml = '';
+        if (hasWreq) {
+          const wreq = user.withdrawalRequest;
+          statusHtml = `
+            <div class="space-y-1.5 p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-cyan-400 uppercase tracking-wide flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                  💸 Payout Requested
+                </span>
+                <span class="text-xs font-mono font-bold text-emerald-400">$${wreq.amount.toFixed(2)} USDT</span>
+              </div>
+              <div class="text-[11px] font-mono text-slate-300 bg-black/40 px-2 py-1 rounded border border-white/5 flex items-center justify-between">
+                <span class="truncate max-w-[170px] text-amber-300 font-bold" title="${wreq.usdtAddress}">${wreq.usdtAddress}</span>
+                <button type="button" onclick="navigator.clipboard.writeText('${wreq.usdtAddress}'); showToast('USDT Address copied to clipboard!', 'info');" class="text-slate-400 hover:text-white ml-1.5" title="Copy USDT Address">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+              <div class="text-[10px] text-slate-400 font-mono flex items-center justify-between">
+                <span>${wreq.network || 'USDT (Tether)'}</span>
+                <span>${wreq.submittedAt ? wreq.submittedAt.substring(11, 16) : ''} UTC</span>
+              </div>
+            </div>
+          `;
+        } else if (isActive && hasPlans) {
+          const primaryPlan = user.activePlans[0];
+          const isMatured = primaryPlan.isMatured || (primaryPlan.maturityTimestamp <= Date.now());
+          const cd = formatCountdown(primaryPlan.maturityTimestamp);
+          
+          if (isMatured) {
+            statusHtml = `
+              <div class="space-y-1 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span class="text-xs font-bold text-emerald-400 uppercase tracking-wide">🎉 Contract Matured</span>
+                  <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">$25 READY</span>
+                </div>
+                <div class="text-[11px] font-mono text-emerald-300">
+                  <span>Available to client: <strong>$${(user.availableBalance || 25).toFixed(2)} USDT</strong></span>
+                </div>
+              </div>
+            `;
+          } else {
+            statusHtml = `
+              <div class="space-y-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span class="text-xs font-bold text-emerald-400 uppercase tracking-wide">Active (7-Day Timer)</span>
+                  <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono">$10 ➔ $25</span>
+                </div>
+                <div class="text-[11px] font-mono text-white bg-slate-900/90 px-2 py-1 rounded border border-emerald-500/30 flex items-center gap-2">
+                  <span class="text-slate-400">Time Left:</span>
+                  <span id="admin-cd-${user.id}" class="text-emerald-300 font-bold tracking-wider">${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s</span>
+                </div>
+              </div>
+            `;
+          }
+        } else if (isPending) {
+          statusHtml = `
+            <div class="space-y-1">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span class="text-xs font-bold text-amber-400 uppercase tracking-wide">⚠️ Pending Confirmation</span>
+              </div>
+              <div class="text-[11px] font-mono text-slate-300 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/30">
+                <div class="text-slate-400 text-[10px]">Submitted Tx Hash:</div>
+                <div class="text-amber-200 truncate max-w-[220px]" title="${user.pendingTxHash || 'Manual Deposit'}">${user.pendingTxHash || 'Submitted $10 Deposit'}</div>
+              </div>
+            </div>
+          `;
+        } else {
+          statusHtml = `
+            <div>
+              <div class="flex items-center gap-1.5 text-slate-400 text-xs font-mono">
+                <span class="w-2 h-2 rounded-full bg-slate-600"></span>
+                <span>No Active Investment</span>
+              </div>
+              <div class="text-[10px] text-slate-500 font-mono mt-0.5">Awaiting $10 deposit activation</div>
+            </div>
+          `;
+        }
+
+        // Action Buttons Column HTML
+        let actionsHtml = `<div class="flex items-center justify-end gap-1.5 flex-wrap">`;
+        
+        // 1. Withdrawal Settlement Action
+        if (hasWreq) {
+          actionsHtml += `
+            <button onclick="confirmSettleWithdrawal('${user.id}')" class="btn-shimmer px-2.5 py-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs flex items-center gap-1 shadow-md shadow-cyan-500/20 font-sans transition-all" title="Confirm payout dispatched to pasted USDT address">
+              <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+              <span>Settle Payout</span>
+            </button>
+          `;
+        }
+
+        // 2. Deposit Approval Action
+        if (isPending) {
+          actionsHtml += `
+            <button onclick="activateUser('${user.id}')" class="btn-shimmer px-3 py-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 font-sans transition-all">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              <span>Approve & Start Timer</span>
+            </button>
+          `;
+        } else if (!isActive) {
+          actionsHtml += `
+            <button onclick="activateUser('${user.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 font-bold text-xs flex items-center gap-1.5 transition-all">
+              <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+              <span>Start 7-Day Timer</span>
+            </button>
+          `;
+        } else {
+          // 3. Quick-Mature Action (Instantly finish 7-day contract)
+          actionsHtml += `
+            <button onclick="quickMatureUser('${user.id}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs flex items-center gap-1 transition-all" title="Instantly mature 7-day contract and unlock $25 payout">
+              <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Mature Now</span>
+            </button>
+            <button onclick="resetUser('${user.id}')" title="Reset contract timer" class="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 border border-white/10 text-slate-400 font-mono text-xs flex items-center gap-1 transition-all">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+              <span>Reset</span>
+            </button>
+          `;
+        }
+
+        // 4. Referral Waiver Toggle Action
+        const isBypassed = !!user.referralBypassed;
+        actionsHtml += `
+            <button onclick="toggleUserReferralBypass('${user.id}')" title="${isBypassed ? 'Re-enforce 5-referral requirement' : 'Skip / Waive 5-referral requirement for this client'}" class="px-2.5 py-1.5 rounded-lg ${isBypassed ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30' : 'bg-slate-800 hover:bg-purple-500/20 hover:text-purple-300 border border-white/10 text-slate-400'} font-mono text-xs flex items-center gap-1 transition-all">
+              <i data-lucide="${isBypassed ? 'unlock' : 'lock'}" class="w-3 h-3 text-purple-400"></i>
+              <span>${isBypassed ? 'Waived' : 'Skip Ref'}</span>
+            </button>
+            <button onclick="openAdminMessageModal('${user.id}')" title="Send direct message to this client" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono text-xs flex items-center gap-1 transition-all">
+              <i data-lucide="message-square" class="w-3 h-3"></i>
+              <span>Msg</span>
+            </button>
+            <button onclick="openAdminResetPassModal('${user.id}')" title="Reset this user's password" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 font-mono text-xs flex items-center gap-1 transition-all">
+              <i data-lucide="key" class="w-3 h-3 text-amber-400"></i>
+              <span>Pass</span>
+            </button>
+            <button onclick="viewUserDashboard('${user.id}')" title="Preview dashboard as this user" class="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-mono text-xs flex items-center gap-1 transition-all">
+              <i data-lucide="external-link" class="w-3 h-3"></i>
+              <span>View</span>
+            </button>
+            <button onclick="deleteUserRecord('${user.id}')" title="Delete this user" class="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono text-xs flex items-center gap-1 transition-all">
+              <i data-lucide="trash-2" class="w-3 h-3"></i>
+              <span>Delete</span>
+            </button>
+          </div>
+        `;
+
+        return `
+          <tr class="hover:bg-white/[0.03] transition-colors">
+            <td class="py-4">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-xs font-bold text-emerald-400">
+                  ${user.name.substring(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <div class="font-bold text-white">${user.name}</div>
+                  <div class="text-[11px] text-emerald-400 font-mono">${user.id} · <span class="text-slate-400">${user.referralCode || ''}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}</div>
+                </div>
+              </div>
+            </td>
+            <td class="py-4 text-cyan-300 font-mono text-xs">${user.email}</td>
+            <td class="py-4 text-slate-400 text-xs font-mono">${user.registeredAt}</td>
+            <td class="py-4">${statusHtml}</td>
+            <td class="py-4 text-right">${actionsHtml}</td>
+          </tr>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    /**
+     * Real-time timer ticker on the Admin Screen
+     */
+    function startAdminCountdowns() {
+      if (adminCountdownTimer) clearInterval(adminCountdownTimer);
+      adminCountdownTimer = setInterval(() => {
+        const users = UserDatabase.getAllUsers();
+        users.forEach(user => {
+          if (user.activePlans && user.activePlans.length > 0) {
+            const plan = user.activePlans[0];
+            const cd = formatCountdown(plan.maturityTimestamp);
+            const el = document.getElementById(`admin-cd-${user.id}`);
+            if (el) {
+              el.textContent = `${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s`;
+            }
+          }
+        });
+      }, 1000);
+    }
+
+    function handleSearch(e) {
+      searchQuery = e.target.value;
+      renderUsers();
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    /**
+     * One-Click Manual Activation for Any User
+     * Activates $10 contract, begins 7-day countdown, and automatically dispatches approval email
+     */
+    async function activateUser(userId) {
+      const prevUser = UserDatabase.getUserById(userId);
+      const userName = prevUser ? prevUser.name : userId;
+      recordAdminAction(`Activated investment & started 7-day timer for ${userName}`);
+
+      try {
+        const updated = UserDatabase.activateUserInvestment(userId);
+        const latestPlan = updated.activePlans && updated.activePlans.length > 0 ? updated.activePlans[0] : null;
+
+        // Automatically dispatch approval email to client's registered email
+        let emailRecord = null;
+        if (window.EmailService) {
+          emailRecord = await EmailService.sendApprovalEmail(updated, latestPlan);
+          updateOutboxBadge();
+        }
+
+        showToast(`✅ $10 Investment Activated for ${updated.name}! 7-Day timer started & approval email sent.`, 'success');
+        renderUsers();
+
+        if (emailRecord) {
+          showEmailDispatchedModal(emailRecord);
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    /**
+     * ADMIN ACTION: Toggle 5-referral requirement bypass for any user
+     */
+    function toggleUserReferralBypass(userId) {
+      const user = UserDatabase.getUserById(userId);
+      if (!user) return;
+      const willBypass = !user.referralBypassed;
+      recordAdminAction(`${willBypass ? 'Waived' : 'Re-enforced'} 5-referral requirement for ${user.name}`);
+
+      try {
+        const updated = UserDatabase.toggleUserReferralBypass(userId);
+        showToast(
+          willBypass 
+            ? `🔓 Referral requirement waived for ${updated.name}! Client can now withdraw immediately.` 
+            : `🔒 Referral requirement re-enforced for ${updated.name}.`,
+          'success'
+        );
+        renderUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    let lastDispatchedEmail = null;
+
+    function showEmailDispatchedModal(email) {
+      lastDispatchedEmail = email;
+      document.getElementById('disp-email-to').textContent = `${email.toName} <${email.to}>`;
+      document.getElementById('disp-email-amt').textContent = `$${email.depositAmount} USDT`;
+      document.getElementById('disp-email-payout').textContent = `$${email.payoutAmount} USDT (7d)`;
+      document.getElementById('disp-email-subject').textContent = email.subject;
+      document.getElementById('disp-email-body').textContent = email.body;
+      openModal('email-dispatch-modal');
+    }
+
+    function copyDispatchedEmail() {
+      if (!lastDispatchedEmail) return;
+      navigator.clipboard.writeText(lastDispatchedEmail.body);
+      showToast("Email text copied to clipboard!", "info");
+    }
+
+    function openDispatchedInMailClient() {
+      if (!lastDispatchedEmail) return;
+      const mailtoUrl = `mailto:${encodeURIComponent(lastDispatchedEmail.to)}?subject=${encodeURIComponent(lastDispatchedEmail.subject)}&body=${encodeURIComponent(lastDispatchedEmail.body)}`;
+      window.location.href = mailtoUrl;
+    }
+
+    function updateOutboxBadge() {
+      if (!window.EmailService) return;
+      const outbox = EmailService.getOutbox();
+      const badge = document.getElementById('outbox-count-badge');
+      if (badge) {
+        badge.textContent = outbox.length;
+      }
+    }
+
+    function openEmailOutboxModal() {
+      renderOutboxTable();
+      openModal('email-outbox-modal');
+    }
+
+    function renderOutboxTable() {
+      if (!window.EmailService) return;
+      const outbox = EmailService.getOutbox();
+      const tbody = document.getElementById('outbox-tbody');
+      const emptyMsg = document.getElementById('outbox-empty-msg');
+      updateOutboxBadge();
+
+      if (!outbox || outbox.length === 0) {
+        tbody.innerHTML = '';
+        emptyMsg.classList.remove('hidden');
+        return;
+      }
+
+      emptyMsg.classList.add('hidden');
+      tbody.innerHTML = outbox.map(em => `
+        <tr class="hover:bg-white/[0.03]">
+          <td class="p-3 text-slate-400 whitespace-nowrap">${em.sentAt}</td>
+          <td class="p-3 font-bold text-cyan-300 truncate max-w-[150px]">${em.to}</td>
+          <td class="p-3 text-slate-200 truncate max-w-[200px]" title="${em.subject}">${em.subject}</td>
+          <td class="p-3">
+            <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-bold text-[10px]">✓ ${em.status}</span>
+          </td>
+          <td class="p-3 text-right">
+            <button onclick="viewOutboxEmail('${em.id}')" class="px-2 py-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-[11px]">
+              View
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function viewOutboxEmail(id) {
+      const outbox = EmailService.getOutbox();
+      const email = outbox.find(e => e.id === id);
+      if (email) {
+        closeModal('email-outbox-modal');
+        showEmailDispatchedModal(email);
+      }
+    }
+
+    function clearEmailOutbox() {
+      if (!confirm("Are you sure you want to clear the email delivery history?")) return;
+      recordAdminAction("Cleared email delivery history");
+      EmailService.clearOutbox();
+      renderOutboxTable();
+      showToast("Email history cleared.", "info");
+    }
+
+    /**
+     * Reset / Pause User Investment
+     */
+    function resetUser(userId) {
+      const user = UserDatabase.getUserById(userId);
+      const name = user ? user.name : userId;
+      if (!confirm(`Are you sure you want to reset the active timer for ${name}?`)) return;
+      recordAdminAction(`Reset active timer for ${name}`);
+      try {
+        const updated = UserDatabase.deactivateUserInvestment(userId);
+        showToast(`Timer reset for ${updated.name}.`, 'info');
+        renderUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    /**
+     * Switch session to this user and open their dashboard
+     */
+    function viewUserDashboard(userId) {
+      UserDatabase.setCurrentUserId(userId);
+      const user = UserDatabase.getUserById(userId);
+      showToast(`Switching session to ${user.name}...`, 'info');
+      setTimeout(() => {
+        window.location.href = 'dashboard.html';
+      }, 500);
+    }
+
+    /**
+     * Permanently delete a user from the database
+     */
+    function deleteUserRecord(userId) {
+      const user = UserDatabase.getUserById(userId);
+      const name = user ? user.name : userId;
+      if (!confirm(`⚠️ PERMANENT ACTION:\n\nAre you sure you want to delete user "${name}" (${userId})?\n\nThis will remove their account and all their records from the platform.`)) {
+        return;
+      }
+      recordAdminAction(`Deleted user account: ${name} (${userId})`);
+
+      try {
+        UserDatabase.deleteUser(userId);
+        showToast(`User ${name} was permanently deleted.`, 'info');
+        renderUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function openAdminResetPassModal(userId) {
+      const user = UserDatabase.getUserById(userId);
+      if (!user) return;
+      document.getElementById('admin-reset-user-id').value = userId;
+      document.getElementById('admin-reset-user-label').textContent = `${user.name} (${user.id}) · ${user.email}`;
+      document.getElementById('admin-new-pass-input').value = 'password123';
+      openModal('admin-reset-pass-modal');
+    }
+
+    function handleAdminResetPassSubmit(e) {
+      e.preventDefault();
+      const userId = document.getElementById('admin-reset-user-id').value;
+      const user = UserDatabase.getUserById(userId);
+      const name = user ? user.name : userId;
+      const newPass = document.getElementById('admin-new-pass-input').value.trim();
+      recordAdminAction(`Reset password for ${name}`);
+
+      try {
+        const updated = UserDatabase.adminResetPassword(userId, newPass);
+        closeModal('admin-reset-pass-modal');
+        showToast(`✅ Password for ${updated.name} updated to "${newPass}"!`, 'success');
+        updateOutboxBadge();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function handleAddUserSubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-user-name').value;
+      const email = document.getElementById('new-user-email').value;
+      recordAdminAction(`Registered new client: ${name}`);
+
+      try {
+        UserDatabase.registerUser(name, email, "password123");
+        closeModal('add-user-modal');
+        document.getElementById('add-user-form').reset();
+        showToast(`User ${name} registered! Click 'Start 7-Day Timer' to activate.`, 'success');
+        renderUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function exportCSV() {
+      UserDatabase.exportUsersCSV();
+      showToast('Users database exported as CSV!', 'success');
+    }
+
+    /**
+     * ADMIN ACTION: Instantly fast-forward / mature a user's 7-day contract
+     */
+    function quickMatureUser(userId) {
+      const user = UserDatabase.getUserById(userId);
+      const name = user ? user.name : userId;
+      if (!confirm(`⚡ INSTANT MATURITY (ADMIN ACTION):\n\nFast-forward 7-day contract to 0 for "${name}"?\n\nThis immediately releases the $25.00 USDT yield for the client to withdraw.`)) {
+        return;
+      }
+      recordAdminAction(`Instantly matured 7-day contract for ${name}`);
+
+      try {
+        UserDatabase.matureUserInvestment(userId);
+        showToast(`⚡ Contract matured for ${name}! $25.00 payout unlocked for withdrawal.`, 'success');
+        renderUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    /**
+     * ADMIN ACTION: Confirm on-chain payout settlement for a withdrawal request
+     */
+    function confirmSettleWithdrawal(userId) {
+      const user = UserDatabase.getUserById(userId);
+      if (!user || !user.withdrawalRequest) return;
+      const wreq = user.withdrawalRequest;
+
+      if (!confirm(`✅ CONFIRM PAYOUT SETTLEMENT:\n\nClient: ${user.name} (${user.id})\nAmount: $${wreq.amount.toFixed(2)} USDT\nDestination Address: ${wreq.usdtAddress}\n\nConfirm you have dispatched the funds to mark this withdrawal as settled?`)) {
+        return;
+      }
+      recordAdminAction(`Settled withdrawal payout of $${wreq.amount.toFixed(2)} USDT for ${user.name}`);
+
+      try {
+        const settled = UserDatabase.settleWithdrawalRequest(userId);
+        showToast(`✅ Payout of $${settled.amount.toFixed(2)} USDT marked as settled!`, 'success');
+        renderUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    /**
+     * PROTOCOL MESSAGING SYSTEM (ADMIN CONTROLS)
+     */
+    function openAdminMessageModal(targetUserId = null) {
+      populateMessageAudienceDropdown(targetUserId);
+      const typeSelect = document.getElementById('msg-target-type');
+      const indContainer = document.getElementById('msg-individual-select-container');
+      const subtitleEl = document.getElementById('admin-msg-subtitle');
+
+      if (targetUserId) {
+        const user = UserDatabase.getUserById(targetUserId);
+        const userName = user ? user.name : targetUserId;
+        const userEmail = user ? user.email : '';
+        typeSelect.value = 'individual';
+        indContainer.classList.remove('hidden');
+        document.getElementById('msg-target-user-select').value = targetUserId;
+        if (subtitleEl) {
+          subtitleEl.innerHTML = `Direct message for: <span class="text-amber-400 font-bold">${userName}</span> (${targetUserId} · ${userEmail})`;
+        }
+      } else {
+        typeSelect.value = 'all_active';
+        indContainer.classList.add('hidden');
+        if (subtitleEl) {
+          subtitleEl.textContent = 'Target individual clients or broadcast to segmented user groups.';
+        }
+      }
+
+      renderDispatchedMessagesList();
+      openModal('admin-message-modal');
+    }
+
+    function populateMessageAudienceDropdown(selectedId = null) {
+      const users = UserDatabase.getAllUsers();
+      const select = document.getElementById('msg-target-user-select');
+      if (!select) return;
+
+      const placeholder = `<option value="" ${!selectedId ? 'selected' : ''} disabled>-- Select a Client from Database --</option>`;
+      const options = users.map(u => {
+        const statusLabel = u.investmentStatus === 'active' ? '🟢 Active Staker' : (u.withdrawalRequest ? '💸 Withdrawal Pending' : '⚪ Uninvested');
+        const isSel = (u.id === selectedId) ? 'selected' : '';
+        return `<option value="${u.id}" ${isSel}>${u.name} (${u.id}) - ${u.email} [${statusLabel}]</option>`;
+      }).join('');
+
+      select.innerHTML = placeholder + options;
+    }
+
+    function handleTargetUserSelectChange() {
+      const select = document.getElementById('msg-target-user-select');
+      const subtitleEl = document.getElementById('admin-msg-subtitle');
+      if (!select || !subtitleEl) return;
+      const userId = select.value;
+      if (userId) {
+        const user = UserDatabase.getUserById(userId);
+        if (user) {
+          subtitleEl.innerHTML = `Direct message for: <span class="text-amber-400 font-bold">${user.name}</span> (${user.id} · ${user.email})`;
+        }
+      }
+    }
+
+    function handleTargetTypeChange() {
+      const type = document.getElementById('msg-target-type').value;
+      const indContainer = document.getElementById('msg-individual-select-container');
+      const subtitleEl = document.getElementById('admin-msg-subtitle');
+      if (type === 'individual') {
+        indContainer.classList.remove('hidden');
+        populateMessageAudienceDropdown();
+        if (subtitleEl) {
+          subtitleEl.textContent = 'Select an individual client below to deliver a direct confidential message.';
+        }
+      } else {
+        indContainer.classList.add('hidden');
+        const labels = {
+          'all_active': 'Broadcasting to all clients with active 7-day staking contracts.',
+          'all_inactive': 'Broadcasting to all registered clients who have not yet deposited $10.',
+          'withdrawal_requested': 'Broadcasting to clients who have requested a withdrawal.',
+          'all': 'Broadcasting to all registered clients across the entire platform.'
+        };
+        if (subtitleEl) {
+          subtitleEl.textContent = labels[type] || 'Target individual clients or broadcast to segmented user groups.';
+        }
+      }
+    }
+
+    function applyMsgTemplate(type) {
+      const subjInput = document.getElementById('msg-subject-input');
+      const bodyInput = document.getElementById('msg-body-input');
+      const prioSelect = document.getElementById('msg-priority-select');
+
+      if (type === 'payout_ready') {
+        subjInput.value = "🎉 7-Day Maturity Complete - Paste USDT Address for Payout";
+        bodyInput.value = "Congratulations! Your 7-day crypto vault investment has successfully matured. Please open your dashboard, paste your personal USDT Tether receiving address, and submit your $25.00 payout withdrawal.";
+        prioSelect.value = "success";
+      } else if (type === 'payout_sent') {
+        subjInput.value = "✅ USDT Payout Sent - Blockchain Settlement Complete";
+        bodyInput.value = "Your requested withdrawal has been processed and dispatched to your USDT Tether destination wallet address. Thank you for staking with CRYPTRON Protocol!";
+        prioSelect.value = "success";
+      } else if (type === 'deposit_reminder') {
+        subjInput.value = "⚡ Activate Your 7-Day $10 Vault to Earn $25";
+        bodyInput.value = "Notice for non-active clients: Staking $10.00 USDT activates your live 7-day maturity countdown to $25.00 and unlocks your daily free spin on the $10,000 Lucky Wheel. Deposit now to start.";
+        prioSelect.value = "info";
+      } else if (type === 'security') {
+        subjInput.value = "🔒 Protocol Notice: Liquidity Vault Audit & Reserve Security";
+        bodyInput.value = "All client deposits and 7-day payouts remain 100% secured by CRYPTRON multi-sig smart contract reserves. Withdrawals are processed 24/7.";
+        prioSelect.value = "info";
+      }
+    }
+
+    function handleAdminSendMessageSubmit(e) {
+      e.preventDefault();
+      const targetType = document.getElementById('msg-target-type').value;
+      const targetUserId = (targetType === 'individual') ? document.getElementById('msg-target-user-select').value : null;
+      const subject = document.getElementById('msg-subject-input').value.trim();
+      const body = document.getElementById('msg-body-input').value.trim();
+      const priority = document.getElementById('msg-priority-select').value;
+      
+      let targetUserName = null;
+      if (targetUserId) {
+        const user = UserDatabase.getUserById(targetUserId);
+        targetUserName = user ? user.name : targetUserId;
+      }
+
+      const audDesc = (targetType === 'individual' && targetUserName) ? `client ${targetUserName}` : `${targetType} audience`;
+      recordAdminAction(`Dispatched message: "${subject}" to ${audDesc}`);
+
+      try {
+        UserDatabase.sendMessage({
+          targetType,
+          targetUserId,
+          targetUserName,
+          subject,
+          body,
+          priority,
+          category: "Protocol Notice"
+        });
+        showToast(`📢 Message dispatched successfully!`, 'success');
+        document.getElementById('admin-msg-form').reset();
+        renderDispatchedMessagesList();
+        updateMsgCountBadge();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function deleteAdminMessage(msgId) {
+      if (!confirm("Are you sure you want to delete this message?")) return;
+      recordAdminAction("Deleted dispatched message");
+      UserDatabase.deleteMessage(msgId);
+      renderDispatchedMessagesList();
+      updateMsgCountBadge();
+      showToast("Message removed from system.", "info");
+    }
+
+    function renderDispatchedMessagesList() {
+      const msgs = UserDatabase.getAllMessages();
+      const tbody = document.getElementById('dispatched-msgs-tbody');
+      const countEl = document.getElementById('dispatched-count');
+      if (countEl) countEl.textContent = `${msgs.length} messages`;
+
+      if (!tbody) return;
+      if (msgs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-500">No messages dispatched yet.</td></tr>`;
+        return;
+      }
+
+      const audienceLabels = {
+        'all_active': '🟢 All Active Clients',
+        'all_inactive': '⚪ Non-Active Clients',
+        'withdrawal_requested': '💸 Withdrawal Clients',
+        'individual': '👤 Individual',
+        'all': '🌐 All Clients'
+      };
+
+      tbody.innerHTML = msgs.map(m => {
+        const aud = (m.targetType === 'individual' && m.targetUserName) 
+          ? `👤 ${m.targetUserName}` 
+          : (audienceLabels[m.targetType] || m.targetType);
+        
+        return `
+          <tr class="hover:bg-white/[0.03]">
+            <td class="py-2 text-cyan-300 font-bold">${aud}</td>
+            <td class="py-2 text-white truncate max-w-[200px]" title="${m.subject}">${m.subject}</td>
+            <td class="py-2 text-slate-400">${m.createdAt ? m.createdAt.substring(5, 16) : ''}</td>
+            <td class="py-2 text-right">
+              <button onclick="deleteAdminMessage('${m.id}')" class="text-rose-400 hover:text-rose-300 px-2 py-0.5 rounded bg-rose-500/10">
+                Delete
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateMsgCountBadge() {
+      const msgs = UserDatabase.getAllMessages();
+      const badge = document.getElementById('admin-msg-count-badge');
+      if (badge) badge.textContent = msgs.length;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      checkAdminAuth();
+      updateOutboxBadge();
+      updateMsgCountBadge();
+    });
+
+    // Real-time synchronization across browser tabs (e.g. client deposits or withdrawals)
+    window.addEventListener('storage', (e) => {
+      if (
+        !e.key ||
+        e.key === 'cryptron_registered_users_v2' ||
+        e.key === 'cryptron_users_db' || 
+        e.key === 'cryptron_account_v3_countdown' || 
+        e.key === 'cryptron_broadcast_messages'
+      ) {
+        renderUsers();
+        updateMsgCountBadge();
+        updateOutboxBadge();
+      }
+    });
+
+    window.addEventListener('cryptron_users_updated', () => {
+      renderUsers();
+      updateMsgCountBadge();
+      updateOutboxBadge();
+    });
+  </script>
+</body>
+</html>

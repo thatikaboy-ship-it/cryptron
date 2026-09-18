@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client Staking Portal | CRYPTRON ($10 ➔ $25 in 7 Days)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex flex-col">
+
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-40 backdrop-blur-xl bg-[#080d1a]/90 border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Left: Logo & Portal Tag -->
+        <div class="flex items-center gap-6">
+          <a href="index.html" class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/20">
+              <div class="w-full h-full bg-[#090e1d] rounded-xl flex items-center justify-center">
+                <i data-lucide="zap" class="w-5 h-5 text-emerald-400"></i>
+              </div>
+            </div>
+            <span class="text-xl font-black tracking-tight text-white">
+              CRYP<span class="text-emerald-400">TRON</span>
+            </span>
+          </a>
+
+          <div class="hidden lg:flex items-center gap-1 bg-slate-900/80 border border-white/10 rounded-lg p-1 text-xs font-mono">
+            <a href="dashboard.html" class="px-3 py-1.5 rounded-md bg-emerald-500/20 text-emerald-400 font-semibold">Overview</a>
+            <a href="plans.html" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-colors">The $10 Vault</a>
+            <a href="spin.html" class="px-3 py-1.5 rounded-md text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 font-bold">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>Spin ($10,000)</span>
+            </a>
+            <a href="markets.html" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-colors">Terminal</a>
+            <a href="transactions.html" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition-colors">Ledger</a>
+          </div>
+        </div>
+
+        <!-- Right: Actions -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          <!-- Daily Spin Button -->
+          <a id="nav-spin-btn" href="spin.html" class="btn-shimmer hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 shadow-md shadow-amber-500/25 transition-all font-mono">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>Daily Spin ($10,000)</span>
+          </a>
+
+          <!-- 1-Click Invest $10 Action -->
+          <button id="nav-invest-btn" onclick="openInvestModal(1)" class="btn-shimmer flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-md shadow-emerald-500/25 transition-all font-mono">
+            <i data-lucide="zap" class="w-4 h-4"></i>
+            <span>Invest $10 ➔ Get $25</span>
+          </button>
+
+          <!-- Deposit Crypto -->
+          <button id="nav-deposit-btn" onclick="openModal('deposit-modal')" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-white/15 hover:border-white/30 text-white bg-slate-900/60 hover:bg-white/5 transition-all">
+            <i data-lucide="arrow-down-left" class="w-4 h-4 text-emerald-400"></i>
+            <span>Deposit</span>
+          </button>
+
+          <!-- Withdraw Button -->
+          <button onclick="handleWithdrawButtonClick()" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-white/15 hover:border-white/30 text-white bg-slate-900/60 hover:bg-white/5 transition-all">
+            <i data-lucide="arrow-up-right" class="w-4 h-4 text-cyan-400"></i>
+            <span>Withdraw</span>
+          </button>
+
+          <!-- Messages / Notifications Bell -->
+          <button onclick="openClientInboxModal()" class="relative p-2 rounded-xl border border-white/10 text-slate-300 hover:text-white hover:border-amber-400/40 bg-slate-900/60 transition-all" title="Protocol Messages & Announcements">
+            <i data-lucide="bell" class="w-4 h-4 text-amber-400"></i>
+            <span id="nav-unread-badge" class="hidden absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-slate-950 font-mono text-[9px] font-black flex items-center justify-center animate-pulse">0</span>
+          </button>
+
+          <!-- Theme Toggle -->
+          <button class="theme-toggle-btn p-2 rounded-xl border border-white/10 text-slate-400 hover:text-white transition-colors" title="Toggle Theme">
+            <i data-lucide="moon" class="w-4 h-4"></i>
+          </button>
+
+          <!-- Logout Button -->
+          <button onclick="handleClientLogout()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold border border-rose-500/30 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-all" title="Sign Out of Account">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Logout</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    
+    <!-- User Account Header Banner -->
+    <div class="glass-panel p-4 sm:p-5 rounded-2xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-white/15 flex items-center justify-center text-base font-bold text-emerald-400">
+          <span id="user-avatar-initials">--</span>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-lg sm:text-xl font-black text-white" id="user-display-name">Loading Staker...</h1>
+            <span id="user-investment-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-400 border border-white/10">Checking Vault Status</span>
+          </div>
+          <div class="text-xs text-slate-400 font-mono flex flex-wrap items-center gap-2 sm:gap-3 mt-0.5">
+            <span>Client ID: <strong id="user-display-id" class="text-emerald-400">--</strong></span>
+            <span>·</span>
+            <span id="user-display-email" class="text-cyan-300">--</span>
+            <span>·</span>
+            <span class="text-slate-500">Wallet: <span id="user-display-wallet" class="text-slate-400">--</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="openModal('submit-hash-modal')" class="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold flex items-center gap-1.5 transition-all">
+          <i data-lucide="receipt" class="w-4 h-4"></i>
+          <span>Submit Hash</span>
+        </button>
+        <button onclick="handleClientLogout()" class="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-mono font-bold flex items-center gap-1.5 transition-all" title="Logout of session">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>Logout</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Admin Announcement / Alert Banner (Populated dynamically) -->
+    <div id="admin-alert-banner" class="hidden w-full glass-panel p-4 sm:p-5 rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-950/60 via-slate-900 to-[#070b16] flex flex-col sm:flex-row sm:items-center justify-between gap-4 glow-amber">
+      <div class="flex items-start sm:items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="bell-ring" class="w-5 h-5 animate-bounce"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">📢 ADMIN NOTICE</span>
+            <h4 id="admin-banner-subject" class="text-sm font-bold text-white">Notice from CRYPTRON Protocol</h4>
+          </div>
+          <p id="admin-banner-body" class="text-xs text-slate-300 mt-1 line-clamp-2 max-w-2xl">
+            You have received a message from the protocol administrator.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
+        <button onclick="openClientInboxModal()" class="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono transition-all">
+          View Message
+        </button>
+        <button onclick="dismissTopAdminBanner()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Dismiss">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Withdrawal Request Status Banner (If client requested withdrawal) -->
+    <div id="withdrawal-pending-banner" class="hidden w-full glass-panel p-4 sm:p-5 rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-slate-900 to-[#060a14] flex flex-col sm:flex-row sm:items-center justify-between gap-4 glow-cyan">
+      <div class="flex items-start sm:items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="arrow-up-right" class="w-5 h-5 animate-pulse"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">⏳ WITHDRAWAL SUBMITTED</span>
+            <h4 class="text-sm font-bold text-white">Payout Processing: <span id="wreq-banner-amount" class="text-emerald-400 font-mono">$25.00 USDT</span></h4>
+          </div>
+          <p class="text-xs text-slate-300 mt-1 font-mono">
+            Destination: <code id="wreq-banner-address" class="text-amber-300 font-bold bg-black/40 px-2 py-0.5 rounded">0x...</code> · Status: <span class="text-cyan-400 font-bold">Pending Cryptron Settlement</span>
+          </p>
+        </div>
+      </div>
+      <div class="text-xs font-mono text-slate-400 self-end sm:self-auto flex-shrink-0">
+        Funds will settle to your pasted USDT wallet shortly.
+      </div>
+    </div>
+
+    <!-- Top Announcement Banner: Daily Spin -->
+    <div class="w-full glass-panel p-4 sm:p-5 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-slate-900 to-[#080d1a] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-xl flex-shrink-0">
+          🎰
+        </div>
+        <div>
+          <div class="text-sm font-bold text-white flex items-center gap-2">
+            <span>Daily Spin: Chance to Win $10,000!</span>
+            <span id="spin-badge-tag" class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold">1 FREE DAILY</span>
+          </div>
+          <div id="spin-badge-subtitle" class="text-xs text-slate-300 mt-0.5">Active $10 stakers get 1 free daily wheel spin.</div>
+        </div>
+      </div>
+      <a id="dashboard-spin-btn" href="spin.html" class="btn-shimmer px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-colors self-start sm:self-auto flex-shrink-0">
+        Spin Now
+      </a>
+    </div>
+
+    <!-- Top Portfolio Metric Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      
+      <!-- Metric 1: Total Balance & Staked Equity -->
+      <div class="glass-panel p-6 relative overflow-hidden border border-white/10">
+        <div class="flex justify-between items-start mb-3">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">Total Portfolio Value</span>
+          <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+            <i data-lucide="wallet" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div id="total-portfolio-val" class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">$60.00</div>
+        <div class="mt-3 flex items-center gap-2 text-xs font-mono">
+          <span class="text-emerald-400 font-bold flex items-center">
+            <i data-lucide="trending-up" class="w-3.5 h-3.5 mr-0.5"></i>
+            +250% per contract
+          </span>
+        </div>
+      </div>
+
+      <!-- Metric 2: Available Wallet Balance -->
+      <div class="glass-panel p-6 relative overflow-hidden border border-white/10">
+        <div class="flex justify-between items-start mb-3">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">Available Wallet</span>
+          <div class="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
+            <i data-lucide="circle-dollar-sign" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div id="available-balance-val" class="text-2xl sm:text-3xl font-black text-cyan-400 font-mono tracking-tight">$40.00</div>
+        <div class="mt-3 flex items-center justify-between text-xs font-mono text-slate-400">
+          <span>Ready to deploy</span>
+          <span id="card-deposit-action">
+            <button onclick="openModal('deposit-modal')" class="text-emerald-400 hover:underline">+ Deposit $10</button>
+          </span>
+        </div>
+      </div>
+
+      <!-- Metric 3: Active Working Capital Staked -->
+      <div class="glass-panel p-6 relative overflow-hidden border border-white/10">
+        <div class="flex justify-between items-start mb-3">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">Locked in 7-Day Contracts</span>
+          <div class="p-2 rounded-lg bg-purple-500/10 text-purple-400">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div id="invested-balance-val" class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">$10.00</div>
+        <div class="mt-3 flex items-center gap-2 text-xs font-mono text-slate-400">
+          <span id="active-plans-count" class="text-purple-400 font-bold">1 Contract</span>
+          <span>maturing soon</span>
+        </div>
+      </div>
+
+      <!-- Metric 4: Total Yield Paid Out -->
+      <div class="glass-panel p-6 relative overflow-hidden border border-white/10">
+        <div class="flex justify-between items-start mb-3">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">Total $25 Payouts Collected</span>
+          <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div id="total-profit-val" class="text-2xl sm:text-3xl font-black text-emerald-400 font-mono tracking-tight">+$50.00</div>
+        <div class="mt-3 flex items-center gap-2 text-xs font-mono text-slate-400">
+          <span class="text-emerald-400 font-bold">2 Matured Contracts</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== ACTIVE 7-DAY CONTRACTS WITH REAL-TIME COUNTDOWN ==================== -->
+    <div class="glass-panel p-6 rounded-3xl border border-white/10 glow-emerald">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-emerald-500/10 text-emerald-400 text-xs font-mono font-bold mb-1">
+            ⏱️ REAL-TIME MATURITY COUNTDOWN ENGINE
+          </div>
+          <h2 class="text-xl font-extrabold text-white">Active $10 Investments & Maturity Countdowns</h2>
+          <p class="text-xs text-slate-400">When countdown reaches zero, $25.00 USDT automatically unlocks directly into your liquid wallet.</p>
+        </div>
+
+        <button id="grid-invest-btn" onclick="openInvestModal(1)" class="btn-shimmer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 text-xs font-black transition-colors font-mono uppercase tracking-wider">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Invest $10 ➔ Get $25</span>
+        </button>
+      </div>
+
+      <!-- Dynamic Countdown Cards Container -->
+      <div id="active-contracts-grid" class="grid sm:grid-cols-2 gap-4">
+        <!-- Injected dynamically by updateDashboardUI() -->
+      </div>
+
+      <!-- Fallback message if no contracts -->
+      <div id="no-contracts-msg" class="hidden text-center py-12 text-slate-500 font-mono text-xs">
+        No active investment contracts right now. Stake $10 to start your 7-day countdown!
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. Invest Modal ($10 -> $25 in 7 Days) -->
+  <div id="invest-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-emerald relative">
+      <button onclick="closeModal('invest-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+          ⚡
+        </div>
+        <div>
+          <h3 class="text-xl font-black text-white">Invest $10 ➔ Get $25</h3>
+          <p class="text-xs text-slate-400 font-mono">7-Day Real-Time Countdown Starts Now</p>
+        </div>
+      </div>
+
+      <form id="invest-form" onsubmit="handleInvestSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 font-mono">Contract Selection</label>
+          <select id="invest-units" onchange="updateModalCalculations()" class="w-full bg-[#0a1122] border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-emerald-500">
+            <option value="1" selected>1 Contract ($10.00 ➔ Get $25.00 in 7 Days)</option>
+          </select>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[#070b16] border border-white/10 space-y-2 text-xs font-mono">
+          <div class="flex justify-between text-slate-400">
+            <span>Amount Deducted Now:</span>
+            <span class="text-white font-bold" id="modal-invest-amount">$10.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Payout in Exactly 7 Days:</span>
+            <span class="text-emerald-400 font-black text-sm" id="modal-payout-amount">$25.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Guaranteed Net Profit:</span>
+            <span class="text-cyan-400 font-bold" id="modal-profit-amount">+$15.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400 pt-1 border-t border-white/10">
+            <span>Available Balance:</span>
+            <span class="text-slate-200" id="modal-avail-balance">$40.00</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/20 transition-all font-sans">
+          Confirm & Start 7-Day Countdown
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Deposit Modal -->
+  <div id="deposit-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-emerald relative">
+      <button onclick="closeModal('deposit-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+          <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Deposit $10 USDT</h3>
+          <p class="text-xs text-slate-400 font-mono">7-Day Yield Activation Contract</p>
+        </div>
+      </div>
+
+      <form id="deposit-form" onsubmit="handleDepositSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 font-mono">Deposit Asset</label>
+          <div class="w-full bg-[#0a1122] border border-white/15 rounded-xl px-4 py-3 text-sm text-slate-200 font-mono flex items-center justify-between">
+            <span class="flex items-center gap-2 font-bold text-emerald-400">
+              <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-black">₮</span>
+              USDT (Tether)
+            </span>
+            <span class="text-[10px] text-slate-400">Instant Verification</span>
+          </div>
+          <input type="hidden" id="deposit-method" value="USDT (Tether)">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 font-mono">Deposit Amount</label>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-mono font-bold text-base">$</span>
+            <input type="number" id="deposit-amount" value="10" readonly class="w-full bg-[#070b16] border border-emerald-500/30 rounded-xl pl-8 pr-28 py-3 text-emerald-400 font-mono font-bold text-base focus:outline-none cursor-not-allowed">
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 text-xs font-mono font-bold bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">Deposit $10</span>
+          </div>
+          <div class="mt-2 font-mono text-xs text-emerald-400 flex items-center gap-1.5">
+            <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+            <span>Standard contract deposit: $10.00 USDT (Matures to $25.00 in 7 Days)</span>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[#070b16] border border-white/10 space-y-2">
+          <div class="flex justify-between text-[11px] text-slate-400 font-mono">
+            <span>Official USDT (Tether) Address</span>
+          </div>
+          <div class="flex items-center justify-between bg-black/40 p-2.5 rounded-lg border border-white/5">
+            <code class="text-xs text-emerald-300 font-mono truncate mr-2">0x86fe2A034190Db4f2074A9107BBB65B1B10E3f4d</code>
+            <button type="button" onclick="navigator.clipboard.writeText('0x86fe2A034190Db4f2074A9107BBB65B1B10E3f4d'); showToast('Official USDT Address copied!', 'info')" class="text-slate-400 hover:text-emerald-400">
+              <i data-lucide="copy" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 font-mono">Blockchain Transaction Hash (TxID)</label>
+          <div class="relative">
+            <i data-lucide="hash" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="deposit-tx-hash-input" placeholder="Paste TxID / Transaction Hash after transfer" class="w-full bg-[#0a1122] border border-white/15 rounded-xl pl-11 pr-4 py-3 text-xs text-white font-mono focus:outline-none focus:border-emerald-500">
+          </div>
+          <p class="text-[10px] text-slate-400 font-mono mt-1">Paste the transaction ID from Binance, TrustWallet, or Bybit.</p>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/20 transition-all font-sans">
+          Confirm Transfer & Submit Hash
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Withdraw Modal -->
+  <div id="withdraw-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-cyan relative">
+      <button onclick="closeModal('withdraw-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+          <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Withdraw Capital & Yield</h3>
+          <p class="text-xs text-slate-400 font-mono">Blockchain Liquidity Settlement</p>
+        </div>
+      </div>
+
+      <!-- State 1: No Active Investment (Specified Clearly) -->
+      <div id="withdraw-no-investment-box" class="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center space-y-3 mb-4">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto shadow-lg shadow-rose-500/20">
+          <i data-lucide="alert-circle" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="text-sm font-bold text-rose-300 font-mono">No Active Investment</div>
+          <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">
+            There is currently no active investment contract on your account. You must have an active $10.00 USDT investment to be eligible for withdrawal.
+          </p>
+        </div>
+        <button type="button" onclick="closeModal('withdraw-modal'); openModal('deposit-modal');" class="btn-shimmer px-5 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs font-mono transition-all">
+          + Deposit $10 to Activate
+        </button>
+      </div>
+
+      <!-- State 2: Active Investment Details (Shows Date of Withdrawal & Requirement) -->
+      <div id="withdraw-active-investment-box" class="p-4 rounded-2xl bg-[#0a1122] border border-cyan-500/30 space-y-3 font-mono text-xs mb-4">
+        <div class="flex items-center justify-between pb-2.5 border-b border-white/10">
+          <span class="text-slate-400">Date of Withdrawal:</span>
+          <span id="withdraw-date-val" class="font-bold text-emerald-400 text-xs">--</span>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="text-cyan-400 text-[11px] uppercase tracking-wider font-bold flex items-center gap-1.5">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+            <span>Withdrawal Requirement:</span>
+          </div>
+          <p class="text-slate-300 text-[11px] leading-relaxed font-sans">
+            Completion of the 7-day maturity countdown period. Once the countdown timer reaches zero, your full $25.00 USDT yield is automatically unlocked and eligible for withdrawal.
+          </p>
+        </div>
+
+        <div class="flex items-center justify-between pt-2.5 border-t border-white/10 text-[11px]">
+          <span class="text-slate-400">Countdown Remaining:</span>
+          <span id="withdraw-countdown-val" class="text-amber-400 font-bold">--</span>
+        </div>
+      </div>
+
+      <!-- State 3: Referral Gate Requirement (5 Invited Friends Who Spun Wheel) -->
+      <div id="withdraw-referral-gate-box" class="p-4 rounded-2xl bg-[#070b16] border border-amber-500/30 space-y-2.5 font-mono text-xs mb-4">
+        <div class="flex items-center justify-between">
+          <span class="text-amber-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="lock" class="w-4 h-4 text-amber-400"></i>
+            <span>5 Referrals Required to Withdraw</span>
+          </span>
+          <span id="withdraw-gate-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">3 / 5 Friends</span>
+        </div>
+        <p class="text-slate-300 text-[11px] leading-relaxed font-sans">
+          Rule: Clients must invite at least 5 friends who register and spin the Lucky Wheel before their yield payout can be withdrawn.
+        </p>
+        
+        <!-- Progress bar -->
+        <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-white/10">
+          <div id="withdraw-gate-progress-bar" class="bg-gradient-to-r from-amber-400 to-yellow-300 h-full transition-all duration-500" style="width: 60%"></div>
+        </div>
+
+        <div id="withdraw-gate-locked-actions" class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1">
+          <button type="button" onclick="closeModal('withdraw-modal'); openReferralModal();" class="text-cyan-400 hover:text-cyan-300 text-[11px] font-mono underline flex items-center gap-1">
+            <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+            <span>Invite Friends Now</span>
+          </button>
+          <button type="button" onclick="simulateInviteFriend();" class="px-2.5 py-1 rounded-lg bg-amber-400/10 text-amber-300 border border-amber-500/30 hover:bg-amber-400/20 text-[10px] font-mono">
+            ⚡ Demo: +1 Friend Spun
+          </button>
+        </div>
+
+        <div id="withdraw-gate-unlocked-msg" class="hidden p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono flex items-center gap-1.5">
+          <i data-lucide="check-circle" class="w-4 h-4 flex-shrink-0"></i>
+          <span>✓ Requirement Met: 5/5 friends have spun the wheel. Withdrawals unlocked!</span>
+        </div>
+      </div>
+
+      <!-- Withdrawal Form -->
+      <form id="withdraw-form" onsubmit="handleWithdrawSubmit(event)" class="space-y-4">
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider font-mono">Amount (USD)</label>
+            <span class="text-xs font-mono text-slate-400">Available: <span id="withdraw-avail-val" class="text-cyan-400 font-bold">$40.00</span></span>
+          </div>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-mono font-bold">$</span>
+            <input type="number" id="withdraw-amount" min="10" max="25" step="1" value="25" required class="w-full bg-[#0a1122] border border-white/15 rounded-xl pl-8 pr-4 py-3 text-white font-mono font-bold focus:outline-none focus:border-cyan-500">
+          </div>
+          <div class="flex justify-between items-center mt-1.5 text-[11px] font-mono text-slate-400">
+            <span>Min: $10.00 USDT</span>
+            <span class="text-cyan-400 font-bold">Max Limit: $25.00 USDT</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider font-mono">USDT (Tether) Receiving Address</label>
+            <button type="button" onclick="pasteUSDTAddress()" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1 font-bold transition-colors">
+              <i data-lucide="clipboard" class="w-3.5 h-3.5"></i>
+              <span>Paste Address</span>
+            </button>
+          </div>
+          <div class="relative">
+            <i data-lucide="wallet" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              id="withdraw-dest" 
+              placeholder="Paste your USDT wallet address (e.g. 0x... or T...)" 
+              required 
+              class="w-full bg-[#0a1122] border border-cyan-500/40 rounded-xl pl-11 pr-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-cyan-400"
+            >
+          </div>
+          <div class="mt-1.5 flex items-center justify-between text-[10px] font-mono text-slate-400">
+            <span>Accepted: TRC-20, ERC-20, BEP-20</span>
+            <span class="text-emerald-400 font-bold">Direct Payout Settlement</span>
+          </div>
+        </div>
+
+        <button id="withdraw-submit-btn" type="submit" class="w-full py-3.5 rounded-xl font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 shadow-lg shadow-cyan-500/20 transition-all font-sans">
+          Request Withdrawal
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Client Protocol Messages Inbox Modal -->
+  <div id="client-inbox-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-lg p-6 sm:p-8 rounded-3xl border border-white/20 glow-amber relative max-h-[85vh] overflow-y-auto">
+      <button onclick="closeModal('client-inbox-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/20">
+          <i data-lucide="bell" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-black text-white">Protocol Messages & Alerts</h3>
+          <p class="text-xs text-slate-400 font-mono">Official communications from CRYPTRON Protocol Admin</p>
+        </div>
+      </div>
+
+      <!-- Messages List Container -->
+      <div id="inbox-messages-container" class="space-y-3">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div id="inbox-empty-notice" class="hidden text-center py-12 text-slate-500 font-mono text-xs">
+        No new messages from administrator.
+      </div>
+
+      <div class="pt-4 mt-6 border-t border-white/10 flex items-center justify-between">
+        <button type="button" onclick="markAllMessagesAsRead()" class="text-xs text-amber-400 hover:underline font-mono">
+          Mark all as read
+        </button>
+        <button type="button" onclick="closeModal('client-inbox-modal')" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-mono">
+          Close Inbox
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Referral / Invite Modal -->
+  <div id="referral-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-cyan relative">
+      <button onclick="closeModal('referral-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="text-center mb-6">
+        <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="share-2" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-xl font-bold text-white">Invite 5 Friends to Spin</h3>
+        <p class="text-xs text-slate-400 mt-1">Unlock your withdrawals by having 5 friends spin the wheel!</p>
+      </div>
+
+      <div class="p-4 rounded-xl bg-[#070b16] border border-white/10 space-y-3 font-mono text-xs mb-6">
+        <div class="flex justify-between text-slate-400">
+          <span>Required Referrals:</span>
+          <span class="text-white font-bold">5 Clients</span>
+        </div>
+        <div class="flex justify-between text-slate-400">
+          <span>Your Successful Invites:</span>
+          <span class="text-amber-400 font-bold" id="ref-modal-count">3 Clients</span>
+        </div>
+        <div class="pt-2 border-t border-white/10">
+          <span class="text-slate-400 block mb-1">Your Referral Link:</span>
+          <div class="flex items-center justify-between bg-black/40 p-2.5 rounded-lg border border-white/5">
+            <code class="text-cyan-300 text-[11px] truncate mr-2" id="ref-modal-link">https://cryptron.io/spin?ref=CRYP-STAKER88</code>
+            <button onclick="copyRefLinkFromModal()" class="text-slate-400 hover:text-cyan-400">
+              <i data-lucide="copy" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <button onclick="copyRefLinkFromModal()" class="btn-shimmer w-full py-3 rounded-xl font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all text-xs font-mono uppercase tracking-wider">
+          Copy Referral Link
+        </button>
+        <button onclick="simulateInviteFriend()" class="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-all text-xs font-mono">
+          ⚡ Demo Test: Simulate +1 Invited Friend
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Submit Transaction Hash Modal -->
+  <div id="submit-hash-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-amber relative">
+      <button onclick="closeModal('submit-hash-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+          <i data-lucide="receipt" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Confirm $10 Transfer</h3>
+          <p class="text-xs text-slate-400 font-mono">Notify cryptron to approve & start your 7-day timer</p>
+        </div>
+      </div>
+
+      <div class="p-3.5 bg-[#070b16] rounded-xl border border-white/10 space-y-2 mb-4 text-xs font-mono">
+        <div class="flex justify-between text-slate-400">
+          <span>Deposit Requirement:</span>
+          <span class="text-white font-bold">$10.00 USDT</span>
+        </div>
+        <div class="flex justify-between text-slate-400">
+          <span>Expected Yield:</span>
+          <span class="text-emerald-400 font-bold">$25.00 USDT (7 Days)</span>
+        </div>
+        <div class="pt-2 border-t border-white/10">
+          <span class="text-slate-400 block mb-1">Send $10 to Official USDT (Tether) Address:</span>
+          <div class="flex items-center justify-between bg-black/40 p-2 rounded-lg border border-white/5">
+            <code class="text-emerald-300 text-[11px] truncate mr-2">0x86fe2A034190Db4f2074A9107BBB65B1B10E3f4d</code>
+            <button type="button" onclick="navigator.clipboard.writeText('0x86fe2A034190Db4f2074A9107BBB65B1B10E3f4d'); showToast('USDT Deposit address copied!', 'info');" class="text-slate-400 hover:text-emerald-400">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <form id="submit-hash-form" onsubmit="handleSubmitHash(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 font-mono">Your Registered Email</label>
+          <input type="email" id="submit-hash-email" required readonly class="w-full bg-[#0a1122] border border-white/15 rounded-xl px-4 py-2.5 text-xs text-slate-400 font-mono cursor-not-allowed">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 font-mono">Blockchain Transaction Hash (TxID)</label>
+          <input type="text" id="submit-hash-value" required placeholder="e.g. 0x89f4b32... or TRC20 Tx Hash" class="w-full bg-[#0a1122] border border-white/15 rounded-xl px-4 py-3 text-xs text-white font-mono focus:outline-none focus:border-amber-400">
+          <p class="text-[10px] text-slate-500 font-mono mt-1">Paste the transaction ID from Binance, TrustWallet, or Bybit.</p>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 shadow-lg shadow-amber-500/20 transition-all font-sans text-xs uppercase tracking-wider">
+          Submit For Cryptron Confirmation
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-auto bg-[#050811] border-t border-white/10 py-8 text-slate-400 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>© 2026 CRYPTRON Protocol. Real-time 7-day maturity countdown engine.</div>
+      <div class="flex gap-6 font-mono">
+        <a href="index.html" class="hover:text-white">Home</a>
+        <a href="plans.html" class="hover:text-white">The $10 Vault</a>
+        <a href="spin.html" class="text-amber-400 hover:underline">Daily Spin</a>
+        <a href="transactions.html" class="hover:text-white">Ledger</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/email.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let countdownInterval = null;
+
+    function openModal(id) {
+      if (id === 'deposit-modal' || id === 'invest-modal') {
+        const account = getAccountData();
+        const isApprovedAndActive = (account.activePlans && account.activePlans.length > 0) || (account.user && account.user.investmentStatus === 'active');
+        if (isApprovedAndActive) {
+          showToast("🔒 Deposit & Investment are disabled: Your $10 contract is already approved and counting down!", "info");
+          return;
+        }
+      }
+      document.getElementById(id).classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function openReferralModal() {
+      openModal('referral-modal');
+    }
+
+    function openInvestModal(units = 1) {
+      const account = getAccountData();
+      const isApprovedAndActive = (account.activePlans && account.activePlans.length > 0) || (account.user && account.user.investmentStatus === 'active');
+      if (isApprovedAndActive) {
+        showToast("🔒 Invest is disabled: Your $10 contract is already approved and counting down!", "info");
+        return;
+      }
+
+      const select = document.getElementById('invest-units');
+      if (select) select.value = units;
+      
+      document.getElementById('modal-avail-balance').textContent = formatUSD(account.wallet.availableBalance);
+      
+      updateModalCalculations();
+      openModal('invest-modal');
+    }
+
+    function updateModalCalculations() {
+      const units = 1;
+      const principal = units * 10.00;
+      const payout = units * 25.00;
+      const profit = payout - principal;
+
+      document.getElementById('modal-invest-amount').textContent = formatUSD(principal);
+      document.getElementById('modal-payout-amount').textContent = formatUSD(payout);
+      document.getElementById('modal-profit-amount').textContent = `+${formatUSD(profit)}`;
+    }
+
+    function handleInvestSubmit(e) {
+      e.preventDefault();
+      const units = parseInt(document.getElementById('invest-units').value) || 1;
+      
+      if (investInSevenDayPlan(units)) {
+        closeModal('invest-modal');
+        updateDashboardUI();
+      }
+    }
+
+    function handleDepositSubmit(e) {
+      e.preventDefault();
+      const amount = parseFloat(document.getElementById('deposit-amount').value);
+      const method = document.getElementById('deposit-method').value;
+      const txHashInput = document.getElementById('deposit-tx-hash-input');
+      const txHash = txHashInput ? txHashInput.value.trim() : null;
+
+      if (processDeposit(amount, method, txHash)) {
+        if (txHash && txHash.length >= 5) {
+          const account = getAccountData();
+          if (window.EmailService) {
+            EmailService.sendDepositNoticeToAdmin(account.user, txHash);
+          }
+        }
+        closeModal('deposit-modal');
+        updateDashboardUI();
+      }
+    }
+
+    function handleSubmitHash(e) {
+      e.preventDefault();
+      const hash = document.getElementById('submit-hash-value').value;
+      if (!hash || hash.trim().length < 5) {
+        showToast("Please enter a valid transaction hash or payment reference.", "error");
+        return;
+      }
+
+      const account = getAccountData();
+      try {
+        UserDatabase.submitDepositConfirmation(account.user.id, hash);
+        if (window.EmailService) {
+          EmailService.sendDepositNoticeToAdmin(account.user, hash);
+        }
+        closeModal('submit-hash-modal');
+        showToast("✅ Payment submitted! Cryptron will verify your $10 deposit and start your 7-day timer.", "success");
+        updateDashboardUI();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    }
+
+    function handleDirectHashSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('direct-tx-hash-input');
+      if (!input) return;
+      const hash = input.value.trim();
+      if (hash.length < 5) {
+        showToast("Please enter a valid transaction hash or payment reference.", "error");
+        return;
+      }
+
+      const account = getAccountData();
+      try {
+        UserDatabase.submitDepositConfirmation(account.user.id, hash);
+        if (window.EmailService) {
+          EmailService.sendDepositNoticeToAdmin(account.user, hash);
+        }
+        showToast("✅ Transaction hash received! Cryptron will confirm your $10 deposit and start your 7-day timer.", "success");
+        updateDashboardUI();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    }
+
+    function handleClientLogout() {
+      localStorage.removeItem('cryptron_current_user_id');
+      showToast("Logged out successfully.", "info");
+      setTimeout(() => {
+        window.location.href = 'login.html';
+      }, 500);
+    }
+
+    function handleWithdrawButtonClick() {
+      const account = getAccountData();
+      const isBypassed = !!(account.user && account.user.referralBypassed);
+      const invited = (account.user && account.user.referralCount !== undefined) ? account.user.referralCount : 0;
+      const required = (account.user && account.user.requiredReferrals) || 5;
+
+      renderWithdrawalModalUI();
+      openModal('withdraw-modal');
+
+      if (!isBypassed && invited < required) {
+        showToast(`🔒 Withdrawal Locked: You must invite at least ${required} friends who spun the wheel (${invited}/${required} completed).`, "warning");
+      }
+    }
+
+    function renderWithdrawalModalUI() {
+      const account = getAccountData();
+      const user = account.user || {};
+      const hasActive = (account.activePlans && account.activePlans.length > 0) || (user && user.hasActiveInvestment) || (user && user.investmentStatus === 'matured');
+      const noInvBox = document.getElementById('withdraw-no-investment-box');
+      const activeInvBox = document.getElementById('withdraw-active-investment-box');
+      const withdrawForm = document.getElementById('withdraw-form');
+
+      if (!hasActive) {
+        // No active investment: clearly specify there is none
+        if (noInvBox) noInvBox.classList.remove('hidden');
+        if (activeInvBox) activeInvBox.classList.add('hidden');
+        if (withdrawForm) withdrawForm.classList.add('hidden');
+      } else {
+        // Active or matured investment: show date of withdrawal and requirement
+        if (noInvBox) noInvBox.classList.add('hidden');
+        if (activeInvBox) activeInvBox.classList.remove('hidden');
+        if (withdrawForm) withdrawForm.classList.remove('hidden');
+
+        const primaryPlan = account.activePlans && account.activePlans.length > 0 ? account.activePlans[0] : null;
+        if (primaryPlan) {
+          const cd = formatCountdown(primaryPlan.maturityTimestamp);
+          const isMatured = cd.expired || primaryPlan.isMatured || (user && user.investmentStatus === 'matured');
+          const maturityDate = new Date(primaryPlan.maturityTimestamp).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          });
+          const dateEl = document.getElementById('withdraw-date-val');
+          const cdEl = document.getElementById('withdraw-countdown-val');
+          if (dateEl) {
+            dateEl.innerHTML = isMatured 
+              ? `<span class="text-emerald-400 font-bold">${maturityDate} (Matured)</span>` 
+              : maturityDate;
+          }
+          if (cdEl) {
+            cdEl.innerHTML = isMatured 
+              ? '<span class="text-emerald-400 font-bold">🎉 Countdown Finished • $25.00 Payout Ready</span>' 
+              : `${cd.days}d ${cd.hours}h ${cd.minutes}m left`;
+          }
+        }
+      }
+
+      // Mandatory Referral Gate Check: 5 invited friends who spun the wheel or Admin Bypass
+      const isBypassed = !!(user && user.referralBypassed);
+      const invited = (user && user.referralCount !== undefined) ? user.referralCount : 0;
+      const required = (user && user.requiredReferrals) || 5;
+      const hasMetReferralRequirement = isBypassed || (invited >= required);
+
+      const gateCountBadge = document.getElementById('withdraw-gate-count-badge');
+      const gateProgressBar = document.getElementById('withdraw-gate-progress-bar');
+      const gateLockedActions = document.getElementById('withdraw-gate-locked-actions');
+      const gateUnlockedMsg = document.getElementById('withdraw-gate-unlocked-msg');
+      const submitBtn = document.getElementById('withdraw-submit-btn');
+
+      if (gateCountBadge) {
+        if (isBypassed) {
+          gateCountBadge.textContent = "✓ Waived by Admin";
+          gateCountBadge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono";
+        } else {
+          gateCountBadge.textContent = `${invited} / ${required} Friends Spun`;
+          gateCountBadge.className = hasMetReferralRequirement 
+            ? "px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono"
+            : "px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono";
+        }
+      }
+
+      if (gateProgressBar) {
+        const pct = isBypassed ? 100 : Math.min(100, Math.round((invited / required) * 100));
+        gateProgressBar.style.width = `${pct}%`;
+        gateProgressBar.className = hasMetReferralRequirement
+          ? "bg-gradient-to-r from-emerald-400 to-teal-300 h-full transition-all duration-500"
+          : "bg-gradient-to-r from-amber-400 to-yellow-300 h-full transition-all duration-500";
+      }
+
+      if (hasMetReferralRequirement) {
+        if (gateLockedActions) gateLockedActions.classList.add('hidden');
+        if (gateUnlockedMsg) {
+          gateUnlockedMsg.classList.remove('hidden');
+          gateUnlockedMsg.innerHTML = isBypassed
+            ? '<i data-lucide="check-circle" class="w-4 h-4 flex-shrink-0 text-cyan-400"></i><span class="text-cyan-300 font-bold">✓ Referral Requirement Waived by Admin • Withdrawals Unlocked!</span>'
+            : '<i data-lucide="check-circle" class="w-4 h-4 flex-shrink-0 text-emerald-400"></i><span>✓ Requirement Met: 5/5 friends have spun the wheel. Withdrawals unlocked!</span>';
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.className = "btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 shadow-lg shadow-cyan-500/20 transition-all font-sans cursor-pointer";
+          submitBtn.innerHTML = `Request Withdrawal (${formatUSD(Math.min(25, account.wallet.availableBalance))})`;
+        }
+      } else {
+        if (gateLockedActions) gateLockedActions.classList.remove('hidden');
+        if (gateUnlockedMsg) gateUnlockedMsg.classList.add('hidden');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.className = "w-full py-3.5 rounded-xl font-bold text-slate-400 bg-slate-800/80 border border-white/10 cursor-not-allowed opacity-75 font-sans flex items-center justify-center gap-2";
+          submitBtn.innerHTML = `<i data-lucide="lock" class="w-4 h-4 text-amber-400"></i><span>Withdrawal Locked (${invited}/${required} Friends Spun)</span>`;
+        }
+      }
+
+      const availVal = document.getElementById('withdraw-avail-val');
+      if (availVal) availVal.textContent = formatUSD(account.wallet.availableBalance);
+      const withdrawAmountInput = document.getElementById('withdraw-amount');
+      if (withdrawAmountInput) {
+        withdrawAmountInput.value = Math.min(25, account.wallet.availableBalance > 0 ? account.wallet.availableBalance : 25);
+        withdrawAmountInput.max = 25;
+      }
+      lucide.createIcons();
+    }
+
+    function handleWithdrawSubmit(e) {
+      e.preventDefault();
+      const account = getAccountData();
+      const isBypassed = !!(account.user && account.user.referralBypassed);
+      const invited = (account.user && account.user.referralCount !== undefined) ? account.user.referralCount : 0;
+      const required = (account.user && account.user.requiredReferrals) || 5;
+
+      if (!isBypassed && invited < required) {
+        showToast(`🔒 Withdrawal Locked: You must invite at least ${required} friends who have spun the wheel before you can withdraw (${invited}/${required} completed).`, "error");
+        return;
+      }
+
+      const amount = parseFloat(document.getElementById('withdraw-amount').value);
+      if (isNaN(amount) || amount <= 0) {
+        showToast("Please enter a valid withdrawal amount.", "error");
+        return;
+      }
+      if (amount > 25.00) {
+        showToast("Maximum withdrawal amount is $25.00 USDT per payout request.", "error");
+        return;
+      }
+      const dest = document.getElementById('withdraw-dest').value.trim();
+      if (!dest || dest.length < 6) {
+        showToast("Please paste your valid USDT (Tether) receiving address.", "error");
+        return;
+      }
+
+      if (processWithdrawal(amount, 'USDT (Tether)', dest)) {
+        closeModal('withdraw-modal');
+        updateDashboardUI();
+      }
+    }
+
+    function copyRefLinkFromModal() {
+      const account = getAccountData();
+      const code = account.user.referralCode || "CRYP-STAKER88";
+      const link = `https://cryptron.io/spin?ref=${code}`;
+      navigator.clipboard.writeText(link).then(() => {
+        showToast("Referral link copied! Share with friends to unlock withdrawals.", "success");
+      }).catch(() => {
+        showToast(`Referral link: ${link}`, "info");
+      });
+    }
+
+    /**
+     * Real-time Countdown Updater for Active Contracts Grid
+     */
+    function startRealtimeCountdowns() {
+      if (countdownInterval) clearInterval(countdownInterval);
+
+      countdownInterval = setInterval(() => {
+        const account = getAccountData();
+        if (!account.activePlans) return;
+
+        account.activePlans.forEach(plan => {
+          const cd = formatCountdown(plan.maturityTimestamp);
+          
+          const dEl = document.getElementById(`cd-d-${plan.id}`);
+          const hEl = document.getElementById(`cd-h-${plan.id}`);
+          const mEl = document.getElementById(`cd-m-${plan.id}`);
+          const sEl = document.getElementById(`cd-s-${plan.id}`);
+
+          if (dEl && hEl && mEl && sEl) {
+            dEl.textContent = cd.days;
+            hEl.textContent = cd.hours;
+            mEl.textContent = cd.minutes;
+            sEl.textContent = cd.seconds;
+          }
+
+          const statusEl = document.getElementById(`cd-status-${plan.id}`);
+          if (statusEl && cd.expired) {
+            statusEl.innerHTML = `<span class="text-emerald-400 font-bold">READY TO CLAIM $25</span>`;
+          }
+        });
+      }, 1000);
+    }
+
+    function updateDashboardUI() {
+      const data = getAccountData();
+      const user = data.user;
+      const totalPortfolio = data.wallet.availableBalance + data.wallet.investedBalance;
+
+      // Update Top Account Profile Header
+      const nameEl = document.getElementById('user-display-name');
+      if (nameEl) nameEl.textContent = user.name || "Valued Staker";
+      const idEl = document.getElementById('user-display-id');
+      if (idEl) idEl.textContent = user.id || "USR-1001";
+      const emailEl = document.getElementById('user-display-email');
+      if (emailEl) emailEl.textContent = user.email || "";
+      const walletEl = document.getElementById('user-display-wallet');
+      if (walletEl) walletEl.textContent = user.walletAddress || "0x71...AF7";
+      const initialsEl = document.getElementById('user-avatar-initials');
+      if (initialsEl && user.name) initialsEl.textContent = user.name.substring(0, 2).toUpperCase();
+
+      // Update Investment Status Badge
+      const badgeEl = document.getElementById('user-investment-badge');
+      if (badgeEl) {
+        if (data.activePlans && data.activePlans.length > 0) {
+          badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+          badgeEl.textContent = "🟢 7-Day Yield Active";
+        } else if (user.investmentStatus === 'pending_approval') {
+          badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse";
+          badgeEl.textContent = "⚠️ Deposit Pending Admin Confirmation";
+        } else {
+          badgeEl.className = "px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-400 border border-white/10";
+          badgeEl.textContent = "⚪ No Active Investment";
+        }
+      }
+
+      // Pre-fill submit-hash email field
+      const modalEmailInput = document.getElementById('submit-hash-email');
+      if (modalEmailInput) modalEmailInput.value = user.email || "";
+
+      // Update Numerical Metrics
+      document.getElementById('total-portfolio-val').textContent = formatUSD(totalPortfolio);
+      document.getElementById('available-balance-val').textContent = formatUSD(data.wallet.availableBalance);
+      document.getElementById('invested-balance-val').textContent = formatUSD(data.wallet.investedBalance);
+      document.getElementById('total-profit-val').textContent = '+' + formatUSD(data.wallet.totalProfits);
+      document.getElementById('withdraw-avail-val').textContent = formatUSD(data.wallet.availableBalance);
+      document.getElementById('active-plans-count').textContent = `${data.activePlans ? data.activePlans.length : 0} Contracts`;
+
+      // Update Referral progress (if modal elements present)
+      const invited = user.referralCount || 0;
+      const required = user.requiredReferrals || 5;
+      const refPercent = Math.min(100, Math.round((invited / required) * 100));
+
+      const bannerRefText = document.getElementById('banner-ref-text');
+      if (bannerRefText) bannerRefText.textContent = `${invited} / ${required} Invited`;
+      const bannerRefBar = document.getElementById('banner-ref-bar');
+      if (bannerRefBar) bannerRefBar.style.width = `${refPercent}%`;
+      const modalRefCount = document.getElementById('modal-ref-count');
+      if (modalRefCount) modalRefCount.textContent = `${invited} / ${required} Invited`;
+      const refModalCount = document.getElementById('ref-modal-count');
+      if (refModalCount) refModalCount.textContent = `${invited} Clients`;
+
+      // Update withdrawal modal states
+      renderWithdrawalModalUI();
+
+      // =========================================================================
+      // RULE: For users that have done the $10 and are approved:
+      // 1. "Invest $10 to get $25" tab is DISABLED
+      // 2. "Deposit" tab is DISABLED
+      // =========================================================================
+      const isApprovedAndActive = (data.activePlans && data.activePlans.length > 0) || (user && user.investmentStatus === 'active');
+
+      const navInvestBtn = document.getElementById('nav-invest-btn');
+      const navDepositBtn = document.getElementById('nav-deposit-btn');
+      const cardDepositAction = document.getElementById('card-deposit-action');
+      const gridInvestBtn = document.getElementById('grid-invest-btn');
+
+      if (isApprovedAndActive) {
+        // Tab saying "Invest $10 to get $25" is DISABLED
+        if (navInvestBtn) {
+          navInvestBtn.disabled = true;
+          navInvestBtn.className = "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800/80 border border-white/10 text-slate-400 opacity-60 cursor-not-allowed font-mono";
+          navInvestBtn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i><span>Active ($10 ➔ $25)</span>`;
+          navInvestBtn.title = "Contract already approved and active. 1 contract per client.";
+        }
+
+        // Deposit tab is DISABLED
+        if (navDepositBtn) {
+          navDepositBtn.disabled = true;
+          navDepositBtn.className = "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-white/5 text-slate-500 bg-slate-950/40 opacity-50 cursor-not-allowed font-mono";
+          navDepositBtn.innerHTML = `<i data-lucide="lock" class="w-4 h-4 text-slate-500"></i><span>Deposit (Active)</span>`;
+          navDepositBtn.title = "Deposit disabled: Active investment contract is already running.";
+        }
+
+        if (cardDepositAction) {
+          cardDepositAction.innerHTML = `<span class="text-emerald-400 text-xs font-mono font-bold flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5"></i> Contract Active</span>`;
+        }
+
+        if (gridInvestBtn) {
+          gridInvestBtn.disabled = true;
+          gridInvestBtn.className = "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-slate-400 text-xs font-bold font-mono opacity-60 cursor-not-allowed";
+          gridInvestBtn.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i><span>7-Day Contract Active</span>`;
+          gridInvestBtn.title = "Contract in progress. Payout unlocks upon countdown completion.";
+        }
+      } else {
+        // Inactive / not approved: tabs are ENABLED
+        if (navInvestBtn) {
+          navInvestBtn.disabled = false;
+          navInvestBtn.className = "btn-shimmer flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-md shadow-emerald-500/25 transition-all font-mono";
+          navInvestBtn.innerHTML = `<i data-lucide="zap" class="w-4 h-4"></i><span>Invest $10 ➔ Get $25</span>`;
+          navInvestBtn.title = "";
+        }
+
+        if (navDepositBtn) {
+          navDepositBtn.disabled = false;
+          navDepositBtn.className = "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-white/15 hover:border-white/30 text-white bg-slate-900/60 hover:bg-white/5 transition-all font-mono";
+          navDepositBtn.innerHTML = `<i data-lucide="arrow-down-left" class="w-4 h-4 text-emerald-400"></i><span>Deposit</span>`;
+          navDepositBtn.title = "";
+        }
+
+        if (cardDepositAction) {
+          cardDepositAction.innerHTML = `<button onclick="openModal('deposit-modal')" class="text-emerald-400 hover:underline">+ Deposit $10</button>`;
+        }
+
+        if (gridInvestBtn) {
+          gridInvestBtn.disabled = false;
+          gridInvestBtn.className = "btn-shimmer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 text-xs font-black transition-colors font-mono uppercase tracking-wider";
+          gridInvestBtn.innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i><span>Invest $10 ➔ Get $25</span>`;
+          gridInvestBtn.title = "";
+        }
+      }
+
+      // =========================================================================
+      // RULE: Daily Spin Status (1 spin per day until tomorrow)
+      // =========================================================================
+      const alreadySpun = (window.hasUserSpunToday && hasUserSpunToday(user.lastSpinTimestamp));
+      const dashboardSpinBtn = document.getElementById('dashboard-spin-btn');
+      const spinBadgeTag = document.getElementById('spin-badge-tag');
+      const spinBadgeSubtitle = document.getElementById('spin-badge-subtitle');
+      const navSpinBtn = document.getElementById('nav-spin-btn');
+
+      const hasActivePlanForWheel = data.activePlans && data.activePlans.length > 0;
+
+      if (!hasActivePlanForWheel) {
+        if (dashboardSpinBtn) {
+          dashboardSpinBtn.className = "px-4 py-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-slate-400 font-bold text-xs font-mono uppercase tracking-wider transition-colors self-start sm:self-auto flex items-center gap-1.5 cursor-pointer";
+          dashboardSpinBtn.innerHTML = `<i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i><span>Locked (Deposit $10)</span>`;
+          dashboardSpinBtn.setAttribute('href', '#');
+          dashboardSpinBtn.onclick = (e) => {
+            e.preventDefault();
+            showToast("🔒 Daily Spin Locked: You must deposit and activate a $10.00 investment contract to spin the wheel.", "warning");
+            openModal('deposit-modal');
+          };
+        }
+        if (spinBadgeTag) {
+          spinBadgeTag.textContent = "LOCKED";
+          spinBadgeTag.className = "px-2 py-0.5 rounded bg-slate-800 text-amber-400 text-[10px] font-mono font-bold border border-amber-500/20";
+        }
+        if (spinBadgeSubtitle) {
+          spinBadgeSubtitle.textContent = "Deposit $10 to unlock your daily free spin on the $10,000 Lucky Wheel.";
+        }
+        if (navSpinBtn) {
+          navSpinBtn.className = "hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold bg-slate-800/80 text-amber-400/80 border border-amber-500/20 transition-all cursor-pointer";
+          navSpinBtn.innerHTML = `<i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i><span>Wheel Locked</span>`;
+          navSpinBtn.removeAttribute('href');
+          navSpinBtn.onclick = (e) => {
+            e.preventDefault();
+            showToast("🔒 Verified Investors Only: You must deposit and activate a $10 investment contract to spin.", "warning");
+            openModal('deposit-modal');
+          };
+        }
+      } else if (alreadySpun) {
+        const cd = window.getTimeUntilTomorrow ? getTimeUntilTomorrow() : { hours: 0, minutes: 0 };
+        if (dashboardSpinBtn) {
+          dashboardSpinBtn.className = "px-4 py-2.5 rounded-xl bg-slate-800/90 text-amber-300/80 border border-amber-500/20 font-bold text-xs font-mono uppercase tracking-wider self-start sm:self-auto flex-shrink-0 cursor-not-allowed";
+          dashboardSpinBtn.textContent = `Spun Today • (${cd.hours}h ${cd.minutes}m)`;
+          dashboardSpinBtn.removeAttribute('href');
+          dashboardSpinBtn.onclick = () => showToast(`⏳ Daily spin completed for today! Next spin unlocks tomorrow in ${cd.hours}h ${cd.minutes}m.`, 'info');
+        }
+        if (spinBadgeTag) {
+          spinBadgeTag.textContent = "COMPLETED TODAY";
+          spinBadgeTag.className = "px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] font-mono font-bold border border-white/10";
+        }
+        if (spinBadgeSubtitle) {
+          spinBadgeSubtitle.textContent = `You have completed today's spin. Next free spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).`;
+        }
+        if (navSpinBtn) {
+          navSpinBtn.className = "hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800/80 text-amber-400/70 border border-amber-500/20 transition-all font-mono";
+          navSpinBtn.innerHTML = `<i data-lucide="clock" class="w-4 h-4"></i><span>Spun Today</span>`;
+        }
+      } else {
+        if (dashboardSpinBtn) {
+          dashboardSpinBtn.className = "btn-shimmer px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-colors self-start sm:self-auto flex-shrink-0";
+          dashboardSpinBtn.textContent = "Spin Now";
+          dashboardSpinBtn.setAttribute('href', 'spin.html');
+          dashboardSpinBtn.onclick = null;
+        }
+        if (spinBadgeTag) {
+          spinBadgeTag.textContent = "1 FREE DAILY";
+          spinBadgeTag.className = "px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold";
+        }
+        if (spinBadgeSubtitle) {
+          spinBadgeSubtitle.textContent = "Active $10 stakers get 1 free daily wheel spin.";
+        }
+        if (navSpinBtn) {
+          navSpinBtn.className = "btn-shimmer hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 shadow-md shadow-amber-500/25 transition-all font-mono";
+          navSpinBtn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i><span>Daily Spin ($10,000)</span>`;
+        }
+      }
+
+      // Render Active Contracts or Pending / Inactive Banners
+      const grid = document.getElementById('active-contracts-grid');
+      const noMsg = document.getElementById('no-contracts-msg');
+
+      if (data.activePlans && data.activePlans.length > 0) {
+        noMsg.classList.add('hidden');
+        grid.innerHTML = data.activePlans.map(plan => {
+          const isMatured = plan.isMatured || (plan.maturityTimestamp <= Date.now());
+          const cd = formatCountdown(plan.maturityTimestamp);
+
+          if (isMatured) {
+            return `
+              <div class="glass-panel p-5 rounded-2xl border-2 border-emerald-500/60 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-[#070b16] space-y-4 glow-emerald">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-bold text-white flex items-center gap-2">
+                      <span>${plan.planName}</span>
+                      <span class="px-2 py-0.5 rounded bg-emerald-500/30 text-emerald-300 text-[10px] font-mono font-bold">🎉 MATURED</span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 font-mono mt-0.5">Contract ID: ${plan.id}</div>
+                  </div>
+                  <div class="text-right font-mono">
+                    <div class="text-xs text-slate-400">Unlocked Yield:</div>
+                    <div class="text-xl font-black text-emerald-400">${formatUSD(plan.totalPayout || 25.00)}</div>
+                  </div>
+                </div>
+
+                <!-- Matured Payout Box with Referral Lock Check -->
+                <div class="bg-black/50 p-4 rounded-xl border border-emerald-500/30 space-y-3">
+                  <div class="flex items-center justify-between gap-2 flex-wrap text-xs font-mono">
+                    <div class="flex items-center gap-2 text-emerald-300 font-bold">
+                      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                      <span>7-Day Maturity Countdown Finished!</span>
+                    </div>
+                    ${user.referralBypassed
+                      ? '<span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40 text-[10px]">🔓 Referrals Waived (Admin)</span>'
+                      : (((user.referralCount || 0) >= (user.requiredReferrals || 5))
+                        ? '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 text-[10px]">✓ 5/5 Referrals Met</span>'
+                        : `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 text-[10px]">🔒 ${user.referralCount || 0}/5 Friends Spun</span>`)
+                    }
+                  </div>
+                  <p class="text-xs text-slate-300 leading-relaxed font-sans">
+                    ${(user.referralBypassed || (user.referralCount || 0) >= (user.requiredReferrals || 5))
+                      ? (user.referralBypassed 
+                          ? "Your $25.00 USDT payout is unlocked and ready. The referral requirement has been waived by protocol admin. Paste your USDT (Tether) receiving address to submit your withdrawal request."
+                          : "Your $25.00 USDT payout is unlocked and ready. Paste your USDT (Tether) receiving address to submit your withdrawal request.")
+                      : "Your $25.00 USDT payout is ready. However, protocol rules require at least 5 invited friends who have spun the wheel before you can withdraw."
+                    }
+                  </p>
+                  <div class="space-y-2">
+                    ${(user.referralBypassed || (user.referralCount || 0) >= (user.requiredReferrals || 5)) ? `
+                      <button onclick="handleWithdrawButtonClick()" class="btn-shimmer w-full py-3 rounded-xl font-black text-slate-950 bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 shadow-lg shadow-emerald-500/25 transition-all text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2">
+                        <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+                        <span>Withdraw $25 (Paste USDT Address)</span>
+                      </button>
+                    ` : `
+                      <button onclick="handleWithdrawButtonClick()" class="w-full py-3 rounded-xl font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 transition-all text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2">
+                        <i data-lucide="lock" class="w-4 h-4 text-amber-400"></i>
+                        <span>Withdrawal Locked (${user.referralCount || 0}/5 Friends Spun)</span>
+                      </button>
+                      <button onclick="openReferralModal()" class="btn-shimmer w-full py-2.5 rounded-xl font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all">
+                        <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+                        <span>Invite Friends to Unlock (${user.referralCount || 0}/5)</span>
+                      </button>
+                    `}
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between text-[11px] font-mono pt-1 text-slate-400 border-t border-white/5">
+                  <span>Principal: <strong class="text-white">${formatUSD(plan.principal)}</strong></span>
+                  <span class="text-emerald-400 font-bold">✓ Ready for Settlement</span>
+                </div>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="glass-panel p-5 rounded-2xl border border-white/10 bg-[#070b16]/70 space-y-4 hover:border-emerald-500/40 transition-all">
+              
+              <!-- Header -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-bold text-white flex items-center gap-2">
+                    <span>${plan.planName}</span>
+                    <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">250% PAYOUT</span>
+                  </div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-0.5">Contract ID: ${plan.id}</div>
+                </div>
+                <div class="text-right font-mono">
+                  <div class="text-xs text-slate-400">Payout at Day 7:</div>
+                  <div class="text-lg font-black text-emerald-400">${formatUSD(plan.totalPayout || 25.00)}</div>
+                </div>
+              </div>
+
+              <!-- 4-Box Countdown Timer: Days, Hours, Minutes, Seconds -->
+              <div class="bg-[#090f1e] p-3 rounded-xl border border-emerald-500/20">
+                <div class="text-[10px] text-slate-400 uppercase tracking-widest font-mono text-center mb-2 flex items-center justify-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Time Left Until $25 Maturity Payout:</span>
+                </div>
+                
+                <div class="grid grid-cols-4 gap-2 text-center font-mono">
+                  <div class="bg-[#040812] p-2 rounded-lg border border-white/5">
+                    <span id="cd-d-${plan.id}" class="text-xl sm:text-2xl font-black text-white block">${cd.days}</span>
+                    <span class="text-[9px] text-slate-500 uppercase tracking-wider">Days</span>
+                  </div>
+                  <div class="bg-[#040812] p-2 rounded-lg border border-white/5">
+                    <span id="cd-h-${plan.id}" class="text-xl sm:text-2xl font-black text-white block">${cd.hours}</span>
+                    <span class="text-[9px] text-slate-500 uppercase tracking-wider">Hours</span>
+                  </div>
+                  <div class="bg-[#040812] p-2 rounded-lg border border-white/5">
+                    <span id="cd-m-${plan.id}" class="text-xl sm:text-2xl font-black text-cyan-400 block">${cd.minutes}</span>
+                    <span class="text-[9px] text-slate-500 uppercase tracking-wider">Mins</span>
+                  </div>
+                  <div class="bg-[#040812] p-2 rounded-lg border border-white/5">
+                    <span id="cd-s-${plan.id}" class="text-xl sm:text-2xl font-black text-emerald-400 block">${cd.seconds}</span>
+                    <span class="text-[9px] text-slate-500 uppercase tracking-wider">Secs</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Footer info -->
+              <div class="flex items-center justify-between text-[11px] font-mono pt-1 text-slate-400 border-t border-white/5">
+                <span>Principal: <strong class="text-white">${formatUSD(plan.principal)}</strong></span>
+                <span id="cd-status-${plan.id}" class="text-emerald-400">Lock: Active 7-Day Arbitrage</span>
+              </div>
+
+            </div>
+          `;
+        }).join('');
+      } else if (user.investmentStatus === 'pending_approval') {
+        noMsg.classList.add('hidden');
+        grid.innerHTML = `
+          <div class="sm:col-span-2 glass-panel p-6 sm:p-8 rounded-3xl border border-amber-500/40 bg-gradient-to-br from-amber-950/30 via-slate-900 to-[#070b16] space-y-5 glow-amber">
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 text-2xl font-bold">
+                ⏳
+              </div>
+              <div class="space-y-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="text-lg font-black text-white">$10 Deposit Confirmation Submitted</h3>
+                  <span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30">PENDING CRYPTRON APPROVAL</span>
+                </div>
+                <p class="text-xs text-slate-300">
+                  Your payment hash is currently being verified by our team. Once confirmed by Cryptron, your <strong>7-day countdown timer will begin counting down immediately</strong> toward your $25.00 USDT payout!
+                </p>
+              </div>
+            </div>
+
+            <!-- Display Submitted Hash -->
+            <div class="p-4 bg-black/60 rounded-2xl border border-amber-500/30 font-mono text-xs space-y-1.5">
+              <span class="text-slate-400 text-[10px] uppercase tracking-wider block">Submitted Blockchain Transaction Hash (TxID):</span>
+              <div class="text-amber-300 font-bold break-all text-xs sm:text-sm bg-slate-950 p-2.5 rounded-lg border border-white/5">${user.pendingTxHash || 'Submitted $10 Deposit'}</div>
+            </div>
+
+            <!-- In-place Update Hash Form -->
+            <form onsubmit="handleDirectHashSubmit(event)" class="pt-3 border-t border-white/10 space-y-2">
+              <label class="block text-xs font-mono uppercase tracking-wider text-slate-400">Need to update or re-submit your transaction hash?</label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input type="text" id="direct-tx-hash-input" required placeholder="Paste new transaction hash here..." class="flex-1 bg-[#040812] border border-white/15 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-amber-400">
+                <button type="submit" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-all whitespace-nowrap">
+                  Update Hash
+                </button>
+              </div>
+            </form>
+          </div>
+        `;
+      } else {
+        noMsg.classList.add('hidden');
+        grid.innerHTML = `
+          <div class="sm:col-span-2 glass-panel p-6 sm:p-8 rounded-3xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/20 via-slate-900 to-[#070b16] space-y-6 glow-emerald">
+            
+            ${user.withdrawalRequest ? `
+              <!-- Payout In Progress Banner -->
+              <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-cyan-950/60 to-slate-900 border-2 border-cyan-500/50 space-y-3 shadow-xl shadow-cyan-950/40">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span class="text-sm font-bold text-white font-mono">💸 Payout Request Submitted ($${(user.withdrawalRequest.amount || 25).toFixed(2)} USDT)</span>
+                  </div>
+                  <span class="px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold border border-cyan-500/40">Awaiting Cryptron Confirmation</span>
+                </div>
+                <div class="p-3 bg-black/50 rounded-xl border border-white/10 font-mono text-xs flex items-center justify-between gap-2 flex-wrap">
+                  <span class="text-slate-400">Destination USDT Address:</span>
+                  <span class="text-amber-300 font-bold break-all">${user.withdrawalRequest.usdtAddress}</span>
+                </div>
+                <p class="text-xs text-slate-300 font-sans leading-relaxed">
+                  Your $25.00 payout has been submitted and registered with cryptron. <strong>Everything starts afresh:</strong> deposit another $10.00 USDT below to start your next 7-day vault to $25 and unlock the daily wheel!
+                </p>
+              </div>
+            ` : ''}
+
+            <!-- Step Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-2xl flex-shrink-0">
+                  ⚡
+                </div>
+                <div>
+                  <h3 class="text-lg font-black text-white">Start Your 7-Day Crypto Yield ($10 ➔ $25)</h3>
+                  <p class="text-xs text-slate-300">Deposit $10 USDT, paste your transaction hash below, and cryptron will activate your 7-day countdown timer!</p>
+                </div>
+              </div>
+              <div class="px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono text-xs font-bold text-center self-start sm:self-auto">
+                Guaranteed Payout: $25.00 USDT
+              </div>
+            </div>
+
+            <!-- Step 1: Send $10 to Wallet Address -->
+            <div class="bg-black/50 p-4 sm:p-5 rounded-2xl border border-white/10 space-y-2">
+              <div class="flex items-center justify-between text-xs font-mono">
+                <span class="text-slate-300 font-bold flex items-center gap-2">
+                  <span class="w-5 h-5 rounded-full bg-emerald-400 text-slate-950 flex items-center justify-center font-black text-[11px]">1</span>
+                  <span>Send Exactly $10.00 USDT (Tether) to Official Address:</span>
+                </span>
+              </div>
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-950/90 p-3 rounded-xl border border-white/5 font-mono">
+                <code class="text-emerald-300 font-bold text-xs sm:text-sm truncate mr-2">0x86fe2A034190Db4f2074A9107BBB65B1B10E3f4d</code>
+                <button type="button" onclick="navigator.clipboard.writeText('0x86fe2A034190Db4f2074A9107BBB65B1B10E3f4d'); showToast('Official USDT Address copied!', 'success');" class="px-3.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto transition-all">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                  <span>Copy Address</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Step 2: Dedicated In-Page Place for Transaction Hash -->
+            <div class="bg-amber-500/5 p-4 sm:p-5 rounded-2xl border border-amber-500/30 space-y-3">
+              <div class="flex items-center gap-2 text-xs font-mono font-bold text-amber-300">
+                <span class="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-black text-[11px]">2</span>
+                <span>Enter Your $10 Transaction Hash (TxID) to Begin 7-Day Timer:</span>
+              </div>
+              <p class="text-xs text-slate-300">Paste the blockchain Transaction ID / Hash from Binance, TrustWallet, Bybit, or KuCoin below:</p>
+              
+              <form onsubmit="handleDirectHashSubmit(event)" class="space-y-3">
+                <div class="relative">
+                  <i data-lucide="hash" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+                  <input 
+                    type="text" 
+                    id="direct-tx-hash-input" 
+                    required 
+                    placeholder="Paste transaction hash here (e.g. 0x89f4b32a1e88f01b... or TRC20 TxID)" 
+                    class="w-full bg-[#040812] border border-amber-500/30 rounded-xl pl-11 pr-4 py-3.5 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                  >
+                </div>
+                <button type="submit" class="btn-shimmer w-full sm:w-auto px-6 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
+                  <i data-lucide="send" class="w-4 h-4"></i>
+                  <span>Submit Hash & Request Cryptron Activation</span>
+                </button>
+              </form>
+            </div>
+
+          </div>
+        `;
+      }
+
+      // Render Recent Transactions
+      const txTbody = document.getElementById('recent-transactions-tbody');
+      if (txTbody && data.transactions) {
+        txTbody.innerHTML = data.transactions.slice(0, 5).map(tx => {
+          const isPositive = tx.type === 'Deposit' || tx.type === 'Yield Payout' || tx.type === 'Daily Spin Win';
+          return `
+            <tr class="hover:bg-white/[0.02] transition-colors">
+              <td class="py-3 text-slate-400">${tx.id}</td>
+              <td class="py-3 font-semibold text-white">${tx.type}</td>
+              <td class="py-3 text-slate-300">${tx.method}</td>
+              <td class="py-3 text-slate-500 text-xs">${tx.date}</td>
+              <td class="py-3 font-bold ${isPositive ? 'text-emerald-400' : 'text-slate-200'}">
+                ${isPositive ? '+' : '-'}${formatUSD(tx.amount)}
+              </td>
+              <td class="py-3 text-right">
+                <span class="px-2 py-0.5 rounded-full ${tx.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'} text-[10px] font-semibold">
+                  ${tx.status}
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Render active withdrawal request banner if present
+      const wreqBanner = document.getElementById('withdrawal-pending-banner');
+      if (wreqBanner) {
+        if (user.withdrawalRequest) {
+          const wreqAmt = document.getElementById('wreq-banner-amount');
+          const wreqAddr = document.getElementById('wreq-banner-address');
+          if (wreqAmt) wreqAmt.textContent = formatUSD(user.withdrawalRequest.amount);
+          if (wreqAddr) wreqAddr.textContent = user.withdrawalRequest.usdtAddress;
+          wreqBanner.classList.remove('hidden');
+        } else {
+          wreqBanner.classList.add('hidden');
+        }
+      }
+
+      // Check protocol admin messages
+      checkClientAdminMessages();
+
+      startRealtimeCountdowns();
+      lucide.createIcons();
+    }
+
+    /**
+     * Paste USDT Address from Clipboard
+     */
+    function pasteUSDTAddress() {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(text => {
+          const input = document.getElementById('withdraw-dest');
+          if (input && text) {
+            input.value = text.trim();
+            showToast("USDT address pasted from clipboard!", "success");
+          }
+        }).catch(() => {
+          showToast("Clipboard permission not granted. Please paste your address manually.", "info");
+        });
+      } else {
+        showToast("Please paste your USDT Tether address into the field.", "info");
+      }
+    }
+
+    /**
+     * Protocol Messages & Alerts for Client Dashboard
+     */
+    let isTopBannerDismissed = false;
+
+    function checkClientAdminMessages() {
+      if (!window.UserDatabase) return;
+      const account = getAccountData();
+      if (!account || !account.user) return;
+
+      const msgs = UserDatabase.getMessagesForUser(account.user.id);
+      const unreadMsgs = msgs.filter(m => !m.isRead);
+
+      // Top navbar unread badge
+      const badge = document.getElementById('nav-unread-badge');
+      if (badge) {
+        if (unreadMsgs.length > 0) {
+          badge.textContent = unreadMsgs.length;
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      }
+
+      // Top admin announcement banner
+      const banner = document.getElementById('admin-alert-banner');
+      if (banner) {
+        if (unreadMsgs.length > 0 && !isTopBannerDismissed) {
+          const firstUnread = unreadMsgs[0];
+          const subjEl = document.getElementById('admin-banner-subject');
+          const bodyEl = document.getElementById('admin-banner-body');
+          if (subjEl) subjEl.textContent = firstUnread.subject;
+          if (bodyEl) bodyEl.textContent = firstUnread.body;
+          banner.classList.remove('hidden');
+        } else {
+          banner.classList.add('hidden');
+        }
+      }
+    }
+
+    function dismissTopAdminBanner() {
+      isTopBannerDismissed = true;
+      const banner = document.getElementById('admin-alert-banner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    function openClientInboxModal() {
+      renderClientInboxMessages();
+      openModal('client-inbox-modal');
+    }
+
+    function renderClientInboxMessages() {
+      if (!window.UserDatabase) return;
+      const account = getAccountData();
+      if (!account || !account.user) return;
+
+      const msgs = UserDatabase.getMessagesForUser(account.user.id);
+      const container = document.getElementById('inbox-messages-container');
+      const emptyNotice = document.getElementById('inbox-empty-notice');
+
+      if (!container) return;
+
+      if (!msgs || msgs.length === 0) {
+        container.innerHTML = '';
+        if (emptyNotice) emptyNotice.classList.remove('hidden');
+        return;
+      }
+
+      if (emptyNotice) emptyNotice.classList.add('hidden');
+
+      const priorityBadges = {
+        'urgent': '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-mono text-[10px] font-bold border border-rose-500/30">URGENT</span>',
+        'success': '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold border border-emerald-500/30">PAYOUT / SUCCESS</span>',
+        'warning': '<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono text-[10px] font-bold border border-amber-500/30">NOTICE</span>',
+        'info': '<span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-mono text-[10px] font-bold border border-cyan-500/30">INFO</span>'
+      };
+
+      container.innerHTML = msgs.map(m => {
+        const pBadge = priorityBadges[m.priority] || priorityBadges['info'];
+        const isUnread = !m.isRead;
+
+        return `
+          <div class="p-4 rounded-2xl ${isUnread ? 'bg-[#0b1426] border-2 border-amber-500/40 glow-amber' : 'bg-[#060a14] border border-white/10'} space-y-2.5 transition-all">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-2">
+                ${pBadge}
+                ${isUnread ? '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>' : ''}
+                <span class="text-xs text-slate-400 font-mono">${m.category || 'Announcement'}</span>
+              </div>
+              <span class="text-[11px] text-slate-500 font-mono">${m.createdAt ? m.createdAt.substring(5, 16) : ''}</span>
+            </div>
+
+            <div>
+              <h4 class="text-sm font-bold text-white">${m.subject}</h4>
+              <p class="text-xs text-slate-300 mt-1 leading-relaxed whitespace-pre-line">${m.body}</p>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-white/5 text-[11px] font-mono">
+              <span class="text-slate-400">Sender: <strong class="text-cyan-400">${m.sender || 'Protocol Admin'}</strong></span>
+              ${isUnread ? `
+                <button onclick="markSingleMessageAsRead('${m.id}')" class="text-amber-300 hover:text-white underline">
+                  Mark as read
+                </button>
+              ` : `
+                <span class="text-slate-500 flex items-center gap-1">✓ Read</span>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function markSingleMessageAsRead(msgId) {
+      const account = getAccountData();
+      if (!account || !account.user) return;
+      UserDatabase.markMessageRead(msgId, account.user.id);
+      renderClientInboxMessages();
+      checkClientAdminMessages();
+    }
+
+    function markAllMessagesAsRead() {
+      const account = getAccountData();
+      if (!account || !account.user) return;
+      const msgs = UserDatabase.getMessagesForUser(account.user.id);
+      msgs.forEach(m => UserDatabase.markMessageRead(m.id, account.user.id));
+      renderClientInboxMessages();
+      checkClientAdminMessages();
+      showToast("All messages marked as read.", "info");
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Auth Gate: ensure user is authenticated, otherwise redirect to signup
+      const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : null;
+      if (!currentId || !UserDatabase.getUserById(currentId)) {
+        window.location.href = 'login.html?tab=signup';
+        return;
+      }
+
+      lucide.createIcons();
+      updateDashboardUI();
+      checkClientAdminMessages();
+    });
+
+    // Real-time synchronization across browser tabs (e.g. when Admin matures, settles, or messages)
+    window.addEventListener('storage', (e) => {
+      if (
+        !e.key ||
+        e.key === 'cryptron_registered_users_v2' ||
+        e.key === 'cryptron_users_db' || 
+        e.key === 'cryptron_account_v3_countdown' || 
+        e.key === 'cryptron_broadcast_messages'
+      ) {
+        updateDashboardUI();
+        checkClientAdminMessages();
+      }
+    });
+
+    window.addEventListener('cryptron_users_updated', () => {
+      updateDashboardUI();
+      checkClientAdminMessages();
+    });
+  </script>
+</body>
+</html>
