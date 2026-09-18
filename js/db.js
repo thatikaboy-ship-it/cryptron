@@ -6,6 +6,7 @@
 
 const USERS_DB_KEY = "cryptron_registered_users_v2";
 const CURRENT_USER_KEY = "cryptron_current_user_id";
+const CLOUD_DB_KEY = "cryptron_cloud_database_url";
 
 // Initial seed database with sample registered users showcasing all 3 states:
 // 1. USR-1001: Active 7-day timer running
@@ -79,6 +80,158 @@ const SEED_USERS = [
     activePlans: []
   }
 ];
+
+/**
+ * GLOBAL REAL-TIME CLOUD DATABASE ENGINE
+ * Enables worldwide synchronization across all browsers, mobile phones, and devices.
+ * Uses Firebase Realtime Database (WebSockets) or direct Cloud REST API.
+ */
+class CloudSyncEngine {
+  static getCloudUrl() {
+    return localStorage.getItem(CLOUD_DB_KEY) || (window.CRYPTRON_CLOUD_CONFIG && window.CRYPTRON_CLOUD_CONFIG.databaseURL) || "";
+  }
+
+  static setCloudUrl(url) {
+    if (!url) {
+      localStorage.removeItem(CLOUD_DB_KEY);
+    } else {
+      let clean = url.trim();
+      if (clean.endsWith('/')) clean = clean.slice(0, -1);
+      localStorage.setItem(CLOUD_DB_KEY, clean);
+    }
+  }
+
+  static isConnected() {
+    return !!this.getCloudUrl();
+  }
+
+  static async pushUsers(users) {
+    const url = this.getCloudUrl();
+    if (!url || !Array.isArray(users)) return false;
+
+    try {
+      // 1. If Firebase SDK initialized
+      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+        await firebase.database().ref('cryptron_users').set(users);
+        return true;
+      }
+
+      // 2. Direct REST API via fetch
+      const endpoint = url.includes('.json') ? url : `${url}/cryptron_users.json`;
+      const res = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(users)
+      });
+      return res.ok;
+    } catch (e) {
+      console.warn("CloudSync push failed:", e);
+      return false;
+    }
+  }
+
+  static async pullUsers() {
+    const url = this.getCloudUrl();
+    if (!url) return null;
+
+    try {
+      let remoteUsers = null;
+
+      // 1. If Firebase SDK initialized
+      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+        const snap = await firebase.database().ref('cryptron_users').once('value');
+        remoteUsers = snap.val();
+      } else {
+        // 2. Direct REST API via fetch
+        const endpoint = url.includes('.json') ? url : `${url}/cryptron_users.json`;
+        const res = await fetch(endpoint);
+        if (res.ok) {
+          remoteUsers = await res.json();
+        }
+      }
+
+      if (remoteUsers && Array.isArray(remoteUsers) && remoteUsers.length > 0) {
+        const localRaw = localStorage.getItem(USERS_DB_KEY);
+        const localUsers = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeUsers(localUsers, remoteUsers);
+        
+        // Save merged without triggering infinite sync push
+        const serialized = JSON.stringify(merged);
+        localStorage.setItem(USERS_DB_KEY, serialized);
+        localStorage.setItem("cryptron_users_db", serialized);
+        
+        window.dispatchEvent(new StorageEvent('storage', { key: USERS_DB_KEY, newValue: serialized }));
+        window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
+        return merged;
+      }
+    } catch (e) {
+      console.warn("CloudSync pull failed:", e);
+    }
+    return null;
+  }
+
+  static mergeUsers(localUsers, remoteUsers) {
+    if (!Array.isArray(remoteUsers)) return localUsers;
+    const map = new Map();
+    localUsers.forEach(u => { if (u && u.id) map.set(u.id, u); });
+    
+    remoteUsers.forEach(ru => {
+      if (!ru || !ru.id) return;
+      if (!map.has(ru.id)) {
+        map.set(ru.id, ru);
+      } else {
+        const lu = map.get(ru.id);
+        if (ru.withdrawalRequest) lu.withdrawalRequest = ru.withdrawalRequest;
+        if (ru.pendingTxHash) lu.pendingTxHash = ru.pendingTxHash;
+        if (ru.investmentStatus === 'active') {
+          lu.investmentStatus = 'active';
+          if (ru.activePlans && ru.activePlans.length > 0) lu.activePlans = ru.activePlans;
+        }
+        if ((ru.referralCount || 0) > (lu.referralCount || 0)) {
+          lu.referralCount = ru.referralCount;
+        }
+        if (ru.referralBypassed) lu.referralBypassed = true;
+      }
+    });
+
+    return Array.from(map.values());
+  }
+
+  static initRealtimeListener(onUpdateCallback) {
+    const url = this.getCloudUrl();
+    if (!url) return;
+
+    try {
+      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+        firebase.database().ref('cryptron_users').on('value', (snap) => {
+          const remoteUsers = snap.val();
+          if (remoteUsers && Array.isArray(remoteUsers)) {
+            const localRaw = localStorage.getItem(USERS_DB_KEY);
+            const localUsers = localRaw ? JSON.parse(localRaw) : [];
+            const merged = CloudSyncEngine.mergeUsers(localUsers, remoteUsers);
+            const serialized = JSON.stringify(merged);
+            localStorage.setItem(USERS_DB_KEY, serialized);
+            localStorage.setItem("cryptron_users_db", serialized);
+            if (onUpdateCallback) onUpdateCallback(merged);
+          }
+        });
+      } else {
+        // Poll every 3 seconds for REST
+        setInterval(() => {
+          CloudSyncEngine.pullUsers().then(merged => {
+            if (merged && onUpdateCallback) onUpdateCallback(merged);
+          });
+        }, 3000);
+      }
+    } catch(e) {
+      console.warn("Realtime listener init error:", e);
+    }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.CloudSyncEngine = CloudSyncEngine;
+}
 
 class UserDatabase {
   /**
@@ -157,11 +310,19 @@ class UserDatabase {
       this.saveUsers(users);
     }
 
+    // Background sync with cloud database if connected
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected() && !this._isPullingCloud) {
+      this._isPullingCloud = true;
+      CloudSyncEngine.pullUsers().finally(() => {
+        setTimeout(() => { UserDatabase._isPullingCloud = false; }, 3000);
+      });
+    }
+
     return users;
   }
 
   /**
-   * Save all users back to localStorage
+   * Save all users back to localStorage and Cloud Database
    */
   static saveUsers(users) {
     const serialized = JSON.stringify(users);
@@ -183,6 +344,11 @@ class UserDatabase {
         const bc = new BroadcastChannel('cryptron_bus');
         bc.postMessage({ type: 'USERS_UPDATED', users: users });
         bc.close();
+      }
+
+      // Synchronize globally with Cloud Database (across any device or browser worldwide)
+      if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+        CloudSyncEngine.pushUsers(users);
       }
     } catch (e) {}
   }
