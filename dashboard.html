@@ -481,7 +481,7 @@
           <span id="withdraw-gate-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">3 / 5 Friends</span>
         </div>
         <p class="text-slate-300 text-[11px] leading-relaxed font-sans">
-          Rule: Clients must invite at least 5 friends who register and spin the Lucky Wheel before their yield payout can be withdrawn.
+          Rule: Clients must invite at least 5 friends who sign up with their referral link, deposit $10 in the vault, and spin the Lucky Wheel before yield payouts can be withdrawn.
         </p>
         
         <!-- Progress bar -->
@@ -489,19 +489,16 @@
           <div id="withdraw-gate-progress-bar" class="bg-gradient-to-r from-amber-400 to-yellow-300 h-full transition-all duration-500" style="width: 60%"></div>
         </div>
 
-        <div id="withdraw-gate-locked-actions" class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1">
+        <div id="withdraw-gate-locked-actions" class="flex items-center justify-between gap-2 pt-1">
           <button type="button" onclick="closeModal('withdraw-modal'); openReferralModal();" class="text-cyan-400 hover:text-cyan-300 text-[11px] font-mono underline flex items-center gap-1">
             <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
-            <span>Invite Friends Now</span>
-          </button>
-          <button type="button" onclick="simulateInviteFriend();" class="px-2.5 py-1 rounded-lg bg-amber-400/10 text-amber-300 border border-amber-500/30 hover:bg-amber-400/20 text-[10px] font-mono">
-            ⚡ Demo: +1 Friend Spun
+            <span>Invite Friends to Sign Up & Deposit</span>
           </button>
         </div>
 
         <div id="withdraw-gate-unlocked-msg" class="hidden p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono flex items-center gap-1.5">
           <i data-lucide="check-circle" class="w-4 h-4 flex-shrink-0"></i>
-          <span>✓ Requirement Met: 5/5 friends have spun the wheel. Withdrawals unlocked!</span>
+          <span>✓ Requirement Met: 5/5 friends have deposited and spun the wheel. Withdrawals unlocked!</span>
         </div>
       </div>
 
@@ -601,36 +598,45 @@
         <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center mx-auto mb-3">
           <i data-lucide="share-2" class="w-6 h-6"></i>
         </div>
-        <h3 class="text-xl font-bold text-white">Invite 5 Friends to Spin</h3>
-        <p class="text-xs text-slate-400 mt-1">Unlock your withdrawals by having 5 friends spin the wheel!</p>
+        <h3 class="text-xl font-bold text-white">Referral Program</h3>
+        <p class="text-xs text-slate-400 mt-1">Friends must sign up with your link, deposit $10, and spin the wheel.</p>
       </div>
 
-      <div class="p-4 rounded-xl bg-[#070b16] border border-white/10 space-y-3 font-mono text-xs mb-6">
+      <div class="p-4 rounded-xl bg-[#070b16] border border-white/10 space-y-3 font-mono text-xs mb-4">
         <div class="flex justify-between text-slate-400">
-          <span>Required Referrals:</span>
+          <span>Required Spun Referrals:</span>
           <span class="text-white font-bold">5 Clients</span>
         </div>
         <div class="flex justify-between text-slate-400">
-          <span>Your Successful Invites:</span>
-          <span class="text-amber-400 font-bold" id="ref-modal-count">3 Clients</span>
+          <span>Your Qualified Referrals (Spun):</span>
+          <span class="text-emerald-400 font-bold" id="ref-modal-count">0 / 5 Clients</span>
         </div>
         <div class="pt-2 border-t border-white/10">
-          <span class="text-slate-400 block mb-1">Your Referral Link:</span>
+          <span class="text-slate-400 block mb-1">Your Referral Signup Link:</span>
           <div class="flex items-center justify-between bg-black/40 p-2.5 rounded-lg border border-white/5">
-            <code class="text-cyan-300 text-[11px] truncate mr-2" id="ref-modal-link">Generating unique referral link...</code>
-            <button onclick="copyRefLinkFromModal()" class="text-slate-400 hover:text-cyan-400">
+            <code class="text-cyan-300 text-[11px] truncate mr-2 select-all" id="ref-modal-link">Generating unique referral link...</code>
+            <button onclick="copyRefLinkFromModal()" class="text-slate-400 hover:text-cyan-400" title="Copy Referral Link">
               <i data-lucide="copy" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
       </div>
 
+      <!-- Referred Friends Real-Time Tracking List -->
+      <div id="referred-friends-section" class="mb-4">
+        <div class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
+          <span>Your Referred Clients</span>
+          <span id="ref-friends-total-count" class="text-cyan-400 font-bold">0 Signed Up</span>
+        </div>
+        <div id="referred-friends-list" class="max-h-36 overflow-y-auto space-y-1.5 font-mono text-xs">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
       <div class="space-y-2">
-        <button onclick="copyRefLinkFromModal()" class="btn-shimmer w-full py-3 rounded-xl font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all text-xs font-mono uppercase tracking-wider">
-          Copy Referral Link
-        </button>
-        <button onclick="simulateInviteFriend()" class="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-all text-xs font-mono">
-          ⚡ Demo Test: Simulate +1 Invited Friend
+        <button onclick="copyRefLinkFromModal()" class="btn-shimmer w-full py-3 rounded-xl font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+          <span>Copy Referral Signup Link</span>
         </button>
       </div>
     </div>
@@ -732,6 +738,7 @@
 
     function openReferralModal() {
       openModal('referral-modal');
+      renderReferredFriendsList();
     }
 
     function openInvestModal(units = 1) {
@@ -1005,12 +1012,52 @@
     function copyRefLinkFromModal() {
       const account = getAccountData();
       const code = (account.user && account.user.referralCode) || "REF-1001-8821";
-      const link = window.getReferralLink ? getReferralLink(code) : `spin.html?ref=${encodeURIComponent(code)}`;
+      const link = window.getReferralLink ? getReferralLink(code) : `login.html?tab=signup&ref=${encodeURIComponent(code)}`;
       navigator.clipboard.writeText(link).then(() => {
-        showToast("Referral link copied! Share with friends to unlock withdrawals.", "success");
+        showToast("Referral signup link copied! Share with friends to register and deposit.", "success");
       }).catch(() => {
         showToast(`Referral link: ${link}`, "info");
       });
+    }
+
+    function renderReferredFriendsList() {
+      const account = getAccountData();
+      const listEl = document.getElementById('referred-friends-list');
+      const countEl = document.getElementById('ref-friends-total-count');
+      if (!listEl) return;
+
+      const code = (account.user && account.user.referralCode) || '';
+      const myId = (account.user && account.user.id) || '';
+      const friends = window.UserDatabase ? UserDatabase.getReferralsForUser(code || myId) : [];
+
+      if (countEl) countEl.textContent = `${friends.length} Signed Up`;
+
+      if (friends.length === 0) {
+        listEl.innerHTML = `<div class="p-3 text-center text-slate-500 text-[11px] bg-black/20 rounded-lg font-mono">No clients have registered with your referral link yet. Share your link above!</div>`;
+        return;
+      }
+
+      listEl.innerHTML = friends.map(f => {
+        const hasSpun = !!f.referralSpinCredited || (f.lastSpinTimestamp && f.lastSpinTimestamp > 0);
+        const hasDeposited = f.investmentStatus === 'active' || (f.activePlans && f.activePlans.length > 0);
+        let badge = '';
+        if (hasSpun) {
+          badge = `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">✓ Spun (+1 Counted)</span>`;
+        } else if (hasDeposited) {
+          badge = `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px]">Vault Active (Needs Spin)</span>`;
+        } else {
+          badge = `<span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-white/5 text-[10px]">Registered (Needs $10)</span>`;
+        }
+        return `
+          <div class="p-2.5 rounded-lg bg-black/40 border border-white/5 flex items-center justify-between font-mono">
+            <div>
+              <div class="font-bold text-white text-[11px]">${f.name}</div>
+              <div class="text-[10px] text-slate-500">${f.registeredAt ? f.registeredAt.substring(0, 10) : ''}</div>
+            </div>
+            <div>${badge}</div>
+          </div>
+        `;
+      }).join('');
     }
 
     /**
@@ -1102,12 +1149,13 @@
       const modalRefCount = document.getElementById('modal-ref-count');
       if (modalRefCount) modalRefCount.textContent = `${invited} / ${required} Invited`;
       const refModalCount = document.getElementById('ref-modal-count');
-      if (refModalCount) refModalCount.textContent = `${invited} Clients`;
+      if (refModalCount) refModalCount.textContent = `${invited} / ${required} Clients`;
       const refModalLink = document.getElementById('ref-modal-link');
       if (refModalLink) {
         const rCode = user.referralCode || "REF-1001-8821";
-        refModalLink.textContent = window.getReferralLink ? getReferralLink(rCode) : `spin.html?ref=${rCode}`;
+        refModalLink.textContent = window.getReferralLink ? getReferralLink(rCode) : `login.html?tab=signup&ref=${rCode}`;
       }
+      renderReferredFriendsList();
 
       // Update withdrawal modal states
       renderWithdrawalModalUI();

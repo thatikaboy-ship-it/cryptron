@@ -14,8 +14,8 @@ const CURRENT_USER_KEY = "cryptron_current_user_id";
 const SEED_USERS = [
   {
     id: "USR-1001",
-    name: "Demo Investor",
-    email: "investor@cryptron.io",
+    name: "David Miller",
+    email: "d.miller@cryptron.io",
     password: "password123",
     passwordMasked: "••••••••",
     registeredAt: "2026-09-12 14:30:22",
@@ -286,6 +286,7 @@ class UserDatabase {
     
     const now = new Date();
     const dateStr = now.toISOString().replace('T', ' ').substring(0, 19);
+    const cleanReferredBy = referredByCode ? referredByCode.trim().toUpperCase() : null;
 
     const newUser = {
       id: newId,
@@ -297,7 +298,8 @@ class UserDatabase {
       walletAddress: mockWallet,
       referralCode: refCode,
       referralCount: 0,
-      referredBy: referredByCode || null,
+      referredBy: cleanReferredBy,
+      referralSpinCredited: false, // Set to true once this referral deposits $10 and spins the wheel
       investmentStatus: "not_invested", // Starts with no investment until approved
       pendingTxHash: null,
       totalDeposited: 0.00,
@@ -310,15 +312,77 @@ class UserDatabase {
     users.unshift(newUser);
     this.saveUsers(users);
 
-    // Credit referrer if provided
-    if (referredByCode) {
-      this.creditReferral(referredByCode);
-    }
-
     // Set as active session
     this.setCurrentUserId(newUser.id);
 
     return newUser;
+  }
+
+  /**
+   * Record that a user has spun the wheel and credit their inviter if this is their first spin
+   * (Rule: Referrals must sign up, deposit $10, and spin the wheel for the inviter to receive credit)
+   */
+  static recordUserSpin(userId) {
+    if (!userId) return null;
+    const users = this.getAllUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) return null;
+
+    user.lastSpinTimestamp = Date.now();
+
+    // If this user was referred by someone and hasn't yet credited them for spinning
+    if (user.referredBy && !user.referralSpinCredited) {
+      user.referralSpinCredited = true;
+      const clean = user.referredBy.trim().toUpperCase();
+
+      // Find referrer by referral code or user id
+      let referrer = users.find(u => u.referralCode && u.referralCode.toUpperCase() === clean);
+      if (!referrer) {
+        const parts = clean.split('-');
+        if (parts.length >= 2) {
+          const candidateId = "usr-" + parts[1].toLowerCase();
+          referrer = users.find(u => u.id && u.id.toLowerCase() === candidateId);
+        }
+      }
+
+      if (referrer) {
+        referrer.referralCount = (referrer.referralCount || 0) + 1;
+        
+        // Sync active account in localStorage if referrer is in session
+        try {
+          const stored = localStorage.getItem("cryptron_account_v3_countdown");
+          if (stored) {
+            const acc = JSON.parse(stored);
+            if (acc.user && acc.user.id === referrer.id) {
+              acc.user.referralCount = referrer.referralCount;
+              localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
+            }
+          }
+        } catch(e) {}
+      }
+    }
+
+    this.saveUsers(users);
+    return user;
+  }
+
+  /**
+   * Get list of users referred by a specific referral code or user ID
+   */
+  static getReferralsForUser(refCodeOrId) {
+    if (!refCodeOrId) return [];
+    const users = this.getAllUsers();
+    const clean = refCodeOrId.trim().toUpperCase();
+    return users.filter(u => {
+      if (!u.referredBy) return false;
+      const refBy = u.referredBy.trim().toUpperCase();
+      if (refBy === clean) return true;
+      const parts = clean.split('-');
+      if (parts.length >= 2) {
+        return refBy === ("REF-" + parts[1]) || refBy.includes(parts[1]);
+      }
+      return false;
+    });
   }
 
   /**

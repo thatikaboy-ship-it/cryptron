@@ -376,30 +376,7 @@ function investInSevenDayPlan(units = 1) {
   return true;
 }
 
-/**
- * Simulate an invited friend registering & spinning the wheel (for testing)
- */
-function simulateInviteFriend() {
-  const account = getAccountData();
-  const currentCount = (account.user.referralCount || 0) + 1;
-  account.user.referralCount = currentCount;
-  saveAccountData(account);
 
-  if (window.UserDatabase && account.user && account.user.id) {
-    try {
-      const users = UserDatabase.getAllUsers();
-      const u = users.find(usr => usr.id === account.user.id);
-      if (u) {
-        u.referralCount = currentCount;
-        UserDatabase.saveUsers(users);
-      }
-    } catch(e) {}
-  }
-
-  showToast(`🎉 New referral joined and spun the wheel! Progress: ${currentCount} / 5`, "success");
-  if (typeof updateDashboardUI === 'function') updateDashboardUI();
-  if (typeof renderWithdrawalModalUI === 'function') renderWithdrawalModalUI();
-}
 
 /**
  * SPIN THE WHEEL ENGINE
@@ -454,32 +431,23 @@ function getTimeUntilTomorrow() {
   return { hours, minutes, seconds, diff };
 }
 
-function resetDailySpinForTesting() {
-  const account = getAccountData();
-  account.user.lastSpinTimestamp = 0;
-  saveAccountData(account);
-  showToast("✅ Daily spin reset! You can spin again now.", "success");
-  if (typeof checkSpinEligibility === 'function') checkSpinEligibility();
-  if (typeof updateDashboardUI === 'function') updateDashboardUI();
-}
 
-function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback, isGuestSpin = false) {
+
+function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
   const account = getAccountData();
 
-  if (!isGuestSpin) {
-    // Prerequisite 1: Must have invested in the $10 plan
-    const hasActivePlan = account.activePlans && account.activePlans.length > 0;
-    if (!hasActivePlan) {
-      showToast("🔒 Wheel is Locked! You must invest in the $10 plan before you can spin the wheel.", "warning");
-      return;
-    }
+  // Prerequisite 1: Must have invested in the $10 plan
+  const hasActivePlan = account.activePlans && account.activePlans.length > 0;
+  if (!hasActivePlan) {
+    showToast("🔒 Wheel is Locked! You must deposit and activate the $10 vault before you can spin the wheel.", "warning");
+    return;
+  }
 
-    // Prerequisite 2: Only 1 spin per day (blocked until tomorrow)
-    if (hasUserSpunToday(account.user.lastSpinTimestamp)) {
-      const cd = getTimeUntilTomorrow();
-      showToast(`⏳ Daily spin limit reached! Your next free spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).`, "warning");
-      return;
-    }
+  // Prerequisite 2: Only 1 spin per day (blocked until tomorrow)
+  if (hasUserSpunToday(account.user.lastSpinTimestamp)) {
+    const cd = getTimeUntilTomorrow();
+    showToast(`⏳ Daily spin limit reached! Your next free spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).`, "warning");
+    return;
   }
 
   if (isSpinning) return;
@@ -490,13 +458,8 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback, isGuestSpin 
   const prize = WHEEL_PRIZES[winningPrizeIndex];
 
   // Calculate target rotation angle
-  // Total 8 slices, each slice is 360 / 8 = 45 degrees
-  // Pointer is at the top (270 deg or 90 deg depending on orientation)
   const segmentAngle = 360 / WHEEL_PRIZES.length;
-  // Center of slice: (winningPrizeIndex * segmentAngle) + (segmentAngle / 2)
-  // Add 5 to 7 full 360-degree rotations for dramatic spin
   const extraRotations = 360 * 6;
-  // Angle so top pointer lands on slice
   const targetDegree = extraRotations + (360 - (winningPrizeIndex * segmentAngle + segmentAngle / 2));
 
   const canvas = document.getElementById(wheelCanvasId);
@@ -509,29 +472,30 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback, isGuestSpin 
   setTimeout(() => {
     isSpinning = false;
     
-    if (!isGuestSpin) {
-      // Record spin timestamp so user cannot spin again until tomorrow
-      account.user.lastSpinTimestamp = Date.now();
+    // Record spin timestamp so user cannot spin again until tomorrow
+    account.user.lastSpinTimestamp = Date.now();
 
-      if (prize.payout > 0) {
-        account.wallet.availableBalance += prize.payout;
-        account.transactions.unshift({
-          id: "TX-SPIN-" + Math.floor(1000 + Math.random() * 9000),
-          type: "Daily Spin Win",
-          amount: prize.payout,
-          method: "Lucky Wheel Reward",
-          date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          status: "Completed",
-          txHash: "0xSPIN" + Math.random().toString(16).substring(2, 10)
-        });
-        saveAccountData(account);
-        showToast(`🎉 You won ${formatUSD(prize.payout)} from the Daily Spin! Added to wallet. Next spin unlocks tomorrow.`, "success");
-      } else {
-        saveAccountData(account);
-        showToast(`You landed on: "${prize.text}". Come back tomorrow for your next free spin!`, "info");
-      }
+    // Record user spin in UserDatabase to credit their inviter if this referral spins for the first time
+    if (window.UserDatabase && account.user && account.user.id) {
+      UserDatabase.recordUserSpin(account.user.id);
+    }
+
+    if (prize.payout > 0) {
+      account.wallet.availableBalance += prize.payout;
+      account.transactions.unshift({
+        id: "TX-SPIN-" + Math.floor(1000 + Math.random() * 9000),
+        type: "Daily Spin Win",
+        amount: prize.payout,
+        method: "Lucky Wheel Reward",
+        date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        status: "Completed",
+        txHash: "0xSPIN" + Math.random().toString(16).substring(2, 10)
+      });
+      saveAccountData(account);
+      showToast(`🎉 You won ${formatUSD(prize.payout)} from the Daily Spin! Added to wallet. Next spin unlocks tomorrow.`, "success");
     } else {
-      showToast(`🎉 VIP Guest Spin complete! You landed on: "${prize.text}"!`, "success");
+      saveAccountData(account);
+      showToast(`You landed on: "${prize.text}". Come back tomorrow for your next free spin!`, "info");
     }
 
     if (canvas) {
@@ -686,9 +650,9 @@ function getReferralLink(code) {
   const path = window.location.pathname;
   if (origin && origin !== "null" && origin !== "file://") {
     const basePath = path.substring(0, path.lastIndexOf('/') + 1);
-    return `${origin}${basePath}spin.html?ref=${encodeURIComponent(code)}`;
+    return `${origin}${basePath}login.html?tab=signup&ref=${encodeURIComponent(code)}`;
   } else {
-    return `spin.html?ref=${encodeURIComponent(code)}`;
+    return `login.html?tab=signup&ref=${encodeURIComponent(code)}`;
   }
 }
 
@@ -700,10 +664,8 @@ document.addEventListener('DOMContentLoaded', () => {
 window.executeSpin = executeSpin;
 window.drawWheel = drawWheel;
 window.formatCountdown = formatCountdown;
-window.simulateInviteFriend = simulateInviteFriend;
 window.hasUserSpunToday = hasUserSpunToday;
 window.getTimeUntilTomorrow = getTimeUntilTomorrow;
-window.resetDailySpinForTesting = resetDailySpinForTesting;
 window.handleClientLogout = handleClientLogout;
 window.getReferralLink = getReferralLink;
 
