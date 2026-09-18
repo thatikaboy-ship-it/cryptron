@@ -206,6 +206,18 @@
       <!-- Dedicated Pending Client Payouts Action Box -->
       <div id="admin-pending-payouts-alert-box" class="hidden mb-6"></div>
 
+      <!-- Storage & Sync Status Indicator -->
+      <div class="mb-4 p-3 rounded-xl bg-slate-900/90 border border-emerald-500/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono text-slate-300">
+        <div class="flex items-center gap-2">
+          <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
+          <span><strong>Local Registry Storage:</strong> <span id="admin-db-status-count" class="text-emerald-400 font-bold">3</span> clients recorded.</span>
+        </div>
+        <div class="text-[11px] text-slate-400 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Auto-Sync Active (Updates automatically across browser tabs)</span>
+        </div>
+      </div>
+
       <!-- Users Table -->
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs sm:text-sm">
@@ -252,16 +264,30 @@
 
       <form id="add-user-form" onsubmit="handleAddUserSubmit(event)" class="space-y-4">
         <div>
-          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Full Legal Name</label>
-          <input type="text" id="new-user-name" required placeholder="e.g. John Doe" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500">
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Full Legal Name</label>
+          <input type="text" id="new-user-name" required placeholder="e.g. John Doe" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono">
         </div>
 
         <div>
-          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Email Address</label>
-          <input type="email" id="new-user-email" required placeholder="john@domain.com" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500">
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Email Address</label>
+          <input type="email" id="new-user-email" required placeholder="john@domain.com" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono">
         </div>
 
-        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/20 transition-all text-sm font-sans">
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Referred By Code (Optional)</label>
+          <input type="text" id="new-user-ref-by" placeholder="e.g. REF-1001-8821" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-cyan-300 focus:outline-none focus:border-cyan-500 font-mono uppercase">
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Initial Vault Status</label>
+          <select id="new-user-status" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono">
+            <option value="not_invested">⚪ No Plan (New Registered Signup)</option>
+            <option value="pending_approval">⚠️ Pending Confirmation ($10 Tx Hash Submitted)</option>
+            <option value="active">🟢 Active 7-Day Vault ($10 ➔ $25 Countdown Started)</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/20 transition-all text-sm font-sans uppercase tracking-wider">
           Save User to Database
         </button>
       </form>
@@ -824,6 +850,8 @@
       const wreqBadgeEl = document.getElementById('filter-wreq-count');
       if (wreqBadgeEl) wreqBadgeEl.textContent = withdrawalReqCount;
       document.getElementById('stat-inactive-users').textContent = Math.max(0, inactiveCount);
+      const dbStatusCount = document.getElementById('admin-db-status-count');
+      if (dbStatusCount) dbStatusCount.textContent = allUsers.length;
 
       // Update filter tab button labels with live counts
       const btnAll = document.getElementById('filter-all');
@@ -864,11 +892,11 @@
                       </div>
                       <div class="text-xs font-mono text-slate-300 flex items-center gap-2 flex-wrap pt-1">
                         <span class="text-slate-400">Payout Amount:</span>
-                        <span class="text-emerald-400 font-bold text-sm">$${u.withdrawalRequest.amount.toFixed(2)} USDT</span>
+                        <span class="text-emerald-400 font-bold text-sm">$${(Number(u.withdrawalRequest.amount) || 25).toFixed(2)} USDT</span>
                         <span class="text-slate-500">|</span>
                         <span class="text-slate-400">Pasted USDT Tether Address:</span>
-                        <span class="text-amber-300 font-bold bg-slate-900 px-2 py-0.5 rounded border border-white/10 select-all">${u.withdrawalRequest.usdtAddress}</span>
-                        <button type="button" onclick="navigator.clipboard.writeText('${u.withdrawalRequest.usdtAddress}'); showToast('USDT Address copied to clipboard!', 'success');" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 text-xs font-bold border border-cyan-500/40">
+                        <span class="text-amber-300 font-bold bg-slate-900 px-2 py-0.5 rounded border border-white/10 select-all">${u.withdrawalRequest.usdtAddress || 'N/A'}</span>
+                        <button type="button" onclick="navigator.clipboard.writeText('${u.withdrawalRequest.usdtAddress || ''}'); showToast('USDT Address copied to clipboard!', 'success');" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 text-xs font-bold border border-cyan-500/40">
                           📋 Copy Address
                         </button>
                       </div>
@@ -876,7 +904,7 @@
                     <div class="flex items-center gap-2">
                       <button onclick="confirmSettleWithdrawal('${u.id}')" class="btn-shimmer px-4 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider shadow-lg shadow-cyan-500/30 flex items-center gap-1.5 transition-all cursor-pointer">
                         <i data-lucide="check-check" class="w-4 h-4"></i>
-                        <span>Confirm & Settle Payout ($${u.withdrawalRequest.amount.toFixed(2)})</span>
+                        <span>Confirm & Settle Payout ($${(Number(u.withdrawalRequest.amount) || 25).toFixed(2)})</span>
                       </button>
                     </div>
                   </div>
@@ -890,17 +918,18 @@
         }
       }
 
-      // Filter by Search Query
+      // Filter by Search Query (safely guarded against undefined/null fields)
       let filtered = allUsers;
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase();
         filtered = filtered.filter(u => 
-          u.name.toLowerCase().includes(q) || 
-          u.email.toLowerCase().includes(q) || 
-          u.id.toLowerCase().includes(q) ||
-          (u.referralCode && u.referralCode.toLowerCase().includes(q)) ||
-          (u.pendingTxHash && u.pendingTxHash.toLowerCase().includes(q)) ||
-          (u.withdrawalRequest && u.withdrawalRequest.usdtAddress.toLowerCase().includes(q))
+          (u.name || '').toLowerCase().includes(q) || 
+          (u.email || '').toLowerCase().includes(q) || 
+          (u.id || '').toLowerCase().includes(q) ||
+          (u.referralCode || '').toLowerCase().includes(q) ||
+          (u.referredBy || '').toLowerCase().includes(q) ||
+          (u.pendingTxHash || '').toLowerCase().includes(q) ||
+          (u.withdrawalRequest && (u.withdrawalRequest.usdtAddress || '').toLowerCase().includes(q))
         );
       }
 
@@ -942,11 +971,11 @@
                   <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
                   💸 Payout Requested
                 </span>
-                <span class="text-xs font-mono font-bold text-emerald-400">$${wreq.amount.toFixed(2)} USDT</span>
+                <span class="text-xs font-mono font-bold text-emerald-400">$${(Number(wreq.amount) || 25).toFixed(2)} USDT</span>
               </div>
               <div class="text-[11px] font-mono text-slate-300 bg-black/40 px-2 py-1 rounded border border-white/5 flex items-center justify-between">
-                <span class="truncate max-w-[170px] text-amber-300 font-bold" title="${wreq.usdtAddress}">${wreq.usdtAddress}</span>
-                <button type="button" onclick="navigator.clipboard.writeText('${wreq.usdtAddress}'); showToast('USDT Address copied to clipboard!', 'info');" class="text-slate-400 hover:text-white ml-1.5" title="Copy USDT Address">
+                <span class="truncate max-w-[170px] text-amber-300 font-bold" title="${wreq.usdtAddress || ''}">${wreq.usdtAddress || 'N/A'}</span>
+                <button type="button" onclick="navigator.clipboard.writeText('${wreq.usdtAddress || ''}'); showToast('USDT Address copied to clipboard!', 'info');" class="text-slate-400 hover:text-white ml-1.5" title="Copy USDT Address">
                   <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                 </button>
               </div>
@@ -970,7 +999,7 @@
                   <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">$25 READY</span>
                 </div>
                 <div class="text-[11px] font-mono text-emerald-300">
-                  <span>Available to client: <strong>$${(user.availableBalance || 25).toFixed(2)} USDT</strong></span>
+                  <span>Available to client: <strong>$${(Number(user.availableBalance) || 25).toFixed(2)} USDT</strong></span>
                 </div>
               </div>
             `;
@@ -1082,21 +1111,24 @@
           </div>
         `;
 
+        const displayName = user.name || "Client";
+        const initials = displayName.substring(0, 2).toUpperCase();
+
         return `
           <tr class="hover:bg-white/[0.03] transition-colors">
             <td class="py-4">
               <div class="flex items-center gap-2.5">
                 <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-xs font-bold text-emerald-400">
-                  ${user.name.substring(0, 2).toUpperCase()}
+                  ${initials}
                 </div>
                 <div>
-                  <div class="font-bold text-white">${user.name}</div>
-                  <div class="text-[11px] text-emerald-400 font-mono">${user.id} · <span class="text-slate-400">${user.referralCode || ''}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}${user.referredBy ? ` · <span class="text-cyan-300 font-bold" title="Invited by">👤 ${user.referredBy}</span>` : ''}</div>
+                  <div class="font-bold text-white">${displayName}</div>
+                  <div class="text-[11px] text-emerald-400 font-mono">${user.id || ''} · <span class="text-slate-400">${user.referralCode || ''}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}${user.referredBy ? ` · <span class="text-cyan-300 font-bold" title="Invited by">👤 ${user.referredBy}</span>` : ''}</div>
                 </div>
               </div>
             </td>
-            <td class="py-4 text-cyan-300 font-mono text-xs">${user.email}</td>
-            <td class="py-4 text-slate-400 text-xs font-mono">${user.registeredAt}</td>
+            <td class="py-4 text-cyan-300 font-mono text-xs">${user.email || ''}</td>
+            <td class="py-4 text-slate-400 text-xs font-mono">${user.registeredAt || ''}</td>
             <td class="py-4">${statusHtml}</td>
             <td class="py-4 text-right">${actionsHtml}</td>
           </tr>
@@ -1157,8 +1189,31 @@
       e.preventDefault();
       const name = document.getElementById('new-user-name').value.trim();
       const email = document.getElementById('new-user-email').value.trim();
+      const refBy = document.getElementById('new-user-ref-by') ? document.getElementById('new-user-ref-by').value.trim() : '';
+      const initialStatus = document.getElementById('new-user-status') ? document.getElementById('new-user-status').value : 'not_invested';
+      
+      const previousActiveUserId = UserDatabase.getCurrentUserId();
+
       try {
-        const newUser = UserDatabase.registerUser(name, email, "password123");
+        const newUser = UserDatabase.registerUser(name, email, "password123", refBy || null);
+
+        if (initialStatus === 'active') {
+          UserDatabase.activateUserInvestment(newUser.id);
+        } else if (initialStatus === 'pending_approval') {
+          const allUsers = UserDatabase.getAllUsers();
+          const target = allUsers.find(u => u.id === newUser.id);
+          if (target) {
+            target.investmentStatus = 'pending_approval';
+            target.pendingTxHash = '0x' + Math.random().toString(16).substring(2, 12);
+            UserDatabase.saveUsers(allUsers);
+          }
+        }
+
+        // Restore previous staker session so admin remains undisturbed
+        if (previousActiveUserId) {
+          UserDatabase.setCurrentUserId(previousActiveUserId);
+        }
+
         showToast(`✅ New user ${newUser.name} (${newUser.id}) added to database!`, 'success');
         closeModal('add-user-modal');
         document.getElementById('add-user-form').reset();
@@ -1674,6 +1729,26 @@
       updateMsgCountBadge();
       updateOutboxBadge();
     });
+
+    // Instant cross-tab sync via BroadcastChannel
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('cryptron_bus');
+      bc.onmessage = (event) => {
+        if (event.data && (event.data.type === 'USERS_UPDATED' || event.data.type === 'NEW_SIGNUP')) {
+          renderUsers();
+          updateMsgCountBadge();
+          updateOutboxBadge();
+        }
+      };
+    }
+
+    // Continuous auto-polling so any background registration appears within 1.5s
+    setInterval(() => {
+      const isAuthed = sessionStorage.getItem('cryptron_admin_authenticated') === 'true';
+      if (isAuthed) {
+        renderUsers();
+      }
+    }, 1500);
   </script>
 </body>
 </html>

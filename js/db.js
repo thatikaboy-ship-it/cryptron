@@ -179,6 +179,11 @@ class UserDatabase {
           window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: users }));
         }
       }
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('cryptron_bus');
+        bc.postMessage({ type: 'USERS_UPDATED', users: users });
+        bc.close();
+      }
     } catch (e) {}
   }
 
