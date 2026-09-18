@@ -191,6 +191,10 @@
         </div>
 
         <div class="flex items-center gap-2">
+          <button id="admin-refresh-btn" onclick="refreshAdminUsers()" class="px-3.5 py-2 rounded-xl border border-emerald-500/30 hover:border-emerald-500/60 text-xs font-semibold text-emerald-400 bg-emerald-500/10 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm" title="Reload live user database">
+            <i id="admin-refresh-icon" data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <span>Refresh</span>
+          </button>
           <button onclick="openModal('add-user-modal')" class="px-3.5 py-2 rounded-xl border border-white/15 hover:border-white/30 text-xs font-semibold text-white bg-slate-900 flex items-center gap-1.5 transition-all">
             <i data-lucide="user-plus" class="w-4 h-4 text-emerald-400"></i>
             <span>+ Add User</span>
@@ -261,6 +265,9 @@
           Save User to Database
         </button>
       </form>
+    </div>
+  </div>
+
   <!-- ==================== EMAIL DISPATCHED PREVIEW MODAL ==================== -->
   <div id="email-dispatch-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-xl p-6 sm:p-8 rounded-3xl border border-white/20 glow-emerald relative">
@@ -818,6 +825,16 @@
       if (wreqBadgeEl) wreqBadgeEl.textContent = withdrawalReqCount;
       document.getElementById('stat-inactive-users').textContent = Math.max(0, inactiveCount);
 
+      // Update filter tab button labels with live counts
+      const btnAll = document.getElementById('filter-all');
+      if (btnAll) btnAll.textContent = `All Users (${allUsers.length})`;
+      const btnPending = document.getElementById('filter-pending');
+      if (btnPending) btnPending.textContent = `⚠️ Pending (${pendingCount})`;
+      const btnActive = document.getElementById('filter-active');
+      if (btnActive) btnActive.textContent = `🟢 Active Timers (${activeCount})`;
+      const btnInactive = document.getElementById('filter-inactive');
+      if (btnInactive) btnInactive.textContent = `⚪ No Plan (${Math.max(0, inactiveCount)})`;
+
       // Render dedicated top alert box for pending withdrawal payouts
       const pendingWithdrawals = allUsers.filter(u => !!u.withdrawalRequest);
       const alertBox = document.getElementById('admin-pending-payouts-alert-box');
@@ -1074,7 +1091,7 @@
                 </div>
                 <div>
                   <div class="font-bold text-white">${user.name}</div>
-                  <div class="text-[11px] text-emerald-400 font-mono">${user.id} · <span class="text-slate-400">${user.referralCode || ''}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}</div>
+                  <div class="text-[11px] text-emerald-400 font-mono">${user.id} · <span class="text-slate-400">${user.referralCode || ''}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}${user.referredBy ? ` · <span class="text-cyan-300 font-bold" title="Invited by">👤 ${user.referredBy}</span>` : ''}</div>
                 </div>
               </div>
             </td>
@@ -1087,6 +1104,19 @@
       }).join('');
 
       lucide.createIcons();
+    }
+
+    function refreshAdminUsers() {
+      const icon = document.getElementById('admin-refresh-icon');
+      if (icon) icon.classList.add('animate-spin');
+      renderUsers();
+      updateMsgCountBadge();
+      updateOutboxBadge();
+      const count = UserDatabase.getAllUsers().length;
+      showToast(`🔄 Refreshed: ${count} registered clients loaded in registry.`, 'success');
+      setTimeout(() => {
+        if (icon) icon.classList.remove('animate-spin');
+      }, 600);
     }
 
     /**
@@ -1121,6 +1151,22 @@
 
     function closeModal(id) {
       document.getElementById(id).classList.add('hidden');
+    }
+
+    function handleAddUserSubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-user-name').value.trim();
+      const email = document.getElementById('new-user-email').value.trim();
+      try {
+        const newUser = UserDatabase.registerUser(name, email, "password123");
+        showToast(`✅ New user ${newUser.name} (${newUser.id}) added to database!`, 'success');
+        closeModal('add-user-modal');
+        document.getElementById('add-user-form').reset();
+        setFilter('all');
+        renderUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
     }
 
     /**

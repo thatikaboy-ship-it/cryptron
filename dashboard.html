@@ -617,7 +617,7 @@
         <div class="pt-2 border-t border-white/10">
           <span class="text-slate-400 block mb-1">Your Referral Link:</span>
           <div class="flex items-center justify-between bg-black/40 p-2.5 rounded-lg border border-white/5">
-            <code class="text-cyan-300 text-[11px] truncate mr-2" id="ref-modal-link">https://cryptron.io/spin?ref=CRYP-STAKER88</code>
+            <code class="text-cyan-300 text-[11px] truncate mr-2" id="ref-modal-link">Generating unique referral link...</code>
             <button onclick="copyRefLinkFromModal()" class="text-slate-400 hover:text-cyan-400">
               <i data-lucide="copy" class="w-4 h-4"></i>
             </button>
@@ -1004,8 +1004,8 @@
 
     function copyRefLinkFromModal() {
       const account = getAccountData();
-      const code = account.user.referralCode || "CRYP-STAKER88";
-      const link = `https://cryptron.io/spin?ref=${code}`;
+      const code = (account.user && account.user.referralCode) || "REF-1001-8821";
+      const link = window.getReferralLink ? getReferralLink(code) : `spin.html?ref=${encodeURIComponent(code)}`;
       navigator.clipboard.writeText(link).then(() => {
         showToast("Referral link copied! Share with friends to unlock withdrawals.", "success");
       }).catch(() => {
@@ -1103,6 +1103,11 @@
       if (modalRefCount) modalRefCount.textContent = `${invited} / ${required} Invited`;
       const refModalCount = document.getElementById('ref-modal-count');
       if (refModalCount) refModalCount.textContent = `${invited} Clients`;
+      const refModalLink = document.getElementById('ref-modal-link');
+      if (refModalLink) {
+        const rCode = user.referralCode || "REF-1001-8821";
+        refModalLink.textContent = window.getReferralLink ? getReferralLink(rCode) : `spin.html?ref=${rCode}`;
+      }
 
       // Update withdrawal modal states
       renderWithdrawalModalUI();

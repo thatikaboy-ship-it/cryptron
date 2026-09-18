@@ -20,7 +20,7 @@ const SEED_USERS = [
     passwordMasked: "••••••••",
     registeredAt: "2026-09-12 14:30:22",
     walletAddress: "0x71C839e248bF2190827fA38aB15aF7",
-    referralCode: "CRYP-DEMO88",
+    referralCode: "REF-1001-8821",
     referralCount: 3,
     investmentStatus: "active", // 'active', 'pending_approval', 'not_invested'
     pendingTxHash: null,
@@ -50,7 +50,7 @@ const SEED_USERS = [
     passwordMasked: "••••••••",
     registeredAt: "2026-09-16 09:12:45",
     walletAddress: "0x39a1fe7c02b98811e9f45d8b8a7321",
-    referralCode: "CRYP-ELENA44",
+    referralCode: "REF-1002-4419",
     referralCount: 1,
     investmentStatus: "pending_approval",
     pendingTxHash: "0x4a9b2c89e1f02c4b81a77e90c5d61",
@@ -68,7 +68,7 @@ const SEED_USERS = [
     passwordMasked: "••••••••",
     registeredAt: "2026-09-17 18:40:10",
     walletAddress: "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
-    referralCode: "CRYP-MARCUS99",
+    referralCode: "REF-1003-9934",
     referralCount: 0,
     investmentStatus: "not_invested",
     pendingTxHash: null,
@@ -86,38 +86,93 @@ class UserDatabase {
    * @returns {Array} Array of user objects
    */
   static getAllUsers() {
-    const DB_VERSION_KEY = "cryptron_db_schema_version";
-    const CURRENT_VERSION = "v5_clean_auth";
-    const ver = localStorage.getItem(DB_VERSION_KEY);
+    let users = null;
+    const raw = localStorage.getItem(USERS_DB_KEY) || localStorage.getItem("cryptron_users_db");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          users = parsed;
+        }
+      } catch (e) {
+        console.error("Failed to parse user database:", e);
+      }
+    }
 
-    const raw = localStorage.getItem(USERS_DB_KEY);
-    if (!raw || ver !== CURRENT_VERSION) {
-      localStorage.setItem(DB_VERSION_KEY, CURRENT_VERSION);
-      localStorage.removeItem("cryptron_account_v3_countdown");
-      localStorage.removeItem(CURRENT_USER_KEY);
-      localStorage.setItem(USERS_DB_KEY, JSON.stringify(SEED_USERS));
-      return JSON.parse(JSON.stringify(SEED_USERS));
+    if (!users) {
+      users = JSON.parse(JSON.stringify(SEED_USERS));
+      this.saveUsers(users);
     }
+
+    // Safeguard: reconcile any user found in cryptron_account_v3_countdown
     try {
-      return JSON.parse(raw);
-    } catch (e) {
-      console.error("Failed to parse user database, re-seeding", e);
-      localStorage.setItem(USERS_DB_KEY, JSON.stringify(SEED_USERS));
-      return JSON.parse(JSON.stringify(SEED_USERS));
+      const activeAcctRaw = localStorage.getItem("cryptron_account_v3_countdown");
+      if (activeAcctRaw) {
+        const activeAcct = JSON.parse(activeAcctRaw);
+        if (activeAcct && activeAcct.user && activeAcct.user.id && activeAcct.user.email) {
+          const exists = users.some(u => u.id === activeAcct.user.id || u.email.toLowerCase() === activeAcct.user.email.toLowerCase());
+          if (!exists) {
+            users.unshift({
+              id: activeAcct.user.id,
+              name: activeAcct.user.name || "Client",
+              email: activeAcct.user.email,
+              password: "password123",
+              passwordMasked: "••••••••",
+              registeredAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+              walletAddress: activeAcct.user.walletAddress || "0x...",
+              referralCode: activeAcct.user.referralCode || `REF-${(activeAcct.user.id||'').replace(/\D/g, '') || '1004'}-7721`,
+              referralCount: activeAcct.user.referralCount || 0,
+              referralBypassed: !!activeAcct.user.referralBypassed,
+              investmentStatus: activeAcct.user.investmentStatus || (activeAcct.activePlans && activeAcct.activePlans.length > 0 ? 'active' : 'not_invested'),
+              pendingTxHash: activeAcct.user.pendingTxHash || null,
+              withdrawalRequest: activeAcct.user.withdrawalRequest || null,
+              totalDeposited: (activeAcct.wallet && activeAcct.wallet.investedBalance) || 0,
+              availableBalance: (activeAcct.wallet && activeAcct.wallet.availableBalance) || 0,
+              totalProfits: (activeAcct.wallet && activeAcct.wallet.totalProfits) || 0,
+              status: "Active",
+              activePlans: activeAcct.activePlans || []
+            });
+            this.saveUsers(users);
+          }
+        }
+      }
+    } catch(e) {}
+
+    // Ensure all users have valid unique numeric-based referral codes (no names)
+    let updated = false;
+    users.forEach(u => {
+      const numId = u.id ? u.id.replace(/\D/g, '') : Math.floor(1000 + Math.random() * 9000);
+      if (!u.referralCode || !u.referralCode.startsWith("REF-") || /[a-zA-Z]/.test(u.referralCode.replace(/^REF-/, ''))) {
+        const rnd = Math.floor(1000 + Math.random() * 9000);
+        u.referralCode = `REF-${numId}-${rnd}`;
+        updated = true;
+      }
+      if (u.referralCount === undefined) {
+        u.referralCount = 0;
+        updated = true;
+      }
+    });
+
+    if (updated) {
+      this.saveUsers(users);
     }
+
+    return users;
   }
 
   /**
    * Save all users back to localStorage
    */
   static saveUsers(users) {
-    localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
+    const serialized = JSON.stringify(users);
+    localStorage.setItem(USERS_DB_KEY, serialized);
+    localStorage.setItem("cryptron_users_db", serialized);
     try {
       if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         if (typeof StorageEvent !== 'undefined') {
           window.dispatchEvent(new StorageEvent('storage', {
             key: USERS_DB_KEY,
-            newValue: JSON.stringify(users)
+            newValue: serialized
           }));
         }
         if (typeof CustomEvent !== 'undefined') {
@@ -171,9 +226,49 @@ class UserDatabase {
   }
 
   /**
+   * Credit a referral count to the user matching the given referral code
+   * @param {string} refCode - e.g. "REF-1001-8821" or "REF-1004-7492"
+   */
+  static creditReferral(refCode) {
+    if (!refCode) return null;
+    const users = this.getAllUsers();
+    const clean = refCode.trim().toLowerCase();
+
+    // Match by exact referral code or by embedded numeric ID
+    let referrer = users.find(u => u.referralCode && u.referralCode.toLowerCase() === clean);
+    if (!referrer) {
+      const parts = clean.split('-');
+      if (parts.length >= 2) {
+        const candidateId = "usr-" + parts[1];
+        referrer = users.find(u => u.id && u.id.toLowerCase() === candidateId);
+      }
+    }
+
+    if (referrer) {
+      referrer.referralCount = (referrer.referralCount || 0) + 1;
+      this.saveUsers(users);
+
+      // Synchronize in-session account if referrer is logged in
+      try {
+        const stored = localStorage.getItem("cryptron_account_v3_countdown");
+        if (stored) {
+          const acc = JSON.parse(stored);
+          if (acc.user && acc.user.id === referrer.id) {
+            acc.user.referralCount = referrer.referralCount;
+            localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
+          }
+        }
+      } catch (e) {}
+
+      return referrer;
+    }
+    return null;
+  }
+
+  /**
    * Register a new user into the database
    */
-  static registerUser(name, email, password) {
+  static registerUser(name, email, password, referredByCode = null) {
     const users = this.getAllUsers();
     
     // Check if email already exists
@@ -182,8 +277,11 @@ class UserDatabase {
       throw new Error("An account with this email address already exists.");
     }
 
-    const newId = "USR-" + (1000 + users.length + 1);
-    const refCode = "CRYP-" + name.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 5) + Math.floor(10 + Math.random() * 90);
+    const nextNumber = 1000 + users.length + 1;
+    const newId = "USR-" + nextNumber;
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    // Unique ID-based referral code: strictly numbers and ID, NO client name
+    const refCode = `REF-${nextNumber}-${randomSuffix}`;
     const mockWallet = "0x" + Math.random().toString(16).substring(2, 10) + "..." + Math.random().toString(16).substring(2, 6);
     
     const now = new Date();
@@ -199,6 +297,7 @@ class UserDatabase {
       walletAddress: mockWallet,
       referralCode: refCode,
       referralCount: 0,
+      referredBy: referredByCode || null,
       investmentStatus: "not_invested", // Starts with no investment until approved
       pendingTxHash: null,
       totalDeposited: 0.00,
@@ -210,6 +309,11 @@ class UserDatabase {
 
     users.unshift(newUser);
     this.saveUsers(users);
+
+    // Credit referrer if provided
+    if (referredByCode) {
+      this.creditReferral(referredByCode);
+    }
 
     // Set as active session
     this.setCurrentUserId(newUser.id);

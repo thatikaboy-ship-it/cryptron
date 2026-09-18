@@ -97,18 +97,43 @@ function saveAccountData(data) {
   if (window.UserDatabase) {
     const currentUserId = UserDatabase.getCurrentUserId();
     const allUsers = UserDatabase.getAllUsers();
-    const user = allUsers.find(u => u.id === currentUserId);
+    let user = allUsers.find(u => u.id === currentUserId);
     if (user) {
       user.activePlans = data.activePlans || [];
       user.referralCount = data.user.referralCount || 0;
+      if (data.user.referralBypassed !== undefined) user.referralBypassed = !!data.user.referralBypassed;
       user.investmentStatus = (user.activePlans.length > 0) ? 'active' : (data.user.investmentStatus || 'not_invested');
       user.pendingTxHash = data.user.pendingTxHash || null;
       user.lastSpinTimestamp = data.user.lastSpinTimestamp || 0;
+      if (data.user.withdrawalRequest !== undefined) user.withdrawalRequest = data.user.withdrawalRequest;
       if (data.wallet) {
         user.availableBalance = data.wallet.availableBalance;
         user.totalProfits = data.wallet.totalProfits;
       }
       user.totalDeposited = user.activePlans.reduce((sum, p) => sum + (p.principal || 10), 0);
+      UserDatabase.saveUsers(allUsers);
+    } else if (data.user && data.user.id && data.user.email) {
+      // Re-insert user into UserDatabase if not present
+      allUsers.unshift({
+        id: data.user.id,
+        name: data.user.name || "Client",
+        email: data.user.email,
+        password: "password123",
+        passwordMasked: "••••••••",
+        registeredAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        walletAddress: data.user.walletAddress || "0x...",
+        referralCode: data.user.referralCode || `REF-${(data.user.id||'').replace(/\D/g, '') || '1004'}-8112`,
+        referralCount: data.user.referralCount || 0,
+        referralBypassed: !!data.user.referralBypassed,
+        investmentStatus: (data.activePlans && data.activePlans.length > 0) ? 'active' : (data.user.investmentStatus || 'not_invested'),
+        pendingTxHash: data.user.pendingTxHash || null,
+        withdrawalRequest: data.user.withdrawalRequest || null,
+        totalDeposited: (data.wallet && data.wallet.investedBalance) || 0,
+        availableBalance: (data.wallet && data.wallet.availableBalance) || 0,
+        totalProfits: (data.wallet && data.wallet.totalProfits) || 0,
+        status: "Active",
+        activePlans: data.activePlans || []
+      });
       UserDatabase.saveUsers(allUsers);
     }
   }
@@ -438,21 +463,23 @@ function resetDailySpinForTesting() {
   if (typeof updateDashboardUI === 'function') updateDashboardUI();
 }
 
-function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
+function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback, isGuestSpin = false) {
   const account = getAccountData();
 
-  // Prerequisite 1: Must have invested in the $10 plan
-  const hasActivePlan = account.activePlans && account.activePlans.length > 0;
-  if (!hasActivePlan) {
-    showToast("🔒 Wheel is Locked! You must invest in the $10 plan before you can spin the wheel.", "warning");
-    return;
-  }
+  if (!isGuestSpin) {
+    // Prerequisite 1: Must have invested in the $10 plan
+    const hasActivePlan = account.activePlans && account.activePlans.length > 0;
+    if (!hasActivePlan) {
+      showToast("🔒 Wheel is Locked! You must invest in the $10 plan before you can spin the wheel.", "warning");
+      return;
+    }
 
-  // Prerequisite 2: Only 1 spin per day (blocked until tomorrow)
-  if (hasUserSpunToday(account.user.lastSpinTimestamp)) {
-    const cd = getTimeUntilTomorrow();
-    showToast(`⏳ Daily spin limit reached! Your next free spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).`, "warning");
-    return;
+    // Prerequisite 2: Only 1 spin per day (blocked until tomorrow)
+    if (hasUserSpunToday(account.user.lastSpinTimestamp)) {
+      const cd = getTimeUntilTomorrow();
+      showToast(`⏳ Daily spin limit reached! Your next free spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).`, "warning");
+      return;
+    }
   }
 
   if (isSpinning) return;
@@ -482,25 +509,29 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
   setTimeout(() => {
     isSpinning = false;
     
-    // Record spin timestamp so user cannot spin again until tomorrow
-    account.user.lastSpinTimestamp = Date.now();
+    if (!isGuestSpin) {
+      // Record spin timestamp so user cannot spin again until tomorrow
+      account.user.lastSpinTimestamp = Date.now();
 
-    if (prize.payout > 0) {
-      account.wallet.availableBalance += prize.payout;
-      account.transactions.unshift({
-        id: "TX-SPIN-" + Math.floor(1000 + Math.random() * 9000),
-        type: "Daily Spin Win",
-        amount: prize.payout,
-        method: "Lucky Wheel Reward",
-        date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        status: "Completed",
-        txHash: "0xSPIN" + Math.random().toString(16).substring(2, 10)
-      });
-      saveAccountData(account);
-      showToast(`🎉 You won ${formatUSD(prize.payout)} from the Daily Spin! Added to wallet. Next spin unlocks tomorrow.`, "success");
+      if (prize.payout > 0) {
+        account.wallet.availableBalance += prize.payout;
+        account.transactions.unshift({
+          id: "TX-SPIN-" + Math.floor(1000 + Math.random() * 9000),
+          type: "Daily Spin Win",
+          amount: prize.payout,
+          method: "Lucky Wheel Reward",
+          date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          status: "Completed",
+          txHash: "0xSPIN" + Math.random().toString(16).substring(2, 10)
+        });
+        saveAccountData(account);
+        showToast(`🎉 You won ${formatUSD(prize.payout)} from the Daily Spin! Added to wallet. Next spin unlocks tomorrow.`, "success");
+      } else {
+        saveAccountData(account);
+        showToast(`You landed on: "${prize.text}". Come back tomorrow for your next free spin!`, "info");
+      }
     } else {
-      saveAccountData(account);
-      showToast(`You landed on: "${prize.text}". Come back tomorrow for your next free spin!`, "info");
+      showToast(`🎉 VIP Guest Spin complete! You landed on: "${prize.text}"!`, "success");
     }
 
     if (canvas) {
@@ -649,6 +680,18 @@ function handleClientLogout() {
   }, 400);
 }
 
+function getReferralLink(code) {
+  if (!code) code = "REF-1001-8821";
+  const origin = window.location.origin;
+  const path = window.location.pathname;
+  if (origin && origin !== "null" && origin !== "file://") {
+    const basePath = path.substring(0, path.lastIndexOf('/') + 1);
+    return `${origin}${basePath}spin.html?ref=${encodeURIComponent(code)}`;
+  } else {
+    return `spin.html?ref=${encodeURIComponent(code)}`;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initMobileMenu();
@@ -662,3 +705,5 @@ window.hasUserSpunToday = hasUserSpunToday;
 window.getTimeUntilTomorrow = getTimeUntilTomorrow;
 window.resetDailySpinForTesting = resetDailySpinForTesting;
 window.handleClientLogout = handleClientLogout;
+window.getReferralLink = getReferralLink;
+
