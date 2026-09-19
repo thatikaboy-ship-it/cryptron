@@ -90,7 +90,7 @@ const SEED_USERS = [
 // GLOBAL CLOUD DATABASE CONFIGURATION
 // To connect all devices, phones, and browsers worldwide in real-time,
 // enter your Firebase Realtime Database URL here (e.g. "https://your-project-default-rtdb.firebaseio.com")
-const GLOBAL_CLOUD_DB_URL = "";
+const GLOBAL_CLOUD_DB_URL = "https://cryptron-a4523-default-rtdb.firebaseio.com";
 
 /**
  * GLOBAL REAL-TIME CLOUD DATABASE ENGINE
