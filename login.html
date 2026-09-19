@@ -101,12 +101,12 @@
 
         <div>
           <div class="flex items-center justify-between mb-2">
-            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300">Referral ID / Code (Optional)</label>
-            <span id="signup-ref-badge" class="hidden text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Invited Client</span>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300">Promo Code (Optional)</label>
+            <span id="signup-ref-badge" class="hidden text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Promo Applied</span>
           </div>
           <div class="relative">
-            <i data-lucide="users" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input type="text" id="signup-ref-code" placeholder="e.g. REF-1001-8821" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors font-mono">
+            <i data-lucide="tag" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="signup-ref-code" placeholder="e.g. DAVID8821" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors font-mono uppercase">
           </div>
         </div>
 
@@ -357,7 +357,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       const urlParams = new URLSearchParams(window.location.search);
-      const refParam = urlParams.get('ref') || sessionStorage.getItem('cryptron_guest_referrer') || localStorage.getItem('cryptron_guest_referrer');
+      const refParam = urlParams.get('promo') || urlParams.get('ref') || sessionStorage.getItem('cryptron_guest_referrer') || localStorage.getItem('cryptron_guest_referrer');
       if (refParam) {
         sessionStorage.setItem('cryptron_guest_referrer', refParam);
         localStorage.setItem('cryptron_guest_referrer', refParam);

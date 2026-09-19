@@ -278,8 +278,8 @@
         </div>
 
         <div>
-          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Referred By Code (Optional)</label>
-          <input type="text" id="new-user-ref-by" placeholder="e.g. REF-1001-8821" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-cyan-300 focus:outline-none focus:border-cyan-500 font-mono uppercase">
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Promo Code Used (Optional)</label>
+          <input type="text" id="new-user-ref-by" placeholder="e.g. DAVID8821" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-sm text-cyan-300 focus:outline-none focus:border-cyan-500 font-mono uppercase">
         </div>
 
         <div>
@@ -1024,6 +1024,7 @@
           (u.name || '').toLowerCase().includes(q) || 
           (u.email || '').toLowerCase().includes(q) || 
           (u.id || '').toLowerCase().includes(q) ||
+          (u.promoCode || '').toLowerCase().includes(q) ||
           (u.referralCode || '').toLowerCase().includes(q) ||
           (u.referredBy || '').toLowerCase().includes(q) ||
           (u.pendingTxHash || '').toLowerCase().includes(q) ||
@@ -1221,7 +1222,7 @@
                 </div>
                 <div>
                   <div class="font-bold text-white">${displayName}</div>
-                  <div class="text-[11px] text-emerald-400 font-mono">${user.id || ''} · <span class="text-slate-400">${user.referralCode || ''}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}${user.referredBy ? ` · <span class="text-cyan-300 font-bold" title="Invited by">👤 ${user.referredBy}</span>` : ''}</div>
+                  <div class="text-[11px] text-emerald-400 font-mono">${user.id || ''} · <span class="text-slate-300 font-bold" title="Promo Code">🎟️ ${user.promoCode || user.referralCode || ''}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}${user.referredBy ? ` · <span class="text-cyan-300 font-bold" title="Used Promo Code">🎟️ ${user.referredBy}</span>` : ''}</div>
                 </div>
               </div>
             </td>
@@ -1538,22 +1539,6 @@
       }
     }
 
-    function handleAddUserSubmit(e) {
-      e.preventDefault();
-      const name = document.getElementById('new-user-name').value;
-      const email = document.getElementById('new-user-email').value;
-      recordAdminAction(`Registered new client: ${name}`);
-
-      try {
-        UserDatabase.registerUser(name, email, "password123");
-        closeModal('add-user-modal');
-        document.getElementById('add-user-form').reset();
-        showToast(`User ${name} registered! Click 'Start 7-Day Timer' to activate.`, 'success');
-        renderUsers();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
 
     function exportCSV() {
       UserDatabase.exportUsersCSV();

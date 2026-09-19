@@ -157,10 +157,14 @@
             </div>
           </div>
 
-          <div>
-            <button onclick="copyReferralLink()" class="w-full py-3 rounded-xl border border-white/20 text-xs font-mono text-slate-200 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center gap-2">
+          <div class="space-y-2">
+            <div class="p-2.5 bg-black/40 rounded-xl border border-white/10 flex items-center justify-between font-mono text-xs">
+              <span class="text-slate-400">Your Promo Code:</span>
+              <span id="spin-promo-code" class="text-amber-300 font-bold tracking-wider">DAVID8821</span>
+            </div>
+            <button onclick="copyPromoCode()" class="w-full py-3 rounded-xl border border-amber-500/30 text-xs font-mono text-amber-300 hover:text-white hover:bg-amber-500/10 transition-all flex items-center justify-center gap-2">
               <i data-lucide="copy" class="w-4 h-4 text-amber-400"></i>
-              <span>Copy Referral Signup Link</span>
+              <span>Copy Promo Code</span>
             </button>
           </div>
         </div>
@@ -291,6 +295,11 @@
       const refBar = document.getElementById('spin-ref-bar');
       if (refBar) refBar.style.width = `${percent}%`;
 
+      const promoEl = document.getElementById('spin-promo-code');
+      if (promoEl) {
+        promoEl.textContent = (account.user && (account.user.promoCode || account.user.referralCode)) || "DAVID8821";
+      }
+
       lucide.createIcons();
     }
 
@@ -338,16 +347,16 @@
       });
     }
 
-    function copyReferralLink() {
+    function copyPromoCode() {
       const account = getAccountData();
-      const code = (account.user && account.user.referralCode) || "REF-1001-8821";
-      const link = window.getReferralLink ? getReferralLink(code) : `login.html?tab=signup&ref=${encodeURIComponent(code)}`;
-      navigator.clipboard.writeText(link).then(() => {
-        showToast("Referral signup link copied! Share with friends to register and deposit.", "success");
+      const code = (account.user && (account.user.promoCode || account.user.referralCode)) || "DAVID8821";
+      navigator.clipboard.writeText(code).then(() => {
+        showToast(`Promo code "${code}" copied! Share with friends to enter at signup.`, "success");
       }).catch(() => {
-        showToast(`Referral link: ${link}`, "info");
+        showToast(`Your Promo Code: ${code}`, "info");
       });
     }
+    const copyReferralLink = copyPromoCode;
 
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();

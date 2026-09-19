@@ -21,7 +21,8 @@ const SEED_USERS = [
     passwordMasked: "••••••••",
     registeredAt: "2026-09-12 14:30:22",
     walletAddress: "0x71C839e248bF2190827fA38aB15aF7",
-    referralCode: "REF-1001-8821",
+    promoCode: "DAVID8821",
+    referralCode: "DAVID8821",
     referralCount: 3,
     investmentStatus: "active", // 'active', 'pending_approval', 'not_invested'
     pendingTxHash: null,
@@ -51,7 +52,8 @@ const SEED_USERS = [
     passwordMasked: "••••••••",
     registeredAt: "2026-09-16 09:12:45",
     walletAddress: "0x39a1fe7c02b98811e9f45d8b8a7321",
-    referralCode: "REF-1002-4419",
+    promoCode: "ELENA4419",
+    referralCode: "ELENA4419",
     referralCount: 1,
     investmentStatus: "pending_approval",
     pendingTxHash: "0x4a9b2c89e1f02c4b81a77e90c5d61",
@@ -69,7 +71,8 @@ const SEED_USERS = [
     passwordMasked: "••••••••",
     registeredAt: "2026-09-17 18:40:10",
     walletAddress: "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
-    referralCode: "REF-1003-9934",
+    promoCode: "MARCUS9934",
+    referralCode: "MARCUS9934",
     referralCount: 0,
     investmentStatus: "not_invested",
     pendingTxHash: null,
@@ -235,6 +238,33 @@ if (typeof window !== 'undefined') {
 
 class UserDatabase {
   /**
+   * Generate a promo code composed of the client's first name and random numbers.
+   * e.g. "David Miller" -> "DAVID8821", "Elena Rostova" -> "ELENA4419"
+   * @param {string} name - Client's full name
+   * @param {string} id - Optional user ID
+   * @returns {string} Unique promo code
+   */
+  static generatePromoCode(name, id = null) {
+    let firstName = "";
+    if (name && typeof name === "string") {
+      const parts = name.trim().split(/[\s._-]+/);
+      for (const part of parts) {
+        const stripped = part.replace(/[^a-zA-Z]/g, '').toUpperCase();
+        if (stripped.length >= 2) {
+          firstName = stripped;
+          break;
+        }
+      }
+      if (!firstName && parts[0]) {
+        firstName = parts[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
+      }
+    }
+    if (!firstName) firstName = "CRYP";
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    return `${firstName}${randomSuffix}`;
+  }
+
+  /**
    * Retrieve all registered users from database
    * @returns {Array} Array of user objects
    */
@@ -265,6 +295,7 @@ class UserDatabase {
         if (activeAcct && activeAcct.user && activeAcct.user.id && activeAcct.user.email) {
           const exists = users.some(u => u.id === activeAcct.user.id || u.email.toLowerCase() === activeAcct.user.email.toLowerCase());
           if (!exists) {
+            const pCode = activeAcct.user.promoCode || activeAcct.user.referralCode || UserDatabase.generatePromoCode(activeAcct.user.name, activeAcct.user.id);
             users.unshift({
               id: activeAcct.user.id,
               name: activeAcct.user.name || "Client",
@@ -273,7 +304,8 @@ class UserDatabase {
               passwordMasked: "••••••••",
               registeredAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
               walletAddress: activeAcct.user.walletAddress || "0x...",
-              referralCode: activeAcct.user.referralCode || `REF-${(activeAcct.user.id||'').replace(/\D/g, '') || '1004'}-7721`,
+              promoCode: pCode,
+              referralCode: pCode,
               referralCount: activeAcct.user.referralCount || 0,
               referralBypassed: !!activeAcct.user.referralBypassed,
               investmentStatus: activeAcct.user.investmentStatus || (activeAcct.activePlans && activeAcct.activePlans.length > 0 ? 'active' : 'not_invested'),
@@ -291,13 +323,17 @@ class UserDatabase {
       }
     } catch(e) {}
 
-    // Ensure all users have valid unique numeric-based referral codes (no names)
+    // Ensure all users have valid promo codes (client's first name + random numbers)
     let updated = false;
     users.forEach(u => {
-      const numId = u.id ? u.id.replace(/\D/g, '') : Math.floor(1000 + Math.random() * 9000);
-      if (!u.referralCode || !u.referralCode.startsWith("REF-") || /[a-zA-Z]/.test(u.referralCode.replace(/^REF-/, ''))) {
-        const rnd = Math.floor(1000 + Math.random() * 9000);
-        u.referralCode = `REF-${numId}-${rnd}`;
+      // If missing promoCode or not in [FIRSTNAME][NUMBERS] format
+      if (!u.promoCode || !/^[A-Za-z]+[0-9]+$/.test(u.promoCode)) {
+        u.promoCode = UserDatabase.generatePromoCode(u.name, u.id);
+        u.referralCode = u.promoCode;
+        updated = true;
+      }
+      if (!u.referralCode) {
+        u.referralCode = u.promoCode;
         updated = true;
       }
       if (u.referralCount === undefined) {
@@ -397,20 +433,24 @@ class UserDatabase {
   }
 
   /**
-   * Credit a referral count to the user matching the given referral code
-   * @param {string} refCode - e.g. "REF-1001-8821" or "REF-1004-7492"
+   * Credit a referral count to the user matching the given promo code or referral code
+   * @param {string} promoCodeOrId - e.g. "DAVID8821" or "USR-1001"
    */
-  static creditReferral(refCode) {
-    if (!refCode) return null;
+  static creditReferral(promoCodeOrId) {
+    if (!promoCodeOrId) return null;
     const users = this.getAllUsers();
-    const clean = refCode.trim().toLowerCase();
+    const clean = promoCodeOrId.trim().toUpperCase();
 
-    // Match by exact referral code or by embedded numeric ID
-    let referrer = users.find(u => u.referralCode && u.referralCode.toLowerCase() === clean);
+    // Match by promo code, referral code, or user ID
+    let referrer = users.find(u => 
+      (u.promoCode && u.promoCode.toUpperCase() === clean) || 
+      (u.referralCode && u.referralCode.toUpperCase() === clean) ||
+      (u.id && u.id.toUpperCase() === clean)
+    );
     if (!referrer) {
       const parts = clean.split('-');
       if (parts.length >= 2) {
-        const candidateId = "usr-" + parts[1];
+        const candidateId = "usr-" + parts[1].toLowerCase();
         referrer = users.find(u => u.id && u.id.toLowerCase() === candidateId);
       }
     }
@@ -437,7 +477,7 @@ class UserDatabase {
   }
 
   /**
-   * Register a new user into the database
+   * Register a new user into the database with client first name + random number promo code
    */
   static registerUser(name, email, password, referredByCode = null) {
     const users = this.getAllUsers();
@@ -450,9 +490,8 @@ class UserDatabase {
 
     const nextNumber = 1000 + users.length + 1;
     const newId = "USR-" + nextNumber;
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    // Unique ID-based referral code: strictly numbers and ID, NO client name
-    const refCode = `REF-${nextNumber}-${randomSuffix}`;
+    // Promo code composed of client's first name and random numbers
+    const promoCode = this.generatePromoCode(name, newId);
     const mockWallet = "0x" + Math.random().toString(16).substring(2, 10) + "..." + Math.random().toString(16).substring(2, 6);
     
     const now = new Date();
@@ -467,7 +506,8 @@ class UserDatabase {
       passwordMasked: "••••••••",
       registeredAt: dateStr,
       walletAddress: mockWallet,
-      referralCode: refCode,
+      promoCode: promoCode,
+      referralCode: promoCode,
       referralCount: 0,
       referredBy: cleanReferredBy,
       referralSpinCredited: false, // Set to true once this referral deposits $10 and spins the wheel
@@ -491,7 +531,7 @@ class UserDatabase {
 
   /**
    * Record that a user has spun the wheel and credit their inviter if this is their first spin
-   * (Rule: Referrals must sign up, deposit $10, and spin the wheel for the inviter to receive credit)
+   * (Rule: Referrals must sign up with promo code, deposit $10, and spin the wheel for the inviter to receive credit)
    */
   static recordUserSpin(userId) {
     if (!userId) return null;
@@ -506,8 +546,12 @@ class UserDatabase {
       user.referralSpinCredited = true;
       const clean = user.referredBy.trim().toUpperCase();
 
-      // Find referrer by referral code or user id
-      let referrer = users.find(u => u.referralCode && u.referralCode.toUpperCase() === clean);
+      // Find referrer by promo code, referral code, or user id
+      let referrer = users.find(u => 
+        (u.promoCode && u.promoCode.toUpperCase() === clean) || 
+        (u.referralCode && u.referralCode.toUpperCase() === clean) ||
+        (u.id && u.id.toUpperCase() === clean)
+      );
       if (!referrer) {
         const parts = clean.split('-');
         if (parts.length >= 2) {
@@ -538,16 +582,29 @@ class UserDatabase {
   }
 
   /**
-   * Get list of users referred by a specific referral code or user ID
+   * Get list of users referred by a specific promo code or user ID
    */
-  static getReferralsForUser(refCodeOrId) {
-    if (!refCodeOrId) return [];
+  static getReferralsForUser(promoCodeOrId) {
+    if (!promoCodeOrId) return [];
     const users = this.getAllUsers();
-    const clean = refCodeOrId.trim().toUpperCase();
+    const clean = promoCodeOrId.trim().toUpperCase();
+    
+    // Find the owner user to know their ID, promoCode, and referralCode
+    const owner = users.find(u => 
+      (u.id && u.id.toUpperCase() === clean) || 
+      (u.promoCode && u.promoCode.toUpperCase() === clean) || 
+      (u.referralCode && u.referralCode.toUpperCase() === clean)
+    );
+
     return users.filter(u => {
       if (!u.referredBy) return false;
       const refBy = u.referredBy.trim().toUpperCase();
       if (refBy === clean) return true;
+      if (owner) {
+        if (owner.promoCode && refBy === owner.promoCode.toUpperCase()) return true;
+        if (owner.referralCode && refBy === owner.referralCode.toUpperCase()) return true;
+        if (owner.id && refBy === owner.id.toUpperCase()) return true;
+      }
       const parts = clean.split('-');
       if (parts.length >= 2) {
         return refBy === ("REF-" + parts[1]) || refBy.includes(parts[1]);
@@ -808,11 +865,12 @@ class UserDatabase {
    */
   static exportUsersCSV() {
     const users = this.getAllUsers();
-    let csv = "User ID,Full Name,Email Address,Registered Date,Wallet Address,Referral Code,Investment Status,Active Contracts,Total Deposited,Submitted Tx Hash,Status\n";
+    let csv = "User ID,Full Name,Email Address,Registered Date,Wallet Address,Promo Code,Referred By,Investment Status,Active Contracts,Total Deposited,Submitted Tx Hash,Status\n";
     
     users.forEach(u => {
       const activeCount = (u.activePlans || []).length;
-      csv += `"${u.id}","${u.name}","${u.email}","${u.registeredAt}","${u.walletAddress}","${u.referralCode}","${u.investmentStatus}","${activeCount}","$${u.totalDeposited || 0}","${u.pendingTxHash || 'N/A'}","${u.status}"\n`;
+      const pCode = u.promoCode || u.referralCode || '';
+      csv += `"${u.id}","${u.name}","${u.email}","${u.registeredAt}","${u.walletAddress}","${pCode}","${u.referredBy || 'None'}","${u.investmentStatus}","${activeCount}","$${u.totalDeposited || 0}","${u.pendingTxHash || 'N/A'}","${u.status}"\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv' });

@@ -39,7 +39,7 @@ investment-website/
 ## 📊 User Database & Admin Control System
 
 1. **Automatic Registration Storage (`js/db.js`)**:
-   - Whenever any visitor registers via [login.html](file:///c:/Users/1030g2/Desktop/investment-website/login.html), their full name, email address, registration timestamp, auto-generated wallet address, and unique referral code are permanently saved to the database.
+   - Whenever any visitor registers via [login.html](file:///c:/Users/1030g2/Desktop/investment-website/login.html), their full name, email address, registration timestamp, auto-generated wallet address, and unique promo code (client's first name + random numbers) are permanently saved to the database.
    - Prevents duplicate signups with the same email.
 
 2. **Protected Admin Portal ([admin.html](file:///c:/Users/1030g2/Desktop/investment-website/admin.html))**:

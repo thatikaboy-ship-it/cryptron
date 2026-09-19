@@ -13,6 +13,7 @@ const DEFAULT_ACCOUNT = {
     email: "",
     tier: "Staker",
     walletAddress: "",
+    promoCode: "",
     referralCode: "",
     referralCount: 0,
     requiredReferrals: 5,
@@ -52,7 +53,8 @@ function getAccountData() {
       base.user.name = dbUser.name;
       base.user.email = dbUser.email;
       base.user.walletAddress = dbUser.walletAddress;
-      base.user.referralCode = dbUser.referralCode;
+      base.user.promoCode = dbUser.promoCode || dbUser.referralCode || "DAVID8821";
+      base.user.referralCode = base.user.promoCode;
       base.user.referralCount = dbUser.referralCount !== undefined ? dbUser.referralCount : 0;
       base.user.referralBypassed = !!dbUser.referralBypassed;
       base.user.investmentStatus = dbUser.investmentStatus || (dbUser.activePlans && dbUser.activePlans.length > 0 ? 'active' : 'not_invested');
@@ -644,16 +646,14 @@ function handleClientLogout() {
   }, 400);
 }
 
+function getPromoCode(userOrCode) {
+  if (!userOrCode) return "DAVID8821";
+  if (typeof userOrCode === "string") return userOrCode;
+  return userOrCode.promoCode || userOrCode.referralCode || "DAVID8821";
+}
+
 function getReferralLink(code) {
-  if (!code) code = "REF-1001-8821";
-  const origin = window.location.origin;
-  const path = window.location.pathname;
-  if (origin && origin !== "null" && origin !== "file://") {
-    const basePath = path.substring(0, path.lastIndexOf('/') + 1);
-    return `${origin}${basePath}login.html?tab=signup&ref=${encodeURIComponent(code)}`;
-  } else {
-    return `login.html?tab=signup&ref=${encodeURIComponent(code)}`;
-  }
+  return code || "DAVID8821";
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -668,4 +668,5 @@ window.hasUserSpunToday = hasUserSpunToday;
 window.getTimeUntilTomorrow = getTimeUntilTomorrow;
 window.handleClientLogout = handleClientLogout;
 window.getReferralLink = getReferralLink;
+window.getPromoCode = getPromoCode;
 

@@ -481,7 +481,7 @@
           <span id="withdraw-gate-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">3 / 5 Friends</span>
         </div>
         <p class="text-slate-300 text-[11px] leading-relaxed font-sans">
-          Rule: Clients must invite at least 5 friends who sign up with their referral link, deposit $10 in the vault, and spin the Lucky Wheel before yield payouts can be withdrawn.
+          Rule: Clients must invite at least 5 friends who sign up with their promo code, deposit $10 in the vault, and spin the Lucky Wheel before yield payouts can be withdrawn.
         </p>
         
         <!-- Progress bar -->
@@ -491,8 +491,8 @@
 
         <div id="withdraw-gate-locked-actions" class="flex items-center justify-between gap-2 pt-1">
           <button type="button" onclick="closeModal('withdraw-modal'); openReferralModal();" class="text-cyan-400 hover:text-cyan-300 text-[11px] font-mono underline flex items-center gap-1">
-            <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
-            <span>Invite Friends to Sign Up & Deposit</span>
+            <i data-lucide="tag" class="w-3.5 h-3.5"></i>
+            <span>Share Promo Code with Friends</span>
           </button>
         </div>
 
@@ -587,7 +587,7 @@
     </div>
   </div>
 
-  <!-- 4. Referral / Invite Modal -->
+  <!-- 4. Promo Code / Referral Modal -->
   <div id="referral-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-cyan relative">
       <button onclick="closeModal('referral-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
@@ -595,11 +595,11 @@
       </button>
 
       <div class="text-center mb-6">
-        <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center mx-auto mb-3">
-          <i data-lucide="share-2" class="w-6 h-6"></i>
+        <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-cyan-500/20">
+          <i data-lucide="tag" class="w-6 h-6"></i>
         </div>
-        <h3 class="text-xl font-bold text-white">Referral Program</h3>
-        <p class="text-xs text-slate-400 mt-1">Friends must sign up with your link, deposit $10, and spin the wheel.</p>
+        <h3 class="text-xl font-bold text-white">Promo Code Program</h3>
+        <p class="text-xs text-slate-400 mt-1">Friends enter your promo code at signup, deposit $10, and spin the wheel.</p>
       </div>
 
       <div class="p-4 rounded-xl bg-[#070b16] border border-white/10 space-y-3 font-mono text-xs mb-4">
@@ -612,11 +612,12 @@
           <span class="text-emerald-400 font-bold" id="ref-modal-count">0 / 5 Clients</span>
         </div>
         <div class="pt-2 border-t border-white/10">
-          <span class="text-slate-400 block mb-1">Your Referral Signup Link:</span>
-          <div class="flex items-center justify-between bg-black/40 p-2.5 rounded-lg border border-white/5">
-            <code class="text-cyan-300 text-[11px] truncate mr-2 select-all" id="ref-modal-link">Generating unique referral link...</code>
-            <button onclick="copyRefLinkFromModal()" class="text-slate-400 hover:text-cyan-400" title="Copy Referral Link">
+          <span class="text-slate-400 block mb-1.5">Your Personal Promo Code:</span>
+          <div class="flex items-center justify-between bg-black/40 p-3 rounded-xl border border-cyan-500/30">
+            <span class="text-xl font-black text-cyan-300 tracking-wider font-mono select-all" id="ref-modal-code">DAVID8821</span>
+            <button onclick="copyPromoCodeFromModal()" class="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 text-xs font-mono font-bold flex items-center gap-1.5 transition-colors" title="Copy Promo Code">
               <i data-lucide="copy" class="w-4 h-4"></i>
+              <span>Copy Code</span>
             </button>
           </div>
         </div>
@@ -625,7 +626,7 @@
       <!-- Referred Friends Real-Time Tracking List -->
       <div id="referred-friends-section" class="mb-4">
         <div class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
-          <span>Your Referred Clients</span>
+          <span>Clients Who Used Your Code</span>
           <span id="ref-friends-total-count" class="text-cyan-400 font-bold">0 Signed Up</span>
         </div>
         <div id="referred-friends-list" class="max-h-36 overflow-y-auto space-y-1.5 font-mono text-xs">
@@ -634,9 +635,9 @@
       </div>
 
       <div class="space-y-2">
-        <button onclick="copyRefLinkFromModal()" class="btn-shimmer w-full py-3 rounded-xl font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2">
+        <button onclick="copyPromoCodeFromModal()" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-all text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20">
           <i data-lucide="copy" class="w-4 h-4"></i>
-          <span>Copy Referral Signup Link</span>
+          <span>Copy Promo Code</span>
         </button>
       </div>
     </div>
@@ -1011,16 +1012,16 @@
       }
     }
 
-    function copyRefLinkFromModal() {
+    function copyPromoCodeFromModal() {
       const account = getAccountData();
-      const code = (account.user && account.user.referralCode) || "REF-1001-8821";
-      const link = window.getReferralLink ? getReferralLink(code) : `login.html?tab=signup&ref=${encodeURIComponent(code)}`;
-      navigator.clipboard.writeText(link).then(() => {
-        showToast("Referral signup link copied! Share with friends to register and deposit.", "success");
+      const code = (account.user && (account.user.promoCode || account.user.referralCode)) || "DAVID8821";
+      navigator.clipboard.writeText(code).then(() => {
+        showToast(`Promo code "${code}" copied! Share with friends to enter at signup.`, "success");
       }).catch(() => {
-        showToast(`Referral link: ${link}`, "info");
+        showToast(`Your Promo Code: ${code}`, "info");
       });
     }
+    const copyRefLinkFromModal = copyPromoCodeFromModal;
 
     function renderReferredFriendsList() {
       const account = getAccountData();
@@ -1028,14 +1029,14 @@
       const countEl = document.getElementById('ref-friends-total-count');
       if (!listEl) return;
 
-      const code = (account.user && account.user.referralCode) || '';
+      const code = (account.user && (account.user.promoCode || account.user.referralCode)) || '';
       const myId = (account.user && account.user.id) || '';
       const friends = window.UserDatabase ? UserDatabase.getReferralsForUser(code || myId) : [];
 
       if (countEl) countEl.textContent = `${friends.length} Signed Up`;
 
       if (friends.length === 0) {
-        listEl.innerHTML = `<div class="p-3 text-center text-slate-500 text-[11px] bg-black/20 rounded-lg font-mono">No clients have registered with your referral link yet. Share your link above!</div>`;
+        listEl.innerHTML = `<div class="p-3 text-center text-slate-500 text-[11px] bg-black/20 rounded-lg font-mono">No clients have registered with your promo code yet. Share your code above!</div>`;
         return;
       }
 
@@ -1152,10 +1153,14 @@
       if (modalRefCount) modalRefCount.textContent = `${invited} / ${required} Invited`;
       const refModalCount = document.getElementById('ref-modal-count');
       if (refModalCount) refModalCount.textContent = `${invited} / ${required} Clients`;
+      const refModalCode = document.getElementById('ref-modal-code');
+      if (refModalCode) {
+        const rCode = (user.promoCode || user.referralCode) || "DAVID8821";
+        refModalCode.textContent = rCode;
+      }
       const refModalLink = document.getElementById('ref-modal-link');
       if (refModalLink) {
-        const rCode = user.referralCode || "REF-1001-8821";
-        refModalLink.textContent = window.getReferralLink ? getReferralLink(rCode) : `login.html?tab=signup&ref=${rCode}`;
+        refModalLink.textContent = (user.promoCode || user.referralCode) || "DAVID8821";
       }
       renderReferredFriendsList();
 
