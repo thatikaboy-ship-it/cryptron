@@ -477,36 +477,156 @@ const WHEEL_PRIZES = [
 // Available segments that can be won (excludes index 0 = $10,000)
 const ALLOWED_WIN_INDICES = [1, 2, 3, 4, 5, 6, 7];
 
+const SPIN_COOLDOWN_MS = 24 * 60 * 60 * 1000; // Exactly 24 Hours in Milliseconds
+
 /**
- * Daily Spin cooldown check: verifies if user has spun on current calendar day
- * @param {number} timestamp - Last spin timestamp
- * @param {number} [contractCreatedAt] - When the current active contract was started
+ * Check if the 7-day contract countdown has expired or matured ("spin ends after countdown")
  */
-function hasUserSpunToday(timestamp, contractCreatedAt) {
-  if (!timestamp || timestamp <= 0) return false;
-  // If the spin occurred before or at the moment the contract was created,
-  // user has NOT spun under this active countdown, so allow spin today!
-  if (contractCreatedAt && timestamp <= contractCreatedAt) {
-    return false;
+function isContractCountdownExpired(account) {
+  if (!account) return true;
+  const primaryPlan = (account.activePlans && account.activePlans.length > 0) ? account.activePlans[0] : null;
+  if (!primaryPlan) {
+    return !(account.user && (account.user.investmentStatus === 'active' || account.user.hasActiveInvestment));
   }
-  const spinDate = new Date(timestamp);
-  const today = new Date();
-  return spinDate.getFullYear() === today.getFullYear() &&
-         spinDate.getMonth() === today.getMonth() &&
-         spinDate.getDate() === today.getDate();
+  if (primaryPlan.isMatured || (primaryPlan.maturityTimestamp && primaryPlan.maturityTimestamp <= Date.now())) {
+    return true;
+  }
+  if (account.user && account.user.investmentStatus === 'matured') {
+    return true;
+  }
+  return false;
 }
 
 /**
- * Calculates hours and minutes remaining until next calendar day midnight
+ * Universal Spin Status Checker
+ * Handles:
+ * 1. Unfunded state ($10 vault not active)
+ * 2. Contract Expired state (7-day countdown ended -> daily spins end for this contract)
+ * 3. 24-Hour Cooldown state (after each spin, exactly 24 hours until next spin)
+ * 4. Ready state (Day 1 first spin or 24 hours have elapsed)
  */
+function getSpinStatus(account) {
+  if (!account) account = getAccountData();
+  const isFunded = window.isClientFundedAndActive ? isClientFundedAndActive(account) : 
+    ((account.activePlans && account.activePlans.length > 0) || (account.user && (account.user.investmentStatus === 'active' || account.user.hasActiveInvestment)));
+
+  // State 1: Not funded
+  if (!isFunded) {
+    return {
+      canSpin: false,
+      reason: 'not_funded',
+      badgeText: 'LOCKED',
+      message: 'Deposit $10 to unlock your daily free spin on the $10,000 Lucky Wheel.',
+      cooldownRemainingMs: 0,
+      hours: "00",
+      minutes: "00",
+      seconds: "00",
+      formattedTime: '00h 00m 00s'
+    };
+  }
+
+  // State 2: 7-Day contract countdown completed ("spin ends after countdown")
+  if (isContractCountdownExpired(account)) {
+    return {
+      canSpin: false,
+      reason: 'contract_expired',
+      badgeText: 'SPINS ENDED',
+      message: '7-Day countdown completed. Daily spins have ended for this contract. Claim your $25 payout!',
+      cooldownRemainingMs: 0,
+      hours: "00",
+      minutes: "00",
+      seconds: "00",
+      formattedTime: '00h 00m 00s'
+    };
+  }
+
+  // State 3: Active 7-day countdown running - check 24h cooldown
+  const primaryPlan = (account.activePlans && account.activePlans.length > 0) ? account.activePlans[0] : null;
+  const contractCreatedAt = primaryPlan ? primaryPlan.createdAt : 0;
+  const lastSpin = account.user ? (account.user.lastSpinTimestamp || 0) : 0;
+
+  // First spin: if user has never spun, or last spin was before/at the moment this contract started
+  if (!lastSpin || lastSpin <= 0 || (contractCreatedAt && lastSpin <= contractCreatedAt)) {
+    return {
+      canSpin: true,
+      reason: 'ready',
+      badgeText: 'SPIN READY',
+      message: 'Active $10 Investment Verified • Spin Ready!',
+      cooldownRemainingMs: 0,
+      hours: "00",
+      minutes: "00",
+      seconds: "00",
+      formattedTime: '00h 00m 00s'
+    };
+  }
+
+  // Calculate remaining time in 24-hour cooldown
+  const elapsed = Date.now() - lastSpin;
+  const remaining = SPIN_COOLDOWN_MS - elapsed;
+
+  if (remaining > 0) {
+    const totalSec = Math.ceil(remaining / 1000);
+    const hours = Math.floor(totalSec / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    const seconds = totalSec % 60;
+    const pad = n => String(n).padStart(2, '0');
+    const formatted = `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+
+    return {
+      canSpin: false,
+      reason: 'cooldown',
+      badgeText: '24H COOLDOWN',
+      cooldownRemainingMs: remaining,
+      hours: pad(hours),
+      minutes: pad(minutes),
+      seconds: pad(seconds),
+      formattedTime: formatted,
+      message: `Next free spin unlocks in ${formatted} (24-hour cooldown between spins).`
+    };
+  }
+
+  // 24 hours have elapsed since previous spin!
+  return {
+    canSpin: true,
+    reason: 'ready',
+    badgeText: 'SPIN READY',
+    message: '24 hours elapsed! Your next spin is ready. Spin for up to $10,000!',
+    cooldownRemainingMs: 0,
+    hours: "00",
+    minutes: "00",
+    seconds: "00",
+    formattedTime: '00h 00m 00s'
+  };
+}
+
+/**
+ * 24-Hour Cooldown check
+ */
+function hasUserSpunToday(timestamp, contractCreatedAt) {
+  if (!timestamp || timestamp <= 0) return false;
+  if (contractCreatedAt && timestamp <= contractCreatedAt) return false;
+  return (Date.now() - timestamp) < SPIN_COOLDOWN_MS;
+}
+
+/**
+ * Calculates remaining time until next spin unlocks (24h cooldown)
+ */
+function getTimeUntilNextSpin(account) {
+  const status = getSpinStatus(account);
+  if (status.reason === 'cooldown') {
+    return {
+      hours: status.hours,
+      minutes: status.minutes,
+      seconds: status.seconds,
+      diff: status.cooldownRemainingMs,
+      text: status.formattedTime
+    };
+  }
+  return { hours: "00", minutes: "00", seconds: "00", diff: 0, text: "00h 00m 00s" };
+}
+
 function getTimeUntilTomorrow() {
-  const now = new Date();
-  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
-  const diff = Math.max(0, tomorrow - now);
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff / (1000 * 60)) % 60);
-  const seconds = Math.floor((diff / 1000) % 60);
-  return { hours, minutes, seconds, diff };
+  return getTimeUntilNextSpin();
 }
 
 
@@ -544,12 +664,24 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
   if (isSpinning) return;
 
   const account = getAccountData();
-  const isFunded = isClientFundedAndActive(account);
+  const status = getSpinStatus(account);
 
-  // Prerequisite 1: Must have invested in the $10 plan
-  if (!isFunded) {
+  // Check 1: Must have invested in the $10 plan
+  if (status.reason === 'not_funded') {
     if (typeof openVerifiedInvestorModal === 'function') openVerifiedInvestorModal();
     showToast("🔒 Wheel is Locked! You must deposit and activate the $10 vault before you can spin the wheel.", "warning");
+    return;
+  }
+
+  // Check 2: 7-Day contract countdown completed ("spin ends after countdown")
+  if (status.reason === 'contract_expired') {
+    showToast("🏁 7-Day contract countdown has completed! Daily spins have ended for this contract. Claim your $25 payout or start a new $10 contract to unlock spins.", "info");
+    return;
+  }
+
+  // Check 3: 24-Hour cooldown between spins
+  if (status.reason === 'cooldown') {
+    showToast(`⏳ Please wait! Next free spin unlocks in ${status.formattedTime} (24 hours between spins).`, "warning");
     return;
   }
 
@@ -590,7 +722,7 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
   setTimeout(() => {
     isSpinning = false;
     
-    // Record spin timestamp
+    // Record spin timestamp to begin the 24-hour cooldown for the next spin
     account.user.lastSpinTimestamp = Date.now();
 
     // Record user spin in UserDatabase to credit their inviter if this referral spins for the first time
@@ -612,10 +744,10 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
         txHash: "0xSPIN" + Math.random().toString(16).substring(2, 10)
       });
       saveAccountData(account);
-      showToast(`🎉 You won ${formatUSD(prize.payout)} from the Daily Spin! Added to wallet.`, "success");
+      showToast(`🎉 You won ${formatUSD(prize.payout)} from the Lucky Wheel! Added to wallet. Next free spin unlocks in 24 hours.`, "success");
     } else {
       saveAccountData(account);
-      showToast(`🎯 The wheel landed on: "${prize.text}"!`, "info");
+      showToast(`🎯 The wheel landed on: "${prize.text}"! Next free spin unlocks in 24 hours.`, "info");
     }
 
     if (spinBtn) {
@@ -626,7 +758,7 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
 
     if (typeof updateDashboardUI === 'function') updateDashboardUI();
     if (typeof resultCallback === 'function') resultCallback(prize);
-  }, 5300);
+  }, 5000);
 }
 
 /**
@@ -783,6 +915,10 @@ window.drawWheel = drawWheel;
 window.formatCountdown = formatCountdown;
 window.hasUserSpunToday = hasUserSpunToday;
 window.getTimeUntilTomorrow = getTimeUntilTomorrow;
+window.getTimeUntilNextSpin = getTimeUntilNextSpin;
+window.getSpinStatus = getSpinStatus;
+window.isContractCountdownExpired = isContractCountdownExpired;
+window.SPIN_COOLDOWN_MS = SPIN_COOLDOWN_MS;
 window.handleClientLogout = handleClientLogout;
 window.getReferralLink = getReferralLink;
 window.getPromoCode = getPromoCode;

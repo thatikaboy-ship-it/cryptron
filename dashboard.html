@@ -1235,20 +1235,15 @@
       }
 
       // =========================================================================
-      // RULE: Daily Spin Status (1 spin per day until tomorrow; Day 1 spin ready on countdown start)
+      // RULE: Daily Spin Status (24-hour cooldown between spins; spin ends after countdown)
       // =========================================================================
-      const primaryContract = (data.activePlans && data.activePlans.length > 0) ? data.activePlans[0] : null;
-      const contractCreatedAt = primaryContract ? primaryContract.createdAt : null;
-      const alreadySpun = (window.hasUserSpunToday && hasUserSpunToday(user.lastSpinTimestamp, contractCreatedAt));
+      const spinStatus = window.getSpinStatus ? getSpinStatus(data) : { canSpin: true, reason: 'ready' };
       const dashboardSpinBtn = document.getElementById('dashboard-spin-btn');
       const spinBadgeTag = document.getElementById('spin-badge-tag');
       const spinBadgeSubtitle = document.getElementById('spin-badge-subtitle');
       const navSpinBtn = document.getElementById('nav-spin-btn');
 
-      const hasActivePlanForWheel = (data.activePlans && data.activePlans.length > 0) || 
-        (user && (user.investmentStatus === 'active' || user.hasActiveInvestment));
-
-      if (!hasActivePlanForWheel) {
+      if (spinStatus.reason === 'not_funded') {
         if (dashboardSpinBtn) {
           dashboardSpinBtn.className = "px-4 py-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-slate-400 font-bold text-xs font-mono uppercase tracking-wider transition-colors self-start sm:self-auto flex items-center gap-1.5 cursor-pointer";
           dashboardSpinBtn.innerHTML = `<i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i><span>Locked (Deposit $10)</span>`;
@@ -1276,27 +1271,49 @@
             openModal('deposit-modal');
           };
         }
-      } else if (alreadySpun) {
-        const cd = window.getTimeUntilTomorrow ? getTimeUntilTomorrow() : { hours: 0, minutes: 0 };
+      } else if (spinStatus.reason === 'contract_expired') {
+        // RULE: "spin ends after countdown"
         if (dashboardSpinBtn) {
-          dashboardSpinBtn.className = "px-4 py-2.5 rounded-xl bg-slate-800/90 text-amber-300/80 border border-amber-500/20 font-bold text-xs font-mono uppercase tracking-wider self-start sm:self-auto flex-shrink-0 cursor-pointer";
-          dashboardSpinBtn.textContent = `Spun Today • (${cd.hours}h ${cd.minutes}m)`;
-          dashboardSpinBtn.setAttribute('href', 'spin.html');
-          dashboardSpinBtn.onclick = () => showToast(`⏳ Daily spin completed for today! Next spin unlocks tomorrow in ${cd.hours}h ${cd.minutes}m.`, 'info');
+          dashboardSpinBtn.className = "px-4 py-2.5 rounded-xl bg-slate-800 text-emerald-400 border border-emerald-500/30 font-bold text-xs font-mono uppercase tracking-wider self-start sm:self-auto flex-shrink-0 cursor-pointer";
+          dashboardSpinBtn.textContent = "Spins Ended • $25 Ready";
+          dashboardSpinBtn.setAttribute('href', '#');
+          dashboardSpinBtn.onclick = () => handleWithdrawButtonClick();
         }
         if (spinBadgeTag) {
-          spinBadgeTag.textContent = "COMPLETED TODAY";
-          spinBadgeTag.className = "px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] font-mono font-bold border border-white/10";
+          spinBadgeTag.textContent = "SPINS ENDED";
+          spinBadgeTag.className = "px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold border border-emerald-500/30";
         }
         if (spinBadgeSubtitle) {
-          spinBadgeSubtitle.textContent = `You have completed today's spin. Next free spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).`;
+          spinBadgeSubtitle.textContent = "7-day countdown completed. Daily spins have ended for this contract. Claim your $25 payout!";
+        }
+        if (navSpinBtn) {
+          navSpinBtn.className = "hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800/80 text-emerald-400 border border-emerald-500/30 transition-all font-mono cursor-pointer";
+          navSpinBtn.innerHTML = `<i data-lucide="check-check" class="w-4 h-4 text-emerald-400"></i><span>$25 Ready</span>`;
+          navSpinBtn.setAttribute('href', '#');
+          navSpinBtn.onclick = () => handleWithdrawButtonClick();
+        }
+      } else if (spinStatus.reason === 'cooldown') {
+        // RULE: 24 hours between spins
+        if (dashboardSpinBtn) {
+          dashboardSpinBtn.className = "px-4 py-2.5 rounded-xl bg-slate-800/90 text-amber-300/80 border border-amber-500/20 font-bold text-xs font-mono uppercase tracking-wider self-start sm:self-auto flex-shrink-0 cursor-pointer";
+          dashboardSpinBtn.textContent = `Next Spin in ${spinStatus.hours}h ${spinStatus.minutes}m`;
+          dashboardSpinBtn.setAttribute('href', 'spin.html');
+          dashboardSpinBtn.onclick = () => showToast(`⏳ Next free spin unlocks in ${spinStatus.formattedTime} (24 hours between spins).`, 'info');
+        }
+        if (spinBadgeTag) {
+          spinBadgeTag.textContent = "24H COOLDOWN";
+          spinBadgeTag.className = "px-2 py-0.5 rounded bg-slate-800 text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30";
+        }
+        if (spinBadgeSubtitle) {
+          spinBadgeSubtitle.textContent = `Next free spin in ${spinStatus.formattedTime} (24-hour cooldown between spins).`;
         }
         if (navSpinBtn) {
           navSpinBtn.className = "hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800/80 text-amber-400/70 border border-amber-500/20 transition-all font-mono";
-          navSpinBtn.innerHTML = `<i data-lucide="clock" class="w-4 h-4"></i><span>Spun Today</span>`;
+          navSpinBtn.innerHTML = `<i data-lucide="clock" class="w-4 h-4"></i><span>Next Spin: ${spinStatus.hours}h ${spinStatus.minutes}m</span>`;
           navSpinBtn.setAttribute('href', 'spin.html');
         }
       } else {
+        // Spin Ready!
         if (dashboardSpinBtn) {
           dashboardSpinBtn.className = "btn-shimmer px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-colors self-start sm:self-auto flex-shrink-0";
           dashboardSpinBtn.textContent = "Spin Now";
@@ -1304,11 +1321,11 @@
           dashboardSpinBtn.onclick = null;
         }
         if (spinBadgeTag) {
-          spinBadgeTag.textContent = "1 FREE DAILY";
+          spinBadgeTag.textContent = "SPIN READY";
           spinBadgeTag.className = "px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold";
         }
         if (spinBadgeSubtitle) {
-          spinBadgeSubtitle.textContent = "Active $10 stakers get 1 free daily wheel spin.";
+          spinBadgeSubtitle.textContent = "Active $10 stakers get 1 free spin every 24 hours.";
         }
         if (navSpinBtn) {
           navSpinBtn.className = "btn-shimmer hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 shadow-md shadow-amber-500/25 transition-all font-mono";
@@ -1767,6 +1784,52 @@
       showToast("All messages marked as read.", "info");
     }
 
+    function updateDashboardLiveTickers() {
+      const data = getAccountData();
+      if (!data) return;
+
+      // 1. Update 24h Spin Cooldown Button & Status
+      const spinStatus = window.getSpinStatus ? getSpinStatus(data) : { canSpin: true, reason: 'ready' };
+      const dashboardSpinBtn = document.getElementById('dashboard-spin-btn');
+      const spinBadgeTag = document.getElementById('spin-badge-tag');
+      const spinBadgeSubtitle = document.getElementById('spin-badge-subtitle');
+      const navSpinBtn = document.getElementById('nav-spin-btn');
+
+      if (spinStatus.reason === 'cooldown') {
+        if (dashboardSpinBtn) {
+          dashboardSpinBtn.textContent = `Next Spin in ${spinStatus.hours}h ${spinStatus.minutes}m`;
+        }
+        if (spinBadgeSubtitle) {
+          spinBadgeSubtitle.textContent = `Next free spin in ${spinStatus.formattedTime} (24-hour cooldown between spins).`;
+        }
+        if (navSpinBtn) {
+          navSpinBtn.innerHTML = `<i data-lucide="clock" class="w-4 h-4"></i><span>Next Spin: ${spinStatus.hours}h ${spinStatus.minutes}m</span>`;
+        }
+      }
+
+      // 2. Update 4-box countdown for each active contract
+      if (data.activePlans && data.activePlans.length > 0) {
+        let anyExpired = false;
+        data.activePlans.forEach(plan => {
+          const cd = formatCountdown(plan.maturityTimestamp);
+          const dEl = document.getElementById(`cd-d-${plan.id}`);
+          const hEl = document.getElementById(`cd-h-${plan.id}`);
+          const mEl = document.getElementById(`cd-m-${plan.id}`);
+          const sEl = document.getElementById(`cd-s-${plan.id}`);
+          if (dEl) dEl.textContent = cd.days;
+          if (hEl) hEl.textContent = cd.hours;
+          if (mEl) mEl.textContent = cd.minutes;
+          if (sEl) sEl.textContent = cd.seconds;
+          if (cd.expired && !plan.isMatured) {
+            anyExpired = true;
+          }
+        });
+        if (anyExpired) {
+          updateDashboardUI();
+        }
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       // Auth Gate: ensure user is authenticated, otherwise redirect to signup
       const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : null;
@@ -1778,6 +1841,8 @@
       lucide.createIcons();
       updateDashboardUI();
       checkClientAdminMessages();
+      // Live second-by-second countdown for 7-day contract and 24h spin cooldown
+      setInterval(updateDashboardLiveTickers, 1000);
     });
 
     // Real-time synchronization across browser tabs (e.g. when Admin matures, settles, or messages)
