@@ -113,6 +113,15 @@
           Unlock Admin Portal
         </button>
 
+        <div class="flex items-center justify-center gap-2 pt-1">
+          <button type="button" onclick="document.getElementById('admin-passcode-input').value='admin123'; handleAdminLogin(event);" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono font-bold transition-all">
+            ⚡ Quick Key: admin123
+          </button>
+          <button type="button" onclick="document.getElementById('admin-passcode-input').value='8899'; handleAdminLogin(event);" class="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[11px] font-mono font-bold transition-all">
+            ⚡ Quick PIN: 8899
+          </button>
+        </div>
+
         <div class="text-[11px] text-slate-400 font-mono pt-1">
           Master Key: <code class="text-emerald-400 font-bold bg-white/5 px-2 py-0.5 rounded">admin123</code> or <code class="text-emerald-400 font-bold bg-white/5 px-2 py-0.5 rounded">8899</code>
         </div>
@@ -872,38 +881,71 @@
      * Security Gate: Check if Admin is authenticated in session
      */
     function checkAdminAuth() {
-      const isAuthed = sessionStorage.getItem('cryptron_admin_authenticated') === 'true';
+      let isAuthed = false;
+      try {
+        isAuthed = (sessionStorage.getItem('cryptron_admin_authenticated') === 'true') ||
+                   (localStorage.getItem('cryptron_admin_authenticated') === 'true');
+      } catch(e) {}
+
       const lockScreen = document.getElementById('admin-lock-screen');
       const mainContent = document.getElementById('admin-main-content');
       
       if (isAuthed) {
         if (lockScreen) lockScreen.classList.add('hidden');
         if (mainContent) mainContent.classList.remove('hidden');
-        renderUsers();
-        startAdminCountdowns();
+        try {
+          renderUsers();
+          startAdminCountdowns();
+        } catch(err) {
+          console.error("renderUsers error:", err);
+        }
       } else {
         if (lockScreen) lockScreen.classList.remove('hidden');
         if (mainContent) mainContent.classList.add('hidden');
       }
-      lucide.createIcons();
+      try { lucide.createIcons(); } catch(e) {}
     }
 
     /**
      * Admin Passcode Submission
      */
     function handleAdminLogin(e) {
-      e.preventDefault();
-      const input = document.getElementById('admin-passcode-input').value.trim();
+      if (e && e.preventDefault) e.preventDefault();
+      const inputEl = document.getElementById('admin-passcode-input');
+      const input = (inputEl ? inputEl.value : '').trim().toLowerCase();
       const errorEl = document.getElementById('admin-auth-error');
 
-      if (ADMIN_MASTER_PASSCODES.includes(input)) {
-        sessionStorage.setItem('cryptron_admin_authenticated', 'true');
+      const validCodes = (ADMIN_MASTER_PASSCODES || ["admin123", "8899", "admin2026"]).map(c => c.toLowerCase());
+
+      if (validCodes.includes(input)) {
+        try {
+          sessionStorage.setItem('cryptron_admin_authenticated', 'true');
+          localStorage.setItem('cryptron_admin_authenticated', 'true');
+        } catch(e) {}
+
         if (errorEl) errorEl.classList.add('hidden');
-        showToast("Access Granted: Welcome, Administrator!", "success");
-        checkAdminAuth();
+        
+        // Immediately reveal admin content
+        const lockScreen = document.getElementById('admin-lock-screen');
+        const mainContent = document.getElementById('admin-main-content');
+        if (lockScreen) lockScreen.classList.add('hidden');
+        if (mainContent) mainContent.classList.remove('hidden');
+
+        if (typeof showToast === 'function') {
+          showToast("Access Granted: Welcome, Administrator!", "success");
+        }
+
+        try {
+          renderUsers();
+          startAdminCountdowns();
+        } catch(err) {
+          console.error("renderUsers error:", err);
+        }
       } else {
         if (errorEl) errorEl.classList.remove('hidden');
-        showToast("Access Denied: Invalid Admin Key", "error");
+        if (typeof showToast === 'function') {
+          showToast("Access Denied: Invalid Admin Key. Try 'admin123' or '8899'", "error");
+        }
       }
     }
 
@@ -911,8 +953,13 @@
      * Admin Logout / Lock Portal
      */
     function adminLogout() {
-      sessionStorage.removeItem('cryptron_admin_authenticated');
-      showToast("Admin portal locked successfully.", "info");
+      try {
+        sessionStorage.removeItem('cryptron_admin_authenticated');
+        localStorage.removeItem('cryptron_admin_authenticated');
+      } catch(e) {}
+      if (typeof showToast === 'function') {
+        showToast("Admin portal locked successfully.", "info");
+      }
       checkAdminAuth();
     }
 
@@ -1959,13 +2006,15 @@
       };
     }
 
-    // Continuous auto-polling so any background registration appears within 1.5s
+    // Calm auto-polling so any background registration appears without overloading the browser
     setInterval(() => {
-      const isAuthed = sessionStorage.getItem('cryptron_admin_authenticated') === 'true';
+      if (document.hidden) return;
+      const isAuthed = (sessionStorage.getItem('cryptron_admin_authenticated') === 'true') ||
+                       (localStorage.getItem('cryptron_admin_authenticated') === 'true');
       if (isAuthed) {
-        renderUsers();
+        try { renderUsers(); } catch(e) {}
       }
-    }, 1500);
+    }, 6000);
   </script>
 </body>
 </html>

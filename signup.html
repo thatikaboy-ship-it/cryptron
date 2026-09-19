@@ -1,0 +1,22 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting to Sign Up | CRYPTRON</title>
+  <meta http-equiv="refresh" content="0;url=login.html?tab=signup">
+  <script>
+    (function() {
+      const search = window.location.search;
+      const hash = window.location.hash;
+      const params = new URLSearchParams(search);
+      params.set('tab', 'signup');
+      const target = 'login.html?' + params.toString() + (hash || '');
+      window.location.replace(target);
+    })();
+  </script>
+</head>
+<body style="background-color: #080d1a; color: #94a3b8; font-family: monospace; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+  <p>Loading CRYPTRON Sign Up Portal... <a href="login.html?tab=signup" style="color: #34d399;">Click here if not redirected</a></p>
+</body>
+</html>

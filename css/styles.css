@@ -148,12 +148,15 @@ body {
 .ticker-wrap {
   overflow: hidden;
   white-space: nowrap;
-  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  position: relative;
+  mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
 }
 
 .ticker-track {
   display: inline-flex;
-  animation: marquee 35s linear infinite;
+  white-space: nowrap;
+  animation: marquee 50s linear infinite;
+  will-change: transform;
 }
 
 .ticker-track:hover {
@@ -167,6 +170,16 @@ body {
   100% {
     transform: translateX(-50%);
   }
+}
+
+.price-flash-green {
+  color: #34d399 !important;
+  transition: color 0.3s ease;
+}
+
+.price-flash-red {
+  color: #f87171 !important;
+  transition: color 0.3s ease;
 }
 
 /* Custom Scrollbar */
