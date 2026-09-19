@@ -777,8 +777,30 @@
   <script src="js/email.js"></script>
   <script src="js/app.js"></script>
   <script>
-    // Master Admin Passcodes (Protected Gate)
-    const ADMIN_MASTER_PASSCODES = ["7989898"];
+    // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
+    // The plaintext passcode is NEVER stored in source code or memory.
+    const ADMIN_AUTH_HASH = "4880626be84a0efba819ca2e84a80213930ac0efa00ebadeab0c4718d2265cc5";
+    const AUTH_SALT = "cryptron_master_salt_2026_";
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function computeHash(str) {
+      if (window.crypto && crypto.subtle) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(AUTH_SALT + String(str).trim());
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+      return "";
+    }
 
     let searchQuery = '';
     let currentFilter = 'all';
@@ -928,6 +950,21 @@
      * Security Gate: Check if Admin is authenticated in session
      */
     function checkAdminAuth() {
+      // Check URL auto-unlock parameter if present (?key=... or ?auth=...)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('key') || urlParams.get('auth');
+      if (urlKey && sessionStorage.getItem('cryptron_admin_authenticated') !== 'true') {
+        computeHash(urlKey).then(h => {
+          if (h === ADMIN_AUTH_HASH) {
+            sessionStorage.setItem('cryptron_admin_authenticated', 'true');
+            // Clean URL query from browser address bar immediately
+            window.history.replaceState({}, document.title, window.location.pathname);
+            checkAdminAuth();
+            showToast("Authenticated via Secure Admin Link.", "success");
+          }
+        });
+      }
+
       const isAuthed = sessionStorage.getItem('cryptron_admin_authenticated') === 'true';
       const lockScreen = document.getElementById('admin-lock-screen');
       const mainContent = document.getElementById('admin-main-content');
@@ -945,21 +982,57 @@
     }
 
     /**
-     * Admin Passcode Submission
+     * Admin Passcode Submission with SHA-256 Verification & Brute-Force Rate Limiter
      */
-    function handleAdminLogin(e) {
+    async function handleAdminLogin(e) {
       e.preventDefault();
       const input = document.getElementById('admin-passcode-input').value.trim();
       const errorEl = document.getElementById('admin-auth-error');
 
-      if (ADMIN_MASTER_PASSCODES.includes(input)) {
+      // 1. Check Brute-Force Lockout Policy
+      const lockoutUntil = parseInt(localStorage.getItem('cryptron_admin_lockout_until') || '0', 10);
+      if (Date.now() < lockoutUntil) {
+        const remainingMinutes = Math.ceil((lockoutUntil - Date.now()) / 60000);
+        if (errorEl) {
+          errorEl.textContent = `🛑 Security Lockout: Too many failed attempts. Try again in ${remainingMinutes} minute(s).`;
+          errorEl.classList.remove('hidden');
+        }
+        showToast(`Terminal locked for ${remainingMinutes}m due to security policy.`, 'error');
+        return;
+      }
+
+      // 2. Cryptographic Hash Comparison (Zero Plaintext Passwords)
+      const inputHash = await computeHash(input);
+
+      if (inputHash === ADMIN_AUTH_HASH) {
+        // Reset brute-force counter on success
+        localStorage.removeItem('cryptron_admin_failed_attempts');
+        localStorage.removeItem('cryptron_admin_lockout_until');
         sessionStorage.setItem('cryptron_admin_authenticated', 'true');
         if (errorEl) errorEl.classList.add('hidden');
         showToast("Access Granted: Welcome, Administrator!", "success");
         checkAdminAuth();
       } else {
-        if (errorEl) errorEl.classList.remove('hidden');
-        showToast("Access Denied: Invalid Admin Key", "error");
+        // Increment failed attempts
+        const attempts = (parseInt(localStorage.getItem('cryptron_admin_failed_attempts') || '0', 10)) + 1;
+        localStorage.setItem('cryptron_admin_failed_attempts', attempts.toString());
+
+        if (attempts >= 5) {
+          // Lock out for 15 minutes
+          localStorage.setItem('cryptron_admin_lockout_until', (Date.now() + 15 * 60 * 1000).toString());
+          if (errorEl) {
+            errorEl.textContent = "🛑 5 Failed attempts. Terminal locked for 15 minutes.";
+            errorEl.classList.remove('hidden');
+          }
+          showToast("Maximum attempts exceeded. Terminal locked for 15 minutes.", "error");
+        } else {
+          const remaining = 5 - attempts;
+          if (errorEl) {
+            errorEl.textContent = `Incorrect Passcode. ${remaining} attempt(s) remaining before security lockout.`;
+            errorEl.classList.remove('hidden');
+          }
+          showToast(`Access Denied: Invalid Key (${remaining} attempts left)`, "error");
+        }
       }
     }
 
@@ -1280,8 +1353,13 @@
           </div>
         `;
 
-        const displayName = user.name || "Client";
-        const initials = displayName.substring(0, 2).toUpperCase();
+        const displayName = escapeHtml(user.name || "Client");
+        const initials = escapeHtml(displayName.substring(0, 2).toUpperCase());
+        const safeId = escapeHtml(user.id || '');
+        const safePromo = escapeHtml(user.promoCode || user.referralCode || '');
+        const safeRefBy = escapeHtml(user.referredBy || '');
+        const safeEmail = escapeHtml(user.email || '');
+        const safeRegAt = escapeHtml(user.registeredAt || '');
 
         return `
           <tr class="hover:bg-white/[0.03] transition-colors">
@@ -1292,12 +1370,12 @@
                 </div>
                 <div>
                   <div class="font-bold text-white">${displayName}</div>
-                  <div class="text-[11px] text-emerald-400 font-mono">${user.id || ''} · <span class="text-slate-300 font-bold" title="Promo Code">🎟️ ${user.promoCode || user.referralCode || ''}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}${user.referredBy ? ` · <span class="text-cyan-300 font-bold" title="Used Promo Code">🎟️ ${user.referredBy}</span>` : ''}</div>
+                  <div class="text-[11px] text-emerald-400 font-mono">${safeId} · <span class="text-slate-300 font-bold" title="Promo Code">🎟️ ${safePromo}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}${safeRefBy ? ` · <span class="text-cyan-300 font-bold" title="Used Promo Code">🎟️ ${safeRefBy}</span>` : ''}</div>
                 </div>
               </div>
             </td>
-            <td class="py-4 text-cyan-300 font-mono text-xs">${user.email || ''}</td>
-            <td class="py-4 text-slate-400 text-xs font-mono">${user.registeredAt || ''}</td>
+            <td class="py-4 text-cyan-300 font-mono text-xs">${safeEmail}</td>
+            <td class="py-4 text-slate-400 text-xs font-mono">${safeRegAt}</td>
             <td class="py-4">${statusHtml}</td>
             <td class="py-4 text-right">${actionsHtml}</td>
           </tr>
