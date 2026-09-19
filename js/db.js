@@ -246,6 +246,13 @@ class CloudSyncEngine {
           window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
           return merged;
         }
+      } else if (remoteData === null) {
+        // Cloud DB is freshly initialized and empty! Seed with local users if present
+        const localRaw = localStorage.getItem(USERS_DB_KEY);
+        const localUsers = localRaw ? JSON.parse(localRaw) : [];
+        if (localUsers && localUsers.length > 0) {
+          this.pushUsers(localUsers).catch(console.warn);
+        }
       }
     } catch (e) {
       console.warn("CloudSync pull failed:", e);
