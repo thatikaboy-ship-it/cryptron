@@ -63,7 +63,34 @@ function getAccountData() {
       base.user.withdrawalRequest = dbUser.withdrawalRequest || null;
       base.user.withdrawalHistory = dbUser.withdrawalHistory || [];
       base.activePlans = dbUser.activePlans || [];
-      base.user.hasActiveInvestment = (base.activePlans.length > 0);
+
+      // Ensure that if user is active, they have an active 7-day vault plan with a running countdown
+      if ((base.user.investmentStatus === 'active' || (dbUser.totalDeposited && dbUser.totalDeposited >= 10)) && base.activePlans.length === 0) {
+        const now = Date.now();
+        const autoPlan = {
+          id: "cryp-" + Math.floor(700 + Math.random() * 200),
+          planName: "7-Day Crypto Yield Vault",
+          principal: 10.00,
+          totalPayout: 25.00,
+          createdAt: now,
+          maturityTimestamp: now + (7 * 86400000),
+          durationDays: 7,
+          status: "Active"
+        };
+        base.activePlans = [autoPlan];
+        dbUser.activePlans = [autoPlan];
+        try {
+          const allU = UserDatabase.getAllUsers();
+          const target = allU.find(u => u.id === dbUser.id);
+          if (target) {
+            target.activePlans = [autoPlan];
+            target.investmentStatus = 'active';
+            UserDatabase.saveUsers(allU);
+          }
+        } catch(e) {}
+      }
+
+      base.user.hasActiveInvestment = (base.activePlans.length > 0) || (base.user.investmentStatus === 'active');
       
       const investedTotal = base.activePlans.reduce((sum, p) => sum + (p.principal || 10), 0);
       base.wallet.investedBalance = investedTotal;
@@ -82,6 +109,20 @@ function getAccountData() {
   }
   try {
     const data = JSON.parse(stored);
+    if (data.user && (data.user.investmentStatus === 'active' || data.user.hasActiveInvestment) && (!data.activePlans || data.activePlans.length === 0)) {
+      const now = Date.now();
+      data.activePlans = [{
+        id: "cryp-701",
+        planName: "7-Day Crypto Yield Vault",
+        principal: 10.00,
+        totalPayout: 25.00,
+        createdAt: now,
+        maturityTimestamp: now + (7 * 86400000),
+        durationDays: 7,
+        status: "Active"
+      }];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
     // Ensure new properties exist
     if (!data.user.referralCount && data.user.referralCount !== 0) data.user.referralCount = 3;
     if (!data.user.requiredReferrals) data.user.requiredReferrals = 5;
@@ -435,55 +476,97 @@ function getTimeUntilTomorrow() {
 
 
 
+/**
+ * Comprehensive check to verify if a client has funded and countdown is on
+ */
+function isClientFundedAndActive(account) {
+  if (!account) return false;
+  if (account.activePlans && account.activePlans.length > 0) return true;
+  if (account.user) {
+    if (account.user.investmentStatus === 'active' || account.user.hasActiveInvestment) return true;
+    if (account.user.activePlans && account.user.activePlans.length > 0) return true;
+  }
+  if (window.UserDatabase) {
+    const currentId = UserDatabase.getCurrentUserId();
+    const u = currentId ? UserDatabase.getUserById(currentId) : null;
+    if (u && (u.investmentStatus === 'active' || (u.activePlans && u.activePlans.length > 0))) return true;
+  }
+  try {
+    const raw = localStorage.getItem("cryptron_account_v3_countdown");
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p.activePlans && p.activePlans.length > 0) return true;
+      if (p.user && (p.user.investmentStatus === 'active' || p.user.hasActiveInvestment)) return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+let isSpinning = false;
+let currentWheelRotation = 0;
+
 function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
+  if (isSpinning) return;
+
   const account = getAccountData();
+  const isFunded = isClientFundedAndActive(account);
 
   // Prerequisite 1: Must have invested in the $10 plan
-  const hasActivePlan = account.activePlans && account.activePlans.length > 0;
-  if (!hasActivePlan) {
+  if (!isFunded) {
+    if (typeof openVerifiedInvestorModal === 'function') openVerifiedInvestorModal();
     showToast("🔒 Wheel is Locked! You must deposit and activate the $10 vault before you can spin the wheel.", "warning");
     return;
   }
 
-  // Prerequisite 2: Only 1 spin per day (blocked until tomorrow)
-  if (hasUserSpunToday(account.user.lastSpinTimestamp)) {
-    const cd = getTimeUntilTomorrow();
-    showToast(`⏳ Daily spin limit reached! Your next free spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).`, "warning");
-    return;
-  }
+  const canvas = document.getElementById(wheelCanvasId);
+  if (!canvas) return;
 
-  if (isSpinning) return;
   isSpinning = true;
 
   // Pick a random prize from ALLOWED segments (Index 0 [$10,000] is NEVER picked)
   const winningPrizeIndex = ALLOWED_WIN_INDICES[Math.floor(Math.random() * ALLOWED_WIN_INDICES.length)];
   const prize = WHEEL_PRIZES[winningPrizeIndex];
 
-  // Calculate target rotation angle
-  const segmentAngle = 360 / WHEEL_PRIZES.length;
-  const extraRotations = 360 * 6;
-  const targetDegree = extraRotations + (360 - (winningPrizeIndex * segmentAngle + segmentAngle / 2));
+  // 8 segments of 45 degrees
+  // Index 0 starts at 0 deg (3 o'clock) and goes clockwise
+  // Arrow pointer is at the TOP (270 deg or -90 deg)
+  const segmentAngle = 360 / WHEEL_PRIZES.length; // 45 deg
+  const segmentCenter = (winningPrizeIndex * segmentAngle) + (segmentAngle / 2);
+  const targetStop = (270 - segmentCenter + 360) % 360;
 
-  const canvas = document.getElementById(wheelCanvasId);
-  if (canvas) {
-    canvas.style.transition = 'transform 5s cubic-bezier(0.15, 0.9, 0.25, 1)';
-    canvas.style.transform = `rotate(${targetDegree}deg)`;
+  // Add 5 to 7 full revolutions for exciting spin
+  const extraRotations = 360 * (5 + Math.floor(Math.random() * 3));
+  const currentMod = currentWheelRotation % 360;
+  const delta = ((targetStop - currentMod) + 360) % 360;
+  currentWheelRotation += extraRotations + delta;
+
+  // Perform physical wheel rotation
+  canvas.style.transition = 'transform 4.8s cubic-bezier(0.12, 0.85, 0.22, 1)';
+  canvas.style.transform = `rotate(${currentWheelRotation}deg)`;
+
+  const spinBtn = document.getElementById('spin-btn');
+  if (spinBtn) {
+    spinBtn.disabled = true;
+    spinBtn.classList.add('opacity-80');
+    spinBtn.innerHTML = `<span>🌀 SPINNING THE WHEEL...</span>`;
   }
 
-  // After 5.2s, resolve spin
+  // After animation finishes (5s), resolve prize
   setTimeout(() => {
     isSpinning = false;
     
-    // Record spin timestamp so user cannot spin again until tomorrow
+    // Record spin timestamp
     account.user.lastSpinTimestamp = Date.now();
 
     // Record user spin in UserDatabase to credit their inviter if this referral spins for the first time
     if (window.UserDatabase && account.user && account.user.id) {
-      UserDatabase.recordUserSpin(account.user.id);
+      try {
+        UserDatabase.recordUserSpin(account.user.id);
+      } catch(e) {}
     }
 
     if (prize.payout > 0) {
-      account.wallet.availableBalance += prize.payout;
+      account.wallet.availableBalance = (account.wallet.availableBalance || 0) + prize.payout;
       account.transactions.unshift({
         id: "TX-SPIN-" + Math.floor(1000 + Math.random() * 9000),
         type: "Daily Spin Win",
@@ -494,17 +577,16 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
         txHash: "0xSPIN" + Math.random().toString(16).substring(2, 10)
       });
       saveAccountData(account);
-      showToast(`🎉 You won ${formatUSD(prize.payout)} from the Daily Spin! Added to wallet. Next spin unlocks tomorrow.`, "success");
+      showToast(`🎉 You won ${formatUSD(prize.payout)} from the Daily Spin! Added to wallet.`, "success");
     } else {
       saveAccountData(account);
-      showToast(`You landed on: "${prize.text}". Come back tomorrow for your next free spin!`, "info");
+      showToast(`🎯 The wheel landed on: "${prize.text}"!`, "info");
     }
 
-    if (canvas) {
-      // Normalize rotation without visual jump
-      const normalizedDegree = targetDegree % 360;
-      canvas.style.transition = 'none';
-      canvas.style.transform = `rotate(${normalizedDegree}deg)`;
+    if (spinBtn) {
+      spinBtn.disabled = false;
+      spinBtn.classList.remove('opacity-80');
+      spinBtn.innerHTML = `<span>🎰 SPIN FOR $10,000</span>`;
     }
 
     if (typeof updateDashboardUI === 'function') updateDashboardUI();
@@ -669,4 +751,5 @@ window.getTimeUntilTomorrow = getTimeUntilTomorrow;
 window.handleClientLogout = handleClientLogout;
 window.getReferralLink = getReferralLink;
 window.getPromoCode = getPromoCode;
+window.isClientFundedAndActive = isClientFundedAndActive;
 

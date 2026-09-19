@@ -111,8 +111,8 @@
       <!-- Right: Rules, Requirements & Referral Gating Info (5 cols) -->
       <div class="lg:col-span-5 space-y-6">
         
-        <!-- Prerequisite 1: $10 Plan Required -->
-        <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-3">
+        <!-- Prerequisite 1: $10 Plan Required (Removed when verified & funded) -->
+        <div id="spin-prerequisite-1-box" class="glass-panel p-6 rounded-2xl border border-white/10 space-y-3">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
               1
@@ -130,10 +130,36 @@
           </a>
         </div>
 
-        <!-- Rule 2: 5 Referral Requirement for Withdrawal -->
+        <!-- Verified Active Staker Banner (Replaces Prerequisite 1 when funded) -->
+        <div id="spin-verified-active-banner" class="hidden glass-panel p-5 rounded-2xl border border-emerald-500/40 bg-emerald-950/25 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white">Verified Investor Active</h3>
+                <p class="text-[11px] text-emerald-400 font-mono">7-Day $10 ➔ $25 Vault Running</p>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono text-[11px] font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Verified Active
+            </span>
+          </div>
+          <div class="p-3 rounded-xl bg-black/40 border border-emerald-500/20 font-mono text-xs flex items-center justify-between">
+            <span class="text-slate-400">Time to $25 Release:</span>
+            <span id="spin-vault-countdown" class="text-cyan-300 font-black tracking-wider text-sm">--:--:--:--</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            ✓ Your $10 deposit is confirmed and the 7-day countdown is running. You are qualified to spin the wheel daily!
+          </p>
+        </div>
+
+        <!-- Rule: 5 Referral Requirement for Withdrawal -->
         <div class="glass-panel p-6 rounded-2xl border border-amber-500/30 bg-[#120e06]/60 space-y-3">
           <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+            <div id="spin-rule-badge-number" class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
               2
             </div>
             <div>
@@ -260,30 +286,69 @@
   <script src="js/db.js"></script>
   <script src="js/app.js"></script>
   <script>
+    function updateSpinCountdownTicker(account) {
+      const countdownEl = document.getElementById('spin-vault-countdown');
+      if (!countdownEl) return;
+
+      const primaryPlan = account.activePlans && account.activePlans.length > 0 ? account.activePlans[0] : null;
+      if (!primaryPlan || !primaryPlan.maturityTimestamp) {
+        countdownEl.textContent = "7-Day Timer Active";
+        return;
+      }
+
+      const diff = primaryPlan.maturityTimestamp - Date.now();
+      if (diff <= 0) {
+        countdownEl.textContent = "Matured • $25 Ready";
+        countdownEl.className = "text-emerald-400 font-black tracking-wider text-sm";
+        return;
+      }
+
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+
+      const pad = n => String(n).padStart(2, '0');
+      countdownEl.textContent = `${pad(d)}d : ${pad(h)}h : ${pad(m)}m : ${pad(s)}s`;
+    }
+
     function checkSpinEligibility() {
       const account = getAccountData();
-      const hasPlan = account.activePlans && account.activePlans.length > 0;
+      const isFunded = window.isClientFundedAndActive ? isClientFundedAndActive(account) : 
+        ((account.activePlans && account.activePlans.length > 0) || (account.user && (account.user.investmentStatus === 'active' || account.user.hasActiveInvestment)));
+      
       const statusBadge = document.getElementById('spin-status-badge');
       const spinBtn = document.getElementById('spin-btn');
-      const alreadySpun = (window.hasUserSpunToday && hasUserSpunToday(account.user.lastSpinTimestamp));
+      const prereq1Box = document.getElementById('spin-prerequisite-1-box');
+      const verifiedBanner = document.getElementById('spin-verified-active-banner');
+      const ruleBadgeNum = document.getElementById('spin-rule-badge-number');
 
-      if (!hasPlan) {
-        statusBadge.innerHTML = `<i data-lucide="shield-alert" class="w-4 h-4 text-amber-400"></i><span class="text-amber-400">Verified Investors Only: Invest $10 in vault first to spin!</span>`;
-        spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        spinBtn.classList.add('btn-shimmer', 'cursor-pointer');
-        spinBtn.disabled = false;
-        spinBtn.innerHTML = `<span>🎰 SPIN FOR $10,000</span>`;
-      } else if (alreadySpun) {
-        const cd = window.getTimeUntilTomorrow ? getTimeUntilTomorrow() : { hours: 0, minutes: 0 };
-        statusBadge.innerHTML = `<i data-lucide="clock" class="w-4 h-4 text-amber-400"></i><span class="text-amber-400">Daily spin completed! Next free spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).</span>`;
-        spinBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        spinBtn.disabled = true;
-        spinBtn.innerHTML = `<span>⏳ SPUN TODAY • UNLOCKS TOMORROW (${cd.hours}h ${cd.minutes}m)</span>`;
+      if (isFunded) {
+        // RULE: Remove Prerequisite 1 for verified clients who have funded and countdown is on
+        if (prereq1Box) prereq1Box.classList.add('hidden');
+        if (verifiedBanner) verifiedBanner.classList.remove('hidden');
+        if (ruleBadgeNum) ruleBadgeNum.textContent = "1";
+
+        statusBadge.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i><span class="text-emerald-400 font-bold">Active $10 Investment Verified • Spin Ready</span>`;
+        if (spinBtn) {
+          spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+          spinBtn.classList.add('btn-shimmer', 'cursor-pointer');
+          spinBtn.disabled = false;
+          spinBtn.innerHTML = `<span>🎰 SPIN FOR $10,000</span>`;
+        }
       } else {
-        statusBadge.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i><span class="text-emerald-400">Active $10 Investment Verified • Spin Ready</span>`;
-        spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        spinBtn.disabled = false;
-        spinBtn.innerHTML = `<span>🎰 SPIN FOR $10,000</span>`;
+        // Not funded yet: show Prerequisite 1
+        if (prereq1Box) prereq1Box.classList.remove('hidden');
+        if (verifiedBanner) verifiedBanner.classList.add('hidden');
+        if (ruleBadgeNum) ruleBadgeNum.textContent = "2";
+
+        statusBadge.innerHTML = `<i data-lucide="shield-alert" class="w-4 h-4 text-amber-400"></i><span class="text-amber-400">Verified Investors Only: Invest $10 in vault first to spin!</span>`;
+        if (spinBtn) {
+          spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+          spinBtn.classList.add('btn-shimmer', 'cursor-pointer');
+          spinBtn.disabled = false;
+          spinBtn.innerHTML = `<span>🎰 SPIN FOR $10,000</span>`;
+        }
       }
 
       // Update referral progress
@@ -300,6 +365,7 @@
         promoEl.textContent = (account.user && (account.user.promoCode || account.user.referralCode)) || "DAVID8821";
       }
 
+      updateSpinCountdownTicker(account);
       lucide.createIcons();
     }
 
@@ -327,18 +393,13 @@
 
     function handleSpinClick() {
       const account = getAccountData();
-      const hasPlan = account.activePlans && account.activePlans.length > 0;
+      const isFunded = window.isClientFundedAndActive ? isClientFundedAndActive(account) : 
+        ((account.activePlans && account.activePlans.length > 0) || (account.user && (account.user.investmentStatus === 'active' || account.user.hasActiveInvestment)));
 
       // Only verified investors with active $10 deposit can spin
-      if (!hasPlan) {
+      if (!isFunded) {
         openVerifiedInvestorModal();
         showToast("🔒 Verified Investors Only: You must deposit and activate a $10 investment contract to spin.", "warning");
-        return;
-      }
-
-      if (window.hasUserSpunToday && hasUserSpunToday(account.user.lastSpinTimestamp)) {
-        const cd = window.getTimeUntilTomorrow ? getTimeUntilTomorrow() : { hours: 0, minutes: 0 };
-        showToast(`⏳ You have already completed your daily spin! Your next spin unlocks tomorrow (in ${cd.hours}h ${cd.minutes}m).`, "warning");
         return;
       }
 
