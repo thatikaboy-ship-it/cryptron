@@ -103,7 +103,7 @@
               type="password" 
               id="admin-passcode-input" 
               required 
-              placeholder="Enter passcode (e.g. admin123 or 8899)" 
+              placeholder="Enter master passcode" 
               class="w-full bg-[#040812] border border-white/15 rounded-xl pl-11 pr-4 py-3.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all text-center tracking-widest"
             >
           </div>
@@ -116,10 +116,6 @@
         <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-xs font-mono uppercase tracking-wider">
           Unlock Admin Portal
         </button>
-
-        <div class="text-[11px] text-slate-400 font-mono pt-1">
-          Master Key: <code class="text-emerald-400 font-bold bg-white/5 px-2 py-0.5 rounded">admin123</code> or <code class="text-emerald-400 font-bold bg-white/5 px-2 py-0.5 rounded">8899</code>
-        </div>
       </form>
     </div>
   </div>
@@ -782,7 +778,7 @@
   <script src="js/app.js"></script>
   <script>
     // Master Admin Passcodes (Protected Gate)
-    const ADMIN_MASTER_PASSCODES = ["admin123", "8899", "admin2026", "cryptron123"];
+    const ADMIN_MASTER_PASSCODES = ["7989898"];
 
     let searchQuery = '';
     let currentFilter = 'all';

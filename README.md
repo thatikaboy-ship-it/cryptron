@@ -43,7 +43,7 @@ investment-website/
    - Prevents duplicate signups with the same email.
 
 2. **Protected Admin Portal ([admin.html](file:///c:/Users/1030g2/Desktop/investment-website/admin.html))**:
-   - **Passcode Protected**: Hidden from regular visitors and secured by a master PIN (`admin123` or `8899`).
+   - **Passcode Protected**: Hidden from regular visitors and secured by your private master PIN (`7989898`). Accessible only via direct URL.
    - **One-Click Manual Activation**: Click **"Approve & Start Timer"** for any user to verify their $10 deposit and start their 7-day countdown.
    - **Live Timer Monitor**: Real-time ticker showing remaining time on all active client investments.
    - **CSV Export**: 1-click **"Export Users (CSV)"** to download the entire database and open it in Microsoft Excel or Google Sheets.
