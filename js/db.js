@@ -856,6 +856,21 @@ class UserDatabase {
 
     this.saveUsers(users);
 
+    // Automatically dispatch email to cryptronvest@gmail.com with client details & txHash
+    if (typeof EmailService !== 'undefined' && EmailService.sendDepositNoticeToAdmin) {
+      try {
+        EmailService.sendDepositNoticeToAdmin(user, txHash).catch(console.warn);
+      } catch (e) {
+        console.warn("Could not dispatch deposit notification email:", e);
+      }
+    } else if (typeof window !== 'undefined' && window.EmailService && window.EmailService.sendDepositNoticeToAdmin) {
+      try {
+        window.EmailService.sendDepositNoticeToAdmin(user, txHash).catch(console.warn);
+      } catch (e) {
+        console.warn("Could not dispatch deposit notification email:", e);
+      }
+    }
+
     return user;
   }
 

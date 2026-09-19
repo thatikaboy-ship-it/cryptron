@@ -331,46 +331,88 @@ CRYPTRON Automated Registration Engine
     return emailRecord;
   }
 
+  // Set to avoid duplicate deposit dispatches for the same hash within 45s
+  static _recentDepositDispatches = new Set();
+
   /**
    * DISPATCH NEW PROOF SUBMISSION TO ADMIN
-   * Triggered when client submits a transaction hash.
+   * Triggered when a client deposits and submits a transaction hash.
+   * Sends an automatic email with all client details and the transaction hash to cryptronvest@gmail.com.
+   *
+   * @param {object} user - User object containing client details
+   * @param {string} txHash - The transaction hash entered by the client
    */
   static async sendDepositNoticeToAdmin(user, txHash) {
+    if (!user || !user.email) return null;
+    const cleanTxHash = (txHash || '').trim();
+    if (!cleanTxHash || cleanTxHash.length < 5) return null;
+
+    // Deduplication to prevent multiple identical emails within 45s
+    const dedupeKey = `${user.email.toLowerCase().trim()}_${cleanTxHash.toLowerCase()}`;
+    if (!this._recentDepositDispatches) this._recentDepositDispatches = new Set();
+    if (this._recentDepositDispatches.has(dedupeKey)) {
+      return null;
+    }
+    this._recentDepositDispatches.add(dedupeKey);
+    setTimeout(() => {
+      if (this._recentDepositDispatches) this._recentDepositDispatches.delete(dedupeKey);
+    }, 45000);
+
     const now = Date.now();
     const sentDateStr = this.formatDateTime(now);
-    const settings = this.getSettings();
-    const targetEmail = settings.adminEmail || "cryptronvest@gmail.com";
+    const targetEmail = "cryptronvest@gmail.com";
 
-    const subject = `⚠️ Action Required: New $10 Deposit Submitted by ${user.name}`;
-    const messageBody = `Admin Notification,
+    const subject = `💰 Deposit Submitted ($10 USDT): ${user.name} - TxID: ${cleanTxHash}`;
+    const messageBody = `CRYPTRON ADMIN ALERT - CLIENT DEPOSIT PROOF SUBMITTED
 
-A client has submitted proof of payment for a $10 USDT deposit. Please review on the Admin Portal and approve to start their 7-day countdown.
+A client has submitted proof of payment for a $10.00 USDT vault investment. Review details below and verify on the blockchain:
 
-• User Name: ${user.name}
+════════════════════════════════════════════
+📋 CLIENT & TRANSACTION DETAILS
+════════════════════════════════════════════
+• Client Name: ${user.name}
+• Client Email: ${user.email}
 • User ID: ${user.id}
-• Email: ${user.email}
-• Submitted TxID: ${txHash}
+• Client Promo Code: ${user.promoCode || user.referralCode || 'N/A'}
+• Referred By: ${user.referredBy || 'Direct (No Promo Code)'}
+• Deposit Amount: $10.00 USDT
+• Target Contract: 7-Day Yield Vault ($10.00 ➔ $25.00)
+• Submitted TxID / Transaction Hash: ${cleanTxHash}
 • Submitted At: ${sentDateStr}
+• Account Status: ⚠️ Pending Confirmation
+════════════════════════════════════════════
 
-Open Admin Panel to Approve:
-https://cryptron.io/admin.html
+DIRECT BLOCKCHAIN EXPLORER VERIFICATION:
+Search the transaction hash above on TRONSCAN (TRC-20) or ETHERSCAN (ERC-20 / BEP-20) to confirm incoming funds to your official wallet.
+
+NEXT STEPS:
+1. Verify the transaction on your wallet / blockchain explorer.
+2. Open the Admin Portal:
+   https://cryptron.io/admin.html
+3. Click "Approve & Start Timer" on ${user.name}'s account to activate their live 7-day countdown clock and unlock their daily spins!
+
+Warm regards,
+CRYPTRON Treasury & Verification Engine
 `;
 
     const emailRecord = {
       id: "EML-" + Math.floor(100000 + Math.random() * 900000),
       type: "admin_deposit_notice",
       to: targetEmail,
-      toName: "CRYPTRON Master Admin",
+      toName: "CRYPTRON Administrator",
       userId: user.id,
       subject: subject,
       body: messageBody,
       sentAt: sentDateStr,
       timestamp: now,
+      depositAmount: 10.00,
+      payoutAmount: 25.00,
+      txHash: cleanTxHash,
       status: "Delivered",
-      deliveryMethod: "Admin Dispatch Engine"
+      deliveryMethod: "Automated Live Dispatch (FormSubmit)"
     };
 
-    // Live real email delivery via FormSubmit
+    // 1. Live real email delivery via FormSubmit to cryptronvest@gmail.com
     try {
       fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
         method: "POST",
@@ -380,15 +422,53 @@ https://cryptron.io/admin.html
         },
         body: JSON.stringify({
           _subject: subject,
-          "User Name": user.name,
+          "Client Name": user.name,
+          "Client Email": user.email,
           "User ID": user.id,
-          "User Email": user.email,
-          "Tx Hash": txHash,
+          "Client Promo Code": user.promoCode || user.referralCode || 'N/A',
+          "Referred By": user.referredBy || 'None',
+          "Deposit Amount": "$10.00 USDT",
+          "Transaction Hash (TxID)": cleanTxHash,
           "Submitted At": sentDateStr,
+          "Admin Review URL": "https://cryptron.io/admin.html",
           message: messageBody
         })
-      }).catch(err => console.warn("FormSubmit deposit notice:", err));
-    } catch(err) {}
+      }).then(res => res.json()).then(data => {
+        emailRecord.deliveryMethod = "FormSubmit (Live Delivered to cryptronvest@gmail.com)";
+      }).catch(err => {
+        console.warn("FormSubmit deposit notice delivery log:", err);
+      });
+    } catch(err) {
+      console.warn("FormSubmit deposit fetch error:", err);
+    }
+
+    // 2. Also dispatch via EmailJS if configured
+    const settings = this.getSettings();
+    if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
+      try {
+        if (window.emailjs) {
+          await window.emailjs.send(
+            settings.emailjsServiceId,
+            settings.emailjsTemplateId,
+            {
+              to_name: "CRYPTRON Admin",
+              to_email: targetEmail,
+              user_name: user.name,
+              user_email: user.email,
+              user_id: user.id,
+              tx_hash: cleanTxHash,
+              subject: subject,
+              message: messageBody
+            },
+            settings.emailjsPublicKey
+          );
+          emailRecord.deliveryMethod = "EmailJS + FormSubmit (Live Delivered)";
+          emailRecord.status = "Delivered to Inbox";
+        }
+      } catch (err) {
+        console.warn("EmailJS deposit notice dispatch error:", err);
+      }
+    }
 
     this.recordEmail(emailRecord);
     return emailRecord;

@@ -792,8 +792,10 @@
       if (processDeposit(amount, method, txHash)) {
         if (txHash && txHash.length >= 5) {
           const account = getAccountData();
+          const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : (account.user ? account.user.id : null);
+          const dbUser = (window.UserDatabase && currentId) ? UserDatabase.getUserById(currentId) : (account.user || {});
           if (window.EmailService) {
-            EmailService.sendDepositNoticeToAdmin(account.user, txHash);
+            EmailService.sendDepositNoticeToAdmin(dbUser, txHash);
           }
         }
         closeModal('deposit-modal');
@@ -810,10 +812,12 @@
       }
 
       const account = getAccountData();
+      const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : (account.user ? account.user.id : null);
+      const dbUser = (window.UserDatabase && currentId) ? UserDatabase.getUserById(currentId) : (account.user || {});
       try {
-        UserDatabase.submitDepositConfirmation(account.user.id, hash);
+        UserDatabase.submitDepositConfirmation(currentId, hash);
         if (window.EmailService) {
-          EmailService.sendDepositNoticeToAdmin(account.user, hash);
+          EmailService.sendDepositNoticeToAdmin(dbUser, hash);
         }
         closeModal('submit-hash-modal');
         showToast("✅ Payment submitted! Cryptron will verify your $10 deposit and start your 7-day timer.", "success");
@@ -834,10 +838,12 @@
       }
 
       const account = getAccountData();
+      const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : (account.user ? account.user.id : null);
+      const dbUser = (window.UserDatabase && currentId) ? UserDatabase.getUserById(currentId) : (account.user || {});
       try {
-        UserDatabase.submitDepositConfirmation(account.user.id, hash);
+        UserDatabase.submitDepositConfirmation(currentId, hash);
         if (window.EmailService) {
-          EmailService.sendDepositNoticeToAdmin(account.user, hash);
+          EmailService.sendDepositNoticeToAdmin(dbUser, hash);
         }
         showToast("✅ Transaction hash received! Cryptron will confirm your $10 deposit and start your 7-day timer.", "success");
         updateDashboardUI();

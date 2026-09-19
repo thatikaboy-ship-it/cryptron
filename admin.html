@@ -1385,11 +1385,16 @@
 
     function showEmailDispatchedModal(email) {
       lastDispatchedEmail = email;
-      document.getElementById('disp-email-to').textContent = `${email.toName} <${email.to}>`;
-      document.getElementById('disp-email-amt').textContent = `$${email.depositAmount} USDT`;
-      document.getElementById('disp-email-payout').textContent = `$${email.payoutAmount} USDT (7d)`;
-      document.getElementById('disp-email-subject').textContent = email.subject;
-      document.getElementById('disp-email-body').textContent = email.body;
+      const toEl = document.getElementById('disp-email-to');
+      if (toEl) toEl.textContent = `${email.toName || 'Client'} <${email.to || ''}>`;
+      const amtEl = document.getElementById('disp-email-amt');
+      if (amtEl) amtEl.textContent = email.depositAmount ? `$${email.depositAmount} USDT` : (email.amount ? `$${email.amount} USDT` : '$10.00 USDT');
+      const payoutEl = document.getElementById('disp-email-payout');
+      if (payoutEl) payoutEl.textContent = email.payoutAmount ? `$${email.payoutAmount} USDT (7d)` : '$25.00 USDT';
+      const subjEl = document.getElementById('disp-email-subject');
+      if (subjEl) subjEl.textContent = email.subject || '';
+      const bodyEl = document.getElementById('disp-email-body');
+      if (bodyEl) bodyEl.textContent = email.body || '';
       openModal('email-dispatch-modal');
     }
 
