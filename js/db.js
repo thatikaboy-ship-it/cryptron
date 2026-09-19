@@ -1017,6 +1017,28 @@ class UserDatabase {
 
     this.saveUsers(users);
 
+    // Dispatch payout request submission message to client inbox
+    try {
+      this.sendMessage({
+        targetType: "individual",
+        targetUserId: userId,
+        targetUserName: user.name,
+        subject: `💵 Payout Request Received: $${parsedAmount.toFixed(2)} USDT`,
+        body: `Hello ${user.name},\n\nYour payout request for $${parsedAmount.toFixed(2)} USDT has been successfully recorded and queued for settlement.\n\n• Payout Amount: $${parsedAmount.toFixed(2)} USDT\n• Receiving Address: ${usdtAddress.trim()}\n• Network: ${network}\n• Status: Pending Admin Settlement\n• Request ID: ${reqId}\n\nOur operations team has received your destination address and is queuing your payment for on-chain dispatch. You will receive an on-chain transaction hash message once funds are sent.\n\nEverything starts afresh: you may deposit $10.00 USDT at any time to begin your next 7-day vault cycle and spin the wheel!`,
+        priority: "info",
+        category: "Payout Request"
+      });
+    } catch (e) {
+      console.warn("Could not dispatch payout request message:", e);
+    }
+
+    // Dispatch automated email notification if EmailService is available
+    if (window.EmailService) {
+      try {
+        EmailService.sendPayoutRequestedEmail(user, user.withdrawalRequest).catch(console.warn);
+      } catch (e) {}
+    }
+
     // Sync active session if this is the active user
     if (this.getCurrentUserId() === userId || userId === "USR-1001") {
       try {
@@ -1080,6 +1102,21 @@ class UserDatabase {
     });
 
     this.saveUsers(users);
+
+    // Dispatch official protocol message to client inbox
+    try {
+      this.sendMessage({
+        targetType: "individual",
+        targetUserId: userId,
+        targetUserName: user.name,
+        subject: `✅ USDT Payout Dispatched & Settled: $${settledReq.amount.toFixed(2)} USDT`,
+        body: `Hello ${user.name},\n\nGreat news! Your requested payout of $${settledReq.amount.toFixed(2)} USDT has been successfully processed and dispatched to your USDT Tether receiving address!\n\n• Payout Amount: $${settledReq.amount.toFixed(2)} USDT\n• Receiving Address: ${settledReq.usdtAddress}\n• Network: ${settledReq.network || 'USDT TRC-20'}\n• Transaction Hash: ${hash}\n• Settled At: ${settledReq.settledAt}\n\nYour 7-day contract has completed successfully. Deposit $10.00 USDT now to start a new 7-day vault to $25 and unlock your daily spins on the $10,000 Lucky Wheel!`,
+        priority: "success",
+        category: "Payout Settlement"
+      });
+    } catch (e) {
+      console.warn("Could not dispatch payout settlement message:", e);
+    }
 
     if (this.getCurrentUserId() === userId || userId === "USR-1001") {
       try {
@@ -1187,6 +1224,8 @@ class UserDatabase {
 
   static saveMessages(messages) {
     localStorage.setItem("cryptron_broadcast_messages", JSON.stringify(messages));
+    window.dispatchEvent(new CustomEvent('cryptron_messages_updated'));
+    window.dispatchEvent(new CustomEvent('cryptron_users_updated'));
   }
 
   /**

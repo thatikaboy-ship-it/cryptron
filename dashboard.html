@@ -183,13 +183,13 @@
         <div>
           <div class="text-sm font-bold text-white flex items-center gap-2">
             <span>Daily Spin: Chance to Win $10,000!</span>
-            <span id="spin-badge-tag" class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold">1 FREE DAILY</span>
+            <span id="spin-badge-tag" class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30">PARTICIPATE</span>
           </div>
-          <div id="spin-badge-subtitle" class="text-xs text-slate-300 mt-0.5">Active $10 stakers get 1 free daily wheel spin.</div>
+          <div id="spin-badge-subtitle" class="text-xs text-slate-300 mt-0.5">Deposit to spin and stand a chance to win $10,000</div>
         </div>
       </div>
-      <a id="dashboard-spin-btn" href="spin.html" class="btn-shimmer px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-colors self-start sm:self-auto flex-shrink-0">
-        Spin Now
+      <a id="dashboard-spin-btn" href="#" onclick="openModal('deposit-modal'); return false;" class="btn-shimmer px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-colors self-start sm:self-auto flex items-center gap-1.5 cursor-pointer flex-shrink-0">
+        <span>Participate</span>
       </a>
     </div>
 
@@ -1245,29 +1245,27 @@
 
       if (spinStatus.reason === 'not_funded') {
         if (dashboardSpinBtn) {
-          dashboardSpinBtn.className = "px-4 py-2.5 rounded-xl bg-slate-800/80 border border-white/10 text-slate-400 font-bold text-xs font-mono uppercase tracking-wider transition-colors self-start sm:self-auto flex items-center gap-1.5 cursor-pointer";
-          dashboardSpinBtn.innerHTML = `<i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i><span>Locked (Deposit $10)</span>`;
+          dashboardSpinBtn.className = "btn-shimmer px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-colors self-start sm:self-auto flex items-center gap-1.5 cursor-pointer flex-shrink-0";
+          dashboardSpinBtn.innerHTML = `<span>Participate</span>`;
           dashboardSpinBtn.setAttribute('href', '#');
           dashboardSpinBtn.onclick = (e) => {
             e.preventDefault();
-            showToast("🔒 Daily Spin Locked: You must deposit and activate a $10.00 investment contract to spin the wheel.", "warning");
             openModal('deposit-modal');
           };
         }
         if (spinBadgeTag) {
-          spinBadgeTag.textContent = "LOCKED";
-          spinBadgeTag.className = "px-2 py-0.5 rounded bg-slate-800 text-amber-400 text-[10px] font-mono font-bold border border-amber-500/20";
+          spinBadgeTag.textContent = "PARTICIPATE";
+          spinBadgeTag.className = "px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30";
         }
         if (spinBadgeSubtitle) {
-          spinBadgeSubtitle.textContent = "Deposit $10 to unlock your daily free spin on the $10,000 Lucky Wheel.";
+          spinBadgeSubtitle.textContent = "Deposit to spin and stand a chance to win $10,000";
         }
         if (navSpinBtn) {
-          navSpinBtn.className = "hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold bg-slate-800/80 text-amber-400/80 border border-amber-500/20 transition-all cursor-pointer";
-          navSpinBtn.innerHTML = `<i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i><span>Wheel Locked</span>`;
+          navSpinBtn.className = "hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 transition-all cursor-pointer";
+          navSpinBtn.innerHTML = `<i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i><span>Participate</span>`;
           navSpinBtn.removeAttribute('href');
           navSpinBtn.onclick = (e) => {
             e.preventDefault();
-            showToast("🔒 Verified Investors Only: You must deposit and activate a $10 investment contract to spin.", "warning");
             openModal('deposit-modal');
           };
         }

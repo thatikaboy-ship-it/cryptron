@@ -483,16 +483,16 @@ const SPIN_COOLDOWN_MS = 24 * 60 * 60 * 1000; // Exactly 24 Hours in Millisecond
  * Check if the 7-day contract countdown has expired or matured ("spin ends after countdown")
  */
 function isContractCountdownExpired(account) {
-  if (!account) return true;
-  const primaryPlan = (account.activePlans && account.activePlans.length > 0) ? account.activePlans[0] : null;
-  if (!primaryPlan) {
-    return !(account.user && (account.user.investmentStatus === 'active' || account.user.hasActiveInvestment));
-  }
-  if (primaryPlan.isMatured || (primaryPlan.maturityTimestamp && primaryPlan.maturityTimestamp <= Date.now())) {
-    return true;
-  }
+  if (!account) return false;
+  // A contract is only expired/ended if the client has a matured status from a completed contract
   if (account.user && account.user.investmentStatus === 'matured') {
     return true;
+  }
+  const primaryPlan = (account.activePlans && account.activePlans.length > 0) ? account.activePlans[0] : null;
+  if (primaryPlan) {
+    if (primaryPlan.isMatured || (primaryPlan.maturityTimestamp && primaryPlan.maturityTimestamp <= Date.now())) {
+      return true;
+    }
   }
   return false;
 }
@@ -515,8 +515,8 @@ function getSpinStatus(account) {
     return {
       canSpin: false,
       reason: 'not_funded',
-      badgeText: 'LOCKED',
-      message: 'Deposit $10 to unlock your daily free spin on the $10,000 Lucky Wheel.',
+      badgeText: 'PARTICIPATE',
+      message: 'Deposit to spin and stand a chance to win $10,000',
       cooldownRemainingMs: 0,
       hours: "00",
       minutes: "00",
@@ -646,14 +646,6 @@ function isClientFundedAndActive(account) {
     const u = currentId ? UserDatabase.getUserById(currentId) : null;
     if (u && (u.investmentStatus === 'active' || (u.activePlans && u.activePlans.length > 0))) return true;
   }
-  try {
-    const raw = localStorage.getItem("cryptron_account_v3_countdown");
-    if (raw) {
-      const p = JSON.parse(raw);
-      if (p.activePlans && p.activePlans.length > 0) return true;
-      if (p.user && (p.user.investmentStatus === 'active' || p.user.hasActiveInvestment)) return true;
-    }
-  } catch(e) {}
   return false;
 }
 

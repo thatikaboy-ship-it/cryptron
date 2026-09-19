@@ -999,7 +999,11 @@
                         </button>
                       </div>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button onclick="openAdminMessageModal('${u.id}')" class="px-3 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs font-mono border border-amber-500/40 flex items-center gap-1.5 transition-all cursor-pointer" title="Send message to client regarding their payout">
+                        <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                        <span>Message Client</span>
+                      </button>
                       <button onclick="confirmSettleWithdrawal('${u.id}')" class="btn-shimmer px-4 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider shadow-lg shadow-cyan-500/30 flex items-center gap-1.5 transition-all cursor-pointer">
                         <i data-lucide="check-check" class="w-4 h-4"></i>
                         <span>Confirm & Settle Payout ($${(Number(u.withdrawalRequest.amount) || 25).toFixed(2)})</span>
@@ -1580,7 +1584,11 @@
 
       try {
         const settled = UserDatabase.settleWithdrawalRequest(userId);
-        showToast(`✅ Payout of $${settled.amount.toFixed(2)} USDT marked as settled!`, 'success');
+        if (window.EmailService && user) {
+          EmailService.sendPayoutSettledEmail(user, settled).catch(console.warn);
+        }
+        showToast(`✅ Payout of $${settled.amount.toFixed(2)} USDT settled! Protocol message & email dispatched to client.`, 'success');
+        updateOutboxBadge();
         renderUsers();
       } catch (err) {
         showToast(err.message, 'error');

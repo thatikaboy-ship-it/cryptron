@@ -353,6 +353,127 @@ https://cryptron.io
     this.recordEmail(emailRecord);
     return emailRecord;
   }
+
+  /**
+   * DISPATCH PAYOUT REQUEST CONFIRMATION EMAIL TO CLIENT
+   * Triggered when a client submits their $25.00 USDT payout request
+   */
+  static async sendPayoutRequestedEmail(user, req) {
+    const now = Date.now();
+    const sentDateStr = this.formatDateTime(now);
+    const amount = (req && req.amount ? req.amount : 25).toFixed(2);
+    const address = req && req.usdtAddress ? req.usdtAddress : 'USDT Receiving Address';
+    const network = req && req.network ? req.network : 'USDT (Tether)';
+
+    const subject = `💵 Payout Request Received: $${amount} USDT Queued for Settlement`;
+    const messageBody = `Hello ${user.name},
+
+Your payout request for $${amount} USDT has been successfully recorded and queued in the CRYPTRON settlement pipeline.
+
+════════════════════════════════════════════
+📋 PAYOUT REQUEST DETAILS
+════════════════════════════════════════════
+• Investor: ${user.name} (${user.id})
+• Payout Amount: $${amount} USDT
+• Receiving Address: ${address}
+• Network: ${network}
+• Status: 🟡 Pending Admin Settlement
+• Submission Time: ${sentDateStr}
+════════════════════════════════════════════
+
+WHAT HAPPENS NEXT?
+1. On-Chain Verification: Our operations team will verify your receiving address and dispatch funds to your USDT wallet.
+2. Transaction Hash Notification: Once completed, you will receive a confirmation message and email containing your blockchain transaction hash.
+3. Start Afresh: You can deposit $10.00 USDT at any time to activate your next 7-day vault and unlock your daily spins on the $10,000 Lucky Wheel!
+
+Login to view your status:
+https://cryptron.io/dashboard.html
+
+Warm regards,
+The CRYPTRON Settlements Team
+https://cryptron.io
+`;
+
+    const emailRecord = {
+      id: "EML-" + Math.floor(100000 + Math.random() * 900000),
+      type: "payout_requested",
+      to: user.email,
+      toName: user.name,
+      userId: user.id,
+      subject: subject,
+      body: messageBody,
+      sentAt: sentDateStr,
+      timestamp: now,
+      amount: amount,
+      usdtAddress: address,
+      status: "Delivered",
+      deliveryMethod: "Settlements Dispatch Engine"
+    };
+
+    this.recordEmail(emailRecord);
+    return emailRecord;
+  }
+
+  /**
+   * DISPATCH PAYOUT SETTLED CONFIRMATION EMAIL TO CLIENT
+   * Triggered when admin confirms on-chain dispatch of $25.00 USDT payout
+   */
+  static async sendPayoutSettledEmail(user, settledReq) {
+    const now = Date.now();
+    const sentDateStr = this.formatDateTime(now);
+    const amount = (settledReq && settledReq.amount ? settledReq.amount : 25).toFixed(2);
+    const address = settledReq && settledReq.usdtAddress ? settledReq.usdtAddress : 'USDT Receiving Address';
+    const txHash = settledReq && settledReq.settlementTxHash ? settledReq.settlementTxHash : ('0x' + Math.random().toString(16).substring(2, 14));
+    const network = settledReq && settledReq.network ? settledReq.network : 'USDT (Tether)';
+
+    const subject = `✅ Payout Dispatched: $${amount} USDT Sent to Your Wallet!`;
+    const messageBody = `Hello ${user.name},
+
+Great news! Your payout of $${amount} USDT has been officially settled and dispatched to your USDT Tether receiving address.
+
+════════════════════════════════════════════
+💸 SETTLEMENT CONFIRMATION
+════════════════════════════════════════════
+• Investor: ${user.name} (${user.id})
+• Amount Dispatched: $${amount} USDT
+• Destination Address: ${address}
+• Network: ${network}
+• Settlement TxID: ${txHash}
+• Dispatched At: ${sentDateStr}
+• Status: 🟢 SETTLED & COMPLETED
+════════════════════════════════════════════
+
+YOUR 7-DAY CYCLE IS COMPLETE!
+Thank you for investing with CRYPTRON. Your account cycle has refreshed. You may now deposit $10.00 USDT to start a brand new 7-day vault cycle toward another $25 payout and unlock daily spins on the $10,000 Lucky Wheel!
+
+Login to start a new 7-day vault:
+https://cryptron.io/dashboard.html
+
+Warm regards,
+The CRYPTRON Treasury Team
+https://cryptron.io
+`;
+
+    const emailRecord = {
+      id: "EML-" + Math.floor(100000 + Math.random() * 900000),
+      type: "payout_settled",
+      to: user.email,
+      toName: user.name,
+      userId: user.id,
+      subject: subject,
+      body: messageBody,
+      sentAt: sentDateStr,
+      timestamp: now,
+      amount: amount,
+      usdtAddress: address,
+      txHash: txHash,
+      status: "Delivered",
+      deliveryMethod: "Treasury Dispatch Engine"
+    };
+
+    this.recordEmail(emailRecord);
+    return emailRecord;
+  }
 }
 
 window.EmailService = EmailService;
