@@ -44,6 +44,10 @@ function getAccountData() {
       let base;
       try {
         base = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_ACCOUNT));
+        // Isolate session to active dbUser: discard stored data if it belongs to a different user ID
+        if (base.user && base.user.id && base.user.id !== dbUser.id) {
+          base = JSON.parse(JSON.stringify(DEFAULT_ACCOUNT));
+        }
       } catch(e) {
         base = JSON.parse(JSON.stringify(DEFAULT_ACCOUNT));
       }
@@ -59,7 +63,12 @@ function getAccountData() {
       base.user.referralBypassed = !!dbUser.referralBypassed;
       base.user.investmentStatus = dbUser.investmentStatus || (dbUser.activePlans && dbUser.activePlans.length > 0 ? 'active' : 'not_invested');
       base.user.pendingTxHash = dbUser.pendingTxHash || null;
-      base.user.lastSpinTimestamp = (dbUser.lastSpinTimestamp !== undefined) ? dbUser.lastSpinTimestamp : (base.user.lastSpinTimestamp || 0);
+      
+      // Isolate lastSpinTimestamp cleanly to dbUser only (default to 0 so fresh staker can spin on day countdown starts)
+      base.user.lastSpinTimestamp = (dbUser.lastSpinTimestamp !== undefined && dbUser.lastSpinTimestamp !== null) 
+        ? dbUser.lastSpinTimestamp 
+        : 0;
+
       base.user.withdrawalRequest = dbUser.withdrawalRequest || null;
       base.user.withdrawalHistory = dbUser.withdrawalHistory || [];
       base.activePlans = dbUser.activePlans || [];
@@ -79,15 +88,28 @@ function getAccountData() {
         };
         base.activePlans = [autoPlan];
         dbUser.activePlans = [autoPlan];
+        base.user.lastSpinTimestamp = 0; // Fresh daily spin guaranteed on countdown start day!
+        dbUser.lastSpinTimestamp = 0;
         try {
           const allU = UserDatabase.getAllUsers();
           const target = allU.find(u => u.id === dbUser.id);
           if (target) {
             target.activePlans = [autoPlan];
             target.investmentStatus = 'active';
+            target.lastSpinTimestamp = 0;
             UserDatabase.saveUsers(allU);
           }
         } catch(e) {}
+      }
+
+      // If user has an active contract and lastSpinTimestamp was prior to or at contract start:
+      // Client is guaranteed to be allowed to spin on the day their countdown starts!
+      if (base.activePlans && base.activePlans.length > 0) {
+        const primaryContract = base.activePlans[0];
+        if (base.user.lastSpinTimestamp && primaryContract.createdAt && base.user.lastSpinTimestamp <= primaryContract.createdAt) {
+          base.user.lastSpinTimestamp = 0;
+          dbUser.lastSpinTimestamp = 0;
+        }
       }
 
       base.user.hasActiveInvestment = (base.activePlans.length > 0) || (base.user.investmentStatus === 'active');
@@ -121,13 +143,17 @@ function getAccountData() {
         durationDays: 7,
         status: "Active"
       }];
+      data.user.lastSpinTimestamp = 0;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
     // Ensure new properties exist
     if (!data.user.referralCount && data.user.referralCount !== 0) data.user.referralCount = 3;
     if (!data.user.requiredReferrals) data.user.requiredReferrals = 5;
     if (data.user.hasActiveInvestment === undefined) data.user.hasActiveInvestment = (data.activePlans && data.activePlans.length > 0);
-    if (data.user.lastSpinTimestamp === undefined) data.user.lastSpinTimestamp = 0;
+    if (data.user.lastSpinTimestamp === undefined || data.user.lastSpinTimestamp === null) data.user.lastSpinTimestamp = 0;
+    if (data.activePlans && data.activePlans.length > 0 && data.user.lastSpinTimestamp && data.activePlans[0].createdAt && data.user.lastSpinTimestamp <= data.activePlans[0].createdAt) {
+      data.user.lastSpinTimestamp = 0;
+    }
     return data;
   } catch (e) {
     console.error("Error parsing stored account data", e);
@@ -384,6 +410,8 @@ function investInSevenDayPlan(units = 1) {
   account.wallet.availableBalance -= principal;
   account.wallet.investedBalance += principal;
   account.user.hasActiveInvestment = true;
+  account.user.investmentStatus = "active";
+  account.user.lastSpinTimestamp = 0; // Guaranteed free spin unlocked on countdown start day!
 
   // 7 Days in milliseconds = 7 * 24 * 60 * 60 * 1000 = 604,800,000 ms
   const maturityTime = Date.now() + (7 * 86400000);
@@ -451,9 +479,16 @@ const ALLOWED_WIN_INDICES = [1, 2, 3, 4, 5, 6, 7];
 
 /**
  * Daily Spin cooldown check: verifies if user has spun on current calendar day
+ * @param {number} timestamp - Last spin timestamp
+ * @param {number} [contractCreatedAt] - When the current active contract was started
  */
-function hasUserSpunToday(timestamp) {
-  if (!timestamp) return false;
+function hasUserSpunToday(timestamp, contractCreatedAt) {
+  if (!timestamp || timestamp <= 0) return false;
+  // If the spin occurred before or at the moment the contract was created,
+  // user has NOT spun under this active countdown, so allow spin today!
+  if (contractCreatedAt && timestamp <= contractCreatedAt) {
+    return false;
+  }
   const spinDate = new Date(timestamp);
   const today = new Date();
   return spinDate.getFullYear() === today.getFullYear() &&

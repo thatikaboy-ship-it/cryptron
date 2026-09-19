@@ -26,6 +26,7 @@ const SEED_USERS = [
     referralCount: 3,
     investmentStatus: "active", // 'active', 'pending_approval', 'not_invested'
     pendingTxHash: null,
+    lastSpinTimestamp: 0,
     totalDeposited: 10.00,
     availableBalance: 0.00,
     totalProfits: 0.00,
@@ -57,6 +58,7 @@ const SEED_USERS = [
     referralCount: 1,
     investmentStatus: "pending_approval",
     pendingTxHash: "0x4a9b2c89e1f02c4b81a77e90c5d61",
+    lastSpinTimestamp: 0,
     totalDeposited: 0.00,
     availableBalance: 0.00,
     totalProfits: 0.00,
@@ -76,6 +78,7 @@ const SEED_USERS = [
     referralCount: 0,
     investmentStatus: "not_invested",
     pendingTxHash: null,
+    lastSpinTimestamp: 0,
     totalDeposited: 0.00,
     availableBalance: 0.00,
     totalProfits: 0.00,
@@ -340,6 +343,10 @@ class UserDatabase {
         u.referralCount = 0;
         updated = true;
       }
+      if (u.lastSpinTimestamp === undefined || u.lastSpinTimestamp === null) {
+        u.lastSpinTimestamp = 0;
+        updated = true;
+      }
     });
 
     if (updated) {
@@ -511,6 +518,7 @@ class UserDatabase {
       referralCount: 0,
       referredBy: cleanReferredBy,
       referralSpinCredited: false, // Set to true once this referral deposits $10 and spins the wheel
+      lastSpinTimestamp: 0, // Unlocked fresh daily spin
       investmentStatus: "not_invested", // Starts with no investment until approved
       pendingTxHash: null,
       totalDeposited: 0.00,
@@ -763,6 +771,7 @@ class UserDatabase {
     user.investmentStatus = "active";
     user.totalDeposited = (user.totalDeposited || 0) + 10.00;
     user.pendingTxHash = null; // Clear pending flag
+    user.lastSpinTimestamp = 0; // Fresh daily spin guaranteed on countdown start day!
 
     this.saveUsers(users);
 
@@ -777,6 +786,7 @@ class UserDatabase {
         acc.user.hasActiveInvestment = true;
         acc.user.investmentStatus = "active";
         acc.user.pendingTxHash = null;
+        acc.user.lastSpinTimestamp = 0;
         acc.wallet.investedBalance = (acc.wallet.investedBalance || 0) + 10.00;
         localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
       } catch (e) {}
@@ -809,6 +819,7 @@ class UserDatabase {
     user.activePlans = [];
     user.investmentStatus = "not_invested";
     user.pendingTxHash = null;
+    user.lastSpinTimestamp = 0;
 
     this.saveUsers(users);
 
@@ -1002,6 +1013,7 @@ class UserDatabase {
     user.pendingWithdrawal = (user.pendingWithdrawal || 0) + parsedAmount;
     user.referralCount = 0; // Starts afresh for the next cycle
     user.referralBypassed = false;
+    user.lastSpinTimestamp = 0; // Fresh state for subsequent deposit
 
     this.saveUsers(users);
 
@@ -1020,6 +1032,7 @@ class UserDatabase {
           acc.wallet.pendingWithdrawal = user.pendingWithdrawal;
           acc.user.referralCount = 0;
           acc.user.referralBypassed = false;
+          acc.user.lastSpinTimestamp = 0;
           localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
         }
       } catch (e) {}
