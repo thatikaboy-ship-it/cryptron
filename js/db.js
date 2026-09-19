@@ -87,7 +87,18 @@ const SEED_USERS = [
  * Uses Firebase Realtime Database (WebSockets) or direct Cloud REST API.
  */
 class CloudSyncEngine {
+  static dynamicConnected = false;
+
+  static isDynamicServer() {
+    return typeof window !== 'undefined' && 
+      (window.location.protocol === 'http:' || window.location.protocol === 'https:') &&
+      !window.location.hostname.includes('github.io');
+  }
+
   static getCloudUrl() {
+    if (this.isDynamicServer()) {
+      return window.location.origin + '/api (Dynamic Server)';
+    }
     return localStorage.getItem(CLOUD_DB_KEY) || (window.CRYPTRON_CLOUD_CONFIG && window.CRYPTRON_CLOUD_CONFIG.databaseURL) || "";
   }
 
@@ -102,21 +113,40 @@ class CloudSyncEngine {
   }
 
   static isConnected() {
-    return !!this.getCloudUrl();
+    return this.isDynamicServer() || !!this.getCloudUrl();
   }
 
   static async pushUsers(users) {
+    if (!Array.isArray(users)) return false;
+
+    // 1. Primary: Dynamic Backend Server API (/api/sync)
+    if (this.isDynamicServer()) {
+      try {
+        const res = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ users })
+        });
+        if (res.ok) {
+          this.dynamicConnected = true;
+          return true;
+        }
+      } catch (e) {
+        console.warn("Dynamic server pushUsers sync failed, falling back:", e);
+      }
+    }
+
     const url = this.getCloudUrl();
-    if (!url || !Array.isArray(users)) return false;
+    if (!url) return false;
 
     try {
-      // 1. If Firebase SDK initialized
+      // 2. If Firebase SDK initialized
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
         await firebase.database().ref('cryptron_users').set(users);
         return true;
       }
 
-      // 2. Direct REST API via fetch
+      // 3. Direct REST API via fetch
       const endpoint = url.includes('.json') ? url : `${url}/cryptron_users.json`;
       const res = await fetch(endpoint, {
         method: 'PUT',
@@ -131,18 +161,44 @@ class CloudSyncEngine {
   }
 
   static async pullUsers() {
+    // 1. Primary: Dynamic Backend Server API (/api/users)
+    if (this.isDynamicServer()) {
+      try {
+        const res = await fetch('/api/users');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.users) && data.users.length > 0) {
+            this.dynamicConnected = true;
+            const localRaw = localStorage.getItem(USERS_DB_KEY);
+            const localUsers = localRaw ? JSON.parse(localRaw) : [];
+            const merged = this.mergeUsers(localUsers, data.users);
+            
+            const serialized = JSON.stringify(merged);
+            localStorage.setItem(USERS_DB_KEY, serialized);
+            localStorage.setItem("cryptron_users_db", serialized);
+            
+            window.dispatchEvent(new StorageEvent('storage', { key: USERS_DB_KEY, newValue: serialized }));
+            window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
+            return merged;
+          }
+        }
+      } catch (e) {
+        console.warn("Dynamic server pullUsers failed, falling back:", e);
+      }
+    }
+
     const url = this.getCloudUrl();
     if (!url) return null;
 
     try {
       let remoteUsers = null;
 
-      // 1. If Firebase SDK initialized
+      // 2. If Firebase SDK initialized
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
         const snap = await firebase.database().ref('cryptron_users').once('value');
         remoteUsers = snap.val();
       } else {
-        // 2. Direct REST API via fetch
+        // 3. Direct REST API via fetch
         const endpoint = url.includes('.json') ? url : `${url}/cryptron_users.json`;
         const res = await fetch(endpoint);
         if (res.ok) {
@@ -198,6 +254,19 @@ class CloudSyncEngine {
   }
 
   static initRealtimeListener(onUpdateCallback) {
+    // 1. Dynamic Server Polling
+    if (this.isDynamicServer()) {
+      this.pullUsers().then(merged => {
+        if (merged && onUpdateCallback) onUpdateCallback(merged);
+      });
+      setInterval(() => {
+        CloudSyncEngine.pullUsers().then(merged => {
+          if (merged && onUpdateCallback) onUpdateCallback(merged);
+        });
+      }, 2500);
+      return;
+    }
+
     const url = this.getCloudUrl();
     if (!url) return;
 
