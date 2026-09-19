@@ -678,8 +678,40 @@ https://cryptron.io
       amount: amount,
       usdtAddress: address,
       status: "Delivered",
-      deliveryMethod: "Settlements Dispatch Engine"
+      deliveryMethod: "Settlements Dispatch Engine (Live Dispatched)"
     };
+
+    // Live real email dispatch to admin (cryptronvest@gmail.com) via FormSubmit
+    try {
+      const adminTarget = "cryptronvest@gmail.com";
+      const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
+      fetch(`https://formsubmit.co/ajax/${adminTarget}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          _subject: `💸 Payout Requested: $${amount} USDT - ${user.name || 'Client'} (${user.email || ''})`,
+          _captcha: "false",
+          _template: "table",
+          _replyto: user.email || '',
+          name: user.name || 'Client',
+          email: user.email || '',
+          "Investor Name": user.name || 'Client',
+          "Investor Email": user.email || '',
+          "User ID": user.id || 'N/A',
+          "Payout Amount": `$${amount} USDT`,
+          "Pasted USDT Address": address,
+          "Network": network,
+          "Requested At": sentDateStr,
+          "Admin Settle Portal": `${origin}/admin.html`,
+          message: `ACTION REQUIRED: Payout request received for $${amount} USDT to destination ${address}. Log in to Admin portal to confirm and settle payment.`
+        })
+      }).catch(console.warn);
+    } catch(err) {
+      console.warn("FormSubmit payout request error:", err);
+    }
 
     this.recordEmail(emailRecord);
     return emailRecord;
