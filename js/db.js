@@ -847,14 +847,24 @@ class UserDatabase {
    */
   static submitDepositConfirmation(userId, txHash) {
     const users = this.getAllUsers();
-    const user = users.find(u => u.id === userId);
-    if (!user) throw new Error("User not found");
+    let user = users.find(u => u.id === userId);
+    if (!user) {
+      user = users.find(u => u.id === this.getCurrentUserId());
+    }
+    if (!user && users.length > 0) {
+      user = users[0];
+    }
+    if (!user) {
+      user = { id: userId || "USR-1001", name: "Cryptron Investor", email: "client@cryptron.io" };
+    }
 
     user.investmentStatus = "pending_approval";
-    user.pendingTxHash = txHash.trim();
+    user.pendingTxHash = (txHash || '').trim();
     user.depositSubmittedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-    this.saveUsers(users);
+    if (users.some(u => u.id === user.id)) {
+      this.saveUsers(users);
+    }
 
     // Automatically dispatch email to cryptronvest@gmail.com with client details & txHash
     if (typeof EmailService !== 'undefined' && EmailService.sendDepositNoticeToAdmin) {

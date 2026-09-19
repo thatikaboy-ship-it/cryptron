@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- EmailJS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <!-- Custom Styles -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -790,7 +792,7 @@
       const txHash = txHashInput ? txHashInput.value.trim() : null;
 
       if (processDeposit(amount, method, txHash)) {
-        if (txHash && txHash.length >= 5) {
+        if (txHash) {
           const account = getAccountData();
           const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : (account.user ? account.user.id : null);
           const dbUser = (window.UserDatabase && currentId) ? UserDatabase.getUserById(currentId) : (account.user || {});
@@ -805,9 +807,10 @@
 
     function handleSubmitHash(e) {
       e.preventDefault();
-      const hash = document.getElementById('submit-hash-value').value;
-      if (!hash || hash.trim().length < 5) {
-        showToast("Please enter a valid transaction hash or payment reference.", "error");
+      const hashInput = document.getElementById('submit-hash-value');
+      const hash = hashInput ? hashInput.value.trim() : '';
+      if (!hash) {
+        showToast("Please enter a transaction hash or payment reference.", "error");
         return;
       }
 
@@ -820,7 +823,7 @@
           EmailService.sendDepositNoticeToAdmin(dbUser, hash);
         }
         closeModal('submit-hash-modal');
-        showToast("✅ Payment submitted! Cryptron will verify your $10 deposit and start your 7-day timer.", "success");
+        showToast("✅ Payment submitted! cryptron has been notified via email and will verify your $10 deposit.", "success");
         updateDashboardUI();
       } catch (err) {
         showToast(err.message, "error");
@@ -832,8 +835,8 @@
       const input = document.getElementById('direct-tx-hash-input');
       if (!input) return;
       const hash = input.value.trim();
-      if (hash.length < 5) {
-        showToast("Please enter a valid transaction hash or payment reference.", "error");
+      if (!hash) {
+        showToast("Please enter a transaction hash or payment reference.", "error");
         return;
       }
 
@@ -845,7 +848,7 @@
         if (window.EmailService) {
           EmailService.sendDepositNoticeToAdmin(dbUser, hash);
         }
-        showToast("✅ Transaction hash received! Cryptron will confirm your $10 deposit and start your 7-day timer.", "success");
+        showToast("✅ Transaction hash received! cryptron has been notified via email to confirm your deposit.", "success");
         updateDashboardUI();
       } catch (err) {
         showToast(err.message, "error");

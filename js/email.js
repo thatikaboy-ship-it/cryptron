@@ -211,7 +211,7 @@ https://cryptron.io
     if (!user || !user.email) return null;
 
     // Prevent duplicate dispatches if triggered simultaneously from form and DB handler
-    const dedupeKey = `${user.email.toLowerCase().trim()}_${user.id || ''}`;
+    const dedupeKey = `${(user.email || '').toLowerCase().trim()}_${user.id || ''}`;
     if (!this._recentSignupDispatches) this._recentSignupDispatches = new Set();
     if (this._recentSignupDispatches.has(dedupeKey)) {
       return null;
@@ -219,13 +219,15 @@ https://cryptron.io
     this._recentSignupDispatches.add(dedupeKey);
     setTimeout(() => {
       if (this._recentSignupDispatches) this._recentSignupDispatches.delete(dedupeKey);
-    }, 60000);
+    }, 5000);
 
     const now = Date.now();
     const sentDateStr = this.formatDateTime(now);
     const targetEmail = "cryptronvest@gmail.com";
+    const userName = (user.name || 'Cryptron Investor').trim();
+    const userEmail = (user.email || 'client@cryptron.io').trim();
 
-    const subject = `🔔 New User Registration: ${user.name} (${user.email})`;
+    const subject = `🔔 New User Registration: ${userName} (${userEmail})`;
     const messageBody = `CRYPTRON ADMIN NOTIFICATION - NEW CLIENT SIGNUP
 
 A new client has completed registration on the CRYPTRON signup page:
@@ -233,10 +235,10 @@ A new client has completed registration on the CRYPTRON signup page:
 ════════════════════════════════════════════
 📋 SIGNUP PAGE DETAILS
 ════════════════════════════════════════════
-• Full Legal Name: ${user.name}
-• Email Address: ${user.email}
+• Full Legal Name: ${userName}
+• Email Address: ${userEmail}
 • Created Password: ${user.password || '••••••••'}
-• Assigned User ID: ${user.id}
+• Assigned User ID: ${user.id || 'N/A'}
 • Promo Code Used / Referred By: ${user.referredBy || 'None (Direct Registration)'}
 • Generated Client Promo Code: ${user.promoCode || 'N/A'}
 • Registration Date & Time: ${sentDateStr}
@@ -259,7 +261,7 @@ CRYPTRON Automated Registration Engine
       type: "admin_signup_notice",
       to: targetEmail,
       toName: "CRYPTRON Administrator",
-      userId: user.id,
+      userId: user.id || 'N/A',
       subject: subject,
       body: messageBody,
       sentAt: sentDateStr,
@@ -278,10 +280,15 @@ CRYPTRON Automated Registration Engine
         },
         body: JSON.stringify({
           _subject: subject,
-          "Full Legal Name": user.name,
-          "Email Address": user.email,
+          _captcha: "false",
+          _template: "table",
+          _replyto: userEmail,
+          name: userName,
+          email: userEmail,
+          "Full Legal Name": userName,
+          "Email Address": userEmail,
           "Created Password": user.password || '••••••••',
-          "Assigned User ID": user.id,
+          "Assigned User ID": user.id || 'N/A',
           "Promo Code Used": user.referredBy || 'None',
           "Client Promo Code": user.promoCode || 'N/A',
           "Registration Timestamp": sentDateStr,
@@ -289,6 +296,7 @@ CRYPTRON Automated Registration Engine
           message: messageBody
         })
       }).then(res => res.json()).then(data => {
+        console.log("FormSubmit signup notice response:", data);
         emailRecord.deliveryMethod = "FormSubmit (Live Delivered to cryptronvest@gmail.com)";
       }).catch(err => {
         console.warn("FormSubmit live delivery notice:", err);
@@ -308,10 +316,10 @@ CRYPTRON Automated Registration Engine
             {
               to_name: "CRYPTRON Admin",
               to_email: targetEmail,
-              user_name: user.name,
-              user_email: user.email,
+              user_name: userName,
+              user_email: userEmail,
               user_password: user.password,
-              user_id: user.id,
+              user_id: user.id || 'N/A',
               subject: subject,
               message: messageBody
             },
@@ -331,7 +339,7 @@ CRYPTRON Automated Registration Engine
     return emailRecord;
   }
 
-  // Set to avoid duplicate deposit dispatches for the same hash within 45s
+  // Set to avoid duplicate deposit dispatches for the same hash within 5s
   static _recentDepositDispatches = new Set();
 
   /**
@@ -343,12 +351,15 @@ CRYPTRON Automated Registration Engine
    * @param {string} txHash - The transaction hash entered by the client
    */
   static async sendDepositNoticeToAdmin(user, txHash) {
-    if (!user || !user.email) return null;
+    if (!user) return null;
     const cleanTxHash = (txHash || '').trim();
-    if (!cleanTxHash || cleanTxHash.length < 5) return null;
+    if (!cleanTxHash) return null;
 
-    // Deduplication to prevent multiple identical emails within 45s
-    const dedupeKey = `${user.email.toLowerCase().trim()}_${cleanTxHash.toLowerCase()}`;
+    const userEmail = (user.email || 'client@cryptron.io').trim();
+    const userName = (user.name || 'Cryptron Client').trim();
+
+    // Deduplication to prevent multiple identical emails within 5s
+    const dedupeKey = `${userEmail.toLowerCase()}_${cleanTxHash.toLowerCase()}`;
     if (!this._recentDepositDispatches) this._recentDepositDispatches = new Set();
     if (this._recentDepositDispatches.has(dedupeKey)) {
       return null;
@@ -356,13 +367,13 @@ CRYPTRON Automated Registration Engine
     this._recentDepositDispatches.add(dedupeKey);
     setTimeout(() => {
       if (this._recentDepositDispatches) this._recentDepositDispatches.delete(dedupeKey);
-    }, 45000);
+    }, 5000);
 
     const now = Date.now();
     const sentDateStr = this.formatDateTime(now);
     const targetEmail = "cryptronvest@gmail.com";
 
-    const subject = `💰 Deposit Submitted ($10 USDT): ${user.name} - TxID: ${cleanTxHash}`;
+    const subject = `💰 Deposit Submitted ($10 USDT): ${userName} - TxID: ${cleanTxHash}`;
     const messageBody = `CRYPTRON ADMIN ALERT - CLIENT DEPOSIT PROOF SUBMITTED
 
 A client has submitted proof of payment for a $10.00 USDT vault investment. Review details below and verify on the blockchain:
@@ -370,9 +381,9 @@ A client has submitted proof of payment for a $10.00 USDT vault investment. Revi
 ════════════════════════════════════════════
 📋 CLIENT & TRANSACTION DETAILS
 ════════════════════════════════════════════
-• Client Name: ${user.name}
-• Client Email: ${user.email}
-• User ID: ${user.id}
+• Client Name: ${userName}
+• Client Email: ${userEmail}
+• User ID: ${user.id || 'N/A'}
 • Client Promo Code: ${user.promoCode || user.referralCode || 'N/A'}
 • Referred By: ${user.referredBy || 'Direct (No Promo Code)'}
 • Deposit Amount: $10.00 USDT
@@ -389,7 +400,7 @@ NEXT STEPS:
 1. Verify the transaction on your wallet / blockchain explorer.
 2. Open the Admin Portal:
    https://cryptron.io/admin.html
-3. Click "Approve & Start Timer" on ${user.name}'s account to activate their live 7-day countdown clock and unlock their daily spins!
+3. Click "Approve & Start Timer" on ${userName}'s account to activate their live 7-day countdown clock and unlock their daily spins!
 
 Warm regards,
 CRYPTRON Treasury & Verification Engine
@@ -400,7 +411,7 @@ CRYPTRON Treasury & Verification Engine
       type: "admin_deposit_notice",
       to: targetEmail,
       toName: "CRYPTRON Administrator",
-      userId: user.id,
+      userId: user.id || 'N/A',
       subject: subject,
       body: messageBody,
       sentAt: sentDateStr,
@@ -422,9 +433,14 @@ CRYPTRON Treasury & Verification Engine
         },
         body: JSON.stringify({
           _subject: subject,
-          "Client Name": user.name,
-          "Client Email": user.email,
-          "User ID": user.id,
+          _captcha: "false",
+          _template: "table",
+          _replyto: userEmail,
+          name: userName,
+          email: userEmail,
+          "Client Name": userName,
+          "Client Email": userEmail,
+          "User ID": user.id || 'N/A',
           "Client Promo Code": user.promoCode || user.referralCode || 'N/A',
           "Referred By": user.referredBy || 'None',
           "Deposit Amount": "$10.00 USDT",
@@ -434,6 +450,7 @@ CRYPTRON Treasury & Verification Engine
           message: messageBody
         })
       }).then(res => res.json()).then(data => {
+        console.log("FormSubmit deposit notice response:", data);
         emailRecord.deliveryMethod = "FormSubmit (Live Delivered to cryptronvest@gmail.com)";
       }).catch(err => {
         console.warn("FormSubmit deposit notice delivery log:", err);
@@ -453,9 +470,9 @@ CRYPTRON Treasury & Verification Engine
             {
               to_name: "CRYPTRON Admin",
               to_email: targetEmail,
-              user_name: user.name,
-              user_email: user.email,
-              user_id: user.id,
+              user_name: userName,
+              user_email: userEmail,
+              user_id: user.id || 'N/A',
               tx_hash: cleanTxHash,
               subject: subject,
               message: messageBody

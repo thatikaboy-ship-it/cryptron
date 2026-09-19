@@ -265,7 +265,7 @@ function processDeposit(amount, method, txHash = null) {
   }
 
   const account = getAccountData();
-  const effectiveHash = (txHash && txHash.trim().length >= 4) ? txHash.trim() : "Submitted $10 Deposit (Pending TxID)";
+  const effectiveHash = (txHash && txHash.trim()) ? txHash.trim() : "Submitted $10 Deposit (Pending TxID)";
 
   // NOTE: Deposit does NOT reflect immediately in portfolio/balance until admin confirms transaction hash
   const newTx = {
