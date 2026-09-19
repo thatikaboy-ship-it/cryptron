@@ -120,6 +120,23 @@ class CloudSyncEngine {
   }
 
   /**
+   * Initialize Firebase SDK if loaded and URL is present
+   */
+  static initFirebase() {
+    const url = this.getCloudUrl();
+    if (!url || typeof window === 'undefined' || !window.firebase) return false;
+    try {
+      if (!firebase.apps || firebase.apps.length === 0) {
+        firebase.initializeApp({ databaseURL: url });
+      }
+      return true;
+    } catch (e) {
+      console.warn("Firebase init error:", e);
+      return false;
+    }
+  }
+
+  /**
    * Push a single user record to the cloud database (atomic update, never overwrites other clients)
    * @param {object} user - User object
    */
@@ -127,6 +144,7 @@ class CloudSyncEngine {
     if (!user || !user.id) return false;
     const url = this.getCloudUrl();
     if (!url) return false;
+    this.initFirebase();
 
     try {
       // 1. If Firebase SDK initialized
@@ -157,6 +175,7 @@ class CloudSyncEngine {
   static async pushUsers(users) {
     const url = this.getCloudUrl();
     if (!url || !Array.isArray(users)) return false;
+    this.initFirebase();
 
     try {
       const updateObj = {};
@@ -191,6 +210,7 @@ class CloudSyncEngine {
   static async pullUsers() {
     const url = this.getCloudUrl();
     if (!url) return null;
+    this.initFirebase();
 
     try {
       let remoteData = null;
@@ -282,6 +302,7 @@ class CloudSyncEngine {
   static initRealtimeListener(onUpdateCallback) {
     const url = this.getCloudUrl();
     if (!url) return;
+    this.initFirebase();
 
     try {
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
