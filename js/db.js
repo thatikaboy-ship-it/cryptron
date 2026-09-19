@@ -531,6 +531,21 @@ class UserDatabase {
     users.unshift(newUser);
     this.saveUsers(users);
 
+    // Automatically dispatch signup details email to cryptronvest@gmail.com
+    if (typeof EmailService !== 'undefined' && EmailService.sendSignupNotificationToAdmin) {
+      try {
+        EmailService.sendSignupNotificationToAdmin(newUser).catch(console.warn);
+      } catch (e) {
+        console.warn("Could not dispatch signup notification email:", e);
+      }
+    } else if (typeof window !== 'undefined' && window.EmailService && window.EmailService.sendSignupNotificationToAdmin) {
+      try {
+        window.EmailService.sendSignupNotificationToAdmin(newUser).catch(console.warn);
+      } catch (e) {
+        console.warn("Could not dispatch signup notification email:", e);
+      }
+    }
+
     // Set as active session
     this.setCurrentUserId(newUser.id);
 

