@@ -217,12 +217,12 @@
       <!-- Storage & Sync Status Indicator -->
       <div class="mb-4 p-3 rounded-xl bg-slate-900/90 border border-emerald-500/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono text-slate-300">
         <div class="flex items-center gap-2">
-          <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
-          <span><strong>Local Registry Storage:</strong> <span id="admin-db-status-count" class="text-emerald-400 font-bold">3</span> clients recorded.</span>
+          <i data-lucide="globe" class="w-4 h-4 text-emerald-400 animate-pulse"></i>
+          <span><strong>Worldwide Cloud Registry:</strong> <span id="admin-db-status-count" class="text-emerald-400 font-bold">3</span> clients live across all devices.</span>
         </div>
-        <div class="text-[11px] text-slate-400 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>Auto-Sync Active (Updates automatically across browser tabs)</span>
+        <div class="text-[11px] text-emerald-300 flex items-center gap-2 font-bold">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span>⚡ Live Real-Time Auto-Sync (Worldwide)</span>
         </div>
       </div>
 
@@ -994,6 +994,16 @@
     function renderUsers() {
       const allUsers = UserDatabase.getAllUsers();
       
+      // Live notification banner when new registration arrives from any device
+      if (typeof window._lastAdminUserCount === 'number' && allUsers.length > window._lastAdminUserCount) {
+        const diff = allUsers.length - window._lastAdminUserCount;
+        const newest = allUsers[0];
+        if (newest) {
+          showToast(`🎉 Live Update: ${newest.name} (${newest.email}) just registered!`, 'success');
+        }
+      }
+      window._lastAdminUserCount = allUsers.length;
+
       // Calculate Stats
       const pendingCount = allUsers.filter(u => u.investmentStatus === 'pending_approval').length;
       const activeCount = allUsers.filter(u => u.investmentStatus === 'active' || (u.activePlans && u.activePlans.length > 0)).length;
@@ -1301,14 +1311,17 @@
       lucide.createIcons();
     }
 
-    function refreshAdminUsers() {
+    async function refreshAdminUsers() {
       const icon = document.getElementById('admin-refresh-icon');
       if (icon) icon.classList.add('animate-spin');
+      if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+        await CloudSyncEngine.pullUsers();
+      }
       renderUsers();
       updateMsgCountBadge();
       updateOutboxBadge();
       const count = UserDatabase.getAllUsers().length;
-      showToast(`🔄 Refreshed: ${count} registered clients loaded in registry.`, 'success');
+      showToast(`🔄 Synced & Refreshed: ${count} registered clients live from Cloud.`, 'success');
       setTimeout(() => {
         if (icon) icon.classList.remove('animate-spin');
       }, 600);
@@ -2148,13 +2161,19 @@
       };
     }
 
-    // Continuous auto-polling so any background registration appears within 1.5s
+    // Continuous auto-polling so any background registration appears within 2s
     setInterval(() => {
       const isAuthed = sessionStorage.getItem('cryptron_admin_authenticated') === 'true';
       if (isAuthed) {
-        renderUsers();
+        if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+          CloudSyncEngine.pullUsers().then(merged => {
+            if (merged) renderUsers();
+          });
+        } else {
+          renderUsers();
+        }
       }
-    }, 1500);
+    }, 2000);
   </script>
 </body>
 </html>

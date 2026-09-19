@@ -217,10 +217,16 @@ class CloudSyncEngine {
 
       // 1. If Firebase SDK initialized
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
-        const snap = await firebase.database().ref('cryptron_users').once('value');
-        remoteData = snap.val();
-      } else {
-        // 2. Direct REST API via fetch
+        try {
+          const snap = await firebase.database().ref('cryptron_users').once('value');
+          remoteData = snap.val();
+        } catch (e) {
+          console.warn("Firebase SDK once('value') failed, trying REST fallback:", e);
+        }
+      }
+
+      // 2. Direct REST API fallback if SDK returned null or failed
+      if (!remoteData) {
         const cleanBase = url.replace(/\/$/, '').replace(/\.json$/, '');
         const endpoint = cleanBase.endsWith('/cryptron_users') ? `${cleanBase}.json` : `${cleanBase}/cryptron_users.json`;
         const res = await fetch(endpoint);
@@ -237,17 +243,23 @@ class CloudSyncEngine {
           const localUsers = localRaw ? JSON.parse(localRaw) : [];
           const merged = this.mergeUsers(localUsers, remoteUsers);
           
-          // Save merged without triggering infinite sync push
+          // Save merged
           const serialized = JSON.stringify(merged);
           localStorage.setItem(USERS_DB_KEY, serialized);
           localStorage.setItem("cryptron_users_db", serialized);
           
           window.dispatchEvent(new StorageEvent('storage', { key: USERS_DB_KEY, newValue: serialized }));
           window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
+
+          // If local registry had existing clients not yet in cloud, push them to cloud so all devices stay in sync
+          if (merged.length > remoteUsers.length) {
+            this.pushUsers(merged).catch(console.warn);
+          }
+
           return merged;
         }
       } else if (remoteData === null) {
-        // Cloud DB is freshly initialized and empty! Seed with local users if present
+        // Cloud DB is empty, push local users if present
         const localRaw = localStorage.getItem(USERS_DB_KEY);
         const localUsers = localRaw ? JSON.parse(localRaw) : [];
         if (localUsers && localUsers.length > 0) {
@@ -260,29 +272,61 @@ class CloudSyncEngine {
     return null;
   }
 
+  /**
+   * Merge local and remote users safely:
+   * 1. Uses EMAIL as primary unique identity so different people never overwrite each other.
+   * 2. Automatically re-indexes any colliding USR-xxxx IDs so all users are preserved.
+   * 3. Sorts newest registrations first so new signups appear at the TOP of the admin table!
+   */
   static mergeUsers(localUsers, remoteUsers) {
-    if (!Array.isArray(remoteUsers)) return localUsers;
-    const map = new Map();
-    // Index local users by id and lowercase email
-    localUsers.forEach(u => { 
-      if (u && u.id) map.set(u.id, u); 
-      if (u && u.email) map.set(u.email.toLowerCase().trim(), u);
+    if (!Array.isArray(remoteUsers)) return localUsers || [];
+    if (!Array.isArray(localUsers)) localUsers = [];
+
+    const userMap = new Map();
+    const usedIds = new Set();
+    let maxIdNum = 1000;
+
+    const trackId = (id) => {
+      if (!id) return;
+      usedIds.add(id);
+      const match = String(id).match(/USR-(\d+)/i);
+      if (match) {
+        const n = parseInt(match[1], 10);
+        if (!isNaN(n) && n > maxIdNum && n < 999999) maxIdNum = n;
+      }
+    };
+
+    // 1. Index local users
+    localUsers.forEach(u => {
+      if (!u) return;
+      const emailKey = u.email ? u.email.toLowerCase().trim() : null;
+      const key = emailKey || u.id;
+      if (key) {
+        userMap.set(key, { ...u });
+      }
+      trackId(u.id);
     });
-    
+
+    // 2. Merge remote users
     remoteUsers.forEach(ru => {
-      if (!ru || (!ru.id && !ru.email)) return;
-      const keyId = ru.id;
-      const keyEmail = ru.email ? ru.email.toLowerCase().trim() : null;
-      
-      let existing = (keyId && map.get(keyId)) || (keyEmail && map.get(keyEmail));
-      if (!existing) {
-        if (keyId) map.set(keyId, ru);
-        if (keyEmail) map.set(keyEmail, ru);
-      } else {
-        // Merge newest fields
+      if (!ru) return;
+      const emailKey = ru.email ? ru.email.toLowerCase().trim() : null;
+      const key = emailKey || ru.id;
+      if (!key) return;
+
+      const existing = userMap.get(key);
+      if (existing) {
+        // SAME PERSON: update fields with latest information
+        if (ru.name && (!existing.name || existing.name === 'Client')) existing.name = ru.name;
+        if (ru.password) existing.password = ru.password;
+        if (ru.passwordMasked) existing.passwordMasked = ru.passwordMasked;
+        if (ru.promoCode) existing.promoCode = ru.promoCode;
+        if (ru.referralCode) existing.referralCode = ru.referralCode;
+        if (ru.walletAddress && (!existing.walletAddress || existing.walletAddress === '0x...')) existing.walletAddress = ru.walletAddress;
         if (ru.withdrawalRequest) existing.withdrawalRequest = ru.withdrawalRequest;
         if (ru.pendingTxHash) existing.pendingTxHash = ru.pendingTxHash;
         if (ru.depositSubmittedAt) existing.depositSubmittedAt = ru.depositSubmittedAt;
+        if (ru.registeredAt && !existing.registeredAt) existing.registeredAt = ru.registeredAt;
         if (ru.investmentStatus === 'active') {
           existing.investmentStatus = 'active';
           if (ru.activePlans && ru.activePlans.length > 0) existing.activePlans = ru.activePlans;
@@ -293,17 +337,36 @@ class CloudSyncEngine {
           existing.referralCount = ru.referralCount;
         }
         if (ru.referralBypassed) existing.referralBypassed = true;
+        if (ru.totalDeposited > (existing.totalDeposited || 0)) existing.totalDeposited = ru.totalDeposited;
+        if (ru.availableBalance > (existing.availableBalance || 0)) existing.availableBalance = ru.availableBalance;
+        if (ru.totalProfits > (existing.totalProfits || 0)) existing.totalProfits = ru.totalProfits;
+      } else {
+        // NEW PERSON FROM REMOTE!
+        const newUser = { ...ru };
+        // Check if ID is colliding with an existing local user that has a DIFFERENT email
+        if (!newUser.id || usedIds.has(newUser.id)) {
+          maxIdNum++;
+          newUser.id = "USR-" + maxIdNum;
+        }
+        trackId(newUser.id);
+        userMap.set(key, newUser);
       }
     });
 
-    // Return unique users array by id
-    const finalMap = new Map();
-    Array.from(map.values()).forEach(u => {
-      if (u && u.id && !finalMap.has(u.id)) {
-        finalMap.set(u.id, u);
-      }
+    const mergedList = Array.from(userMap.values());
+
+    // Sort newest registrations first so new signups appear at the TOP of the admin table!
+    mergedList.sort((a, b) => {
+      const timeA = a.registeredAt ? new Date(a.registeredAt.replace(' ', 'T')).getTime() : 0;
+      const timeB = b.registeredAt ? new Date(b.registeredAt.replace(' ', 'T')).getTime() : 0;
+      if (timeB && timeA && timeB !== timeA) return timeB - timeA;
+      // Fallback: compare ID numbers descending
+      const numA = parseInt((a.id || '').replace(/\D/g, '') || 0, 10);
+      const numB = parseInt((b.id || '').replace(/\D/g, '') || 0, 10);
+      return numB - numA;
     });
-    return Array.from(finalMap.values());
+
+    return mergedList;
   }
 
   static initRealtimeListener(onUpdateCallback) {
@@ -311,6 +374,12 @@ class CloudSyncEngine {
     if (!url) return;
     this.initFirebase();
 
+    // 1. Initial immediate pull
+    CloudSyncEngine.pullUsers().then(merged => {
+      if (merged && onUpdateCallback) onUpdateCallback(merged);
+    });
+
+    // 2. Firebase live WebSocket listener
     try {
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
         firebase.database().ref('cryptron_users').on('value', (snap) => {
@@ -326,17 +395,17 @@ class CloudSyncEngine {
             if (onUpdateCallback) onUpdateCallback(merged);
           }
         });
-      } else {
-        // Poll every 2.5 seconds for REST API
-        setInterval(() => {
-          CloudSyncEngine.pullUsers().then(merged => {
-            if (merged && onUpdateCallback) onUpdateCallback(merged);
-          });
-        }, 2500);
       }
     } catch(e) {
       console.warn("Realtime listener init error:", e);
     }
+
+    // 3. Robust 2.5-second polling backup (ensures updates even if WebSockets are throttled)
+    setInterval(() => {
+      CloudSyncEngine.pullUsers().then(merged => {
+        if (merged && onUpdateCallback) onUpdateCallback(merged);
+      });
+    }, 2500);
   }
 }
 
@@ -589,6 +658,23 @@ class UserDatabase {
   }
 
   /**
+   * Calculate next available unique USR-XXXX ID based on highest existing ID
+   */
+  static getNextUserId(users = []) {
+    let max = 1000;
+    (users || []).forEach(u => {
+      if (u && u.id) {
+        const m = String(u.id).match(/USR-(\d+)/i);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (!isNaN(n) && n > max && n < 999999) max = n;
+        }
+      }
+    });
+    return "USR-" + (max + 1);
+  }
+
+  /**
    * Register a new user into the database with client first name + random number promo code
    */
   static registerUser(name, email, password, referredByCode = null) {
@@ -600,8 +686,7 @@ class UserDatabase {
       throw new Error("An account with this email address already exists.");
     }
 
-    const nextNumber = 1000 + users.length + 1;
-    const newId = "USR-" + nextNumber;
+    const newId = this.getNextUserId(users);
     // Promo code composed of client's first name and random numbers
     const promoCode = this.generatePromoCode(name, newId);
     const mockWallet = "0x" + Math.random().toString(16).substring(2, 10) + "..." + Math.random().toString(16).substring(2, 6);

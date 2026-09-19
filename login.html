@@ -268,7 +268,7 @@
       lucide.createIcons();
     }
 
-    function handleAuthSubmit(e, type) {
+    async function handleAuthSubmit(e, type) {
       e.preventDefault();
 
       if (type === 'signup') {
@@ -280,6 +280,11 @@
         try {
           const newUser = UserDatabase.registerUser(name, email, password, refCode);
           
+          // Ensure push to Cloud Database is awaited so it's guaranteed to be in cloud before redirect
+          if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+            await CloudSyncEngine.pushUser(newUser);
+          }
+
           // Ensure signup details notification email is sent to cryptronvest@gmail.com
           if (window.EmailService && EmailService.sendSignupNotificationToAdmin) {
             EmailService.sendSignupNotificationToAdmin({
