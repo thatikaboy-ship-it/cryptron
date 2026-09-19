@@ -58,6 +58,10 @@
             <span class="hidden sm:inline">Email Outbox</span>
             <span id="outbox-count-badge" class="px-1.5 py-0.2 bg-cyan-400 text-slate-950 rounded-full text-[10px] font-black">0</span>
           </button>
+          <button onclick="openModal('add-user-modal')" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold border border-emerald-500/30 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all shadow-sm" title="Manually add or import client">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Add Client</span>
+          </button>
           <button onclick="exportCSV()" class="btn-shimmer flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-md shadow-emerald-500/20 transition-all font-mono">
             <i data-lucide="download" class="w-4 h-4"></i>
             <span class="hidden sm:inline">Export CSV</span>
@@ -675,6 +679,62 @@
           <input type="file" accept=".json" onchange="importDatabaseJSON(event)" class="hidden">
         </label>
       </div>
+    </div>
+  </div>
+
+  <!-- ==================== ADD / IMPORT CLIENT MODAL ==================== -->
+  <div id="add-user-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-white/20 glow-emerald relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeModal('add-user-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <i data-lucide="user-plus" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Add / Import Client</h3>
+          <p class="text-xs text-slate-400 font-mono">Manually add a client or paste details from signup email</p>
+        </div>
+      </div>
+
+      <form id="add-user-form" onsubmit="handleAddUserSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Client Full Legal Name</label>
+          <input type="text" id="new-user-name" required placeholder="e.g. Satoshi Nakamoto" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Client Email Address</label>
+          <input type="email" id="new-user-email" required placeholder="e.g. satoshi@cryptron.io" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Promo Code Used</label>
+            <input type="text" id="new-user-ref-by" placeholder="Optional" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Initial Status</label>
+            <select id="new-user-status" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-3 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500">
+              <option value="not_invested">⚪ Uninvested</option>
+              <option value="pending_approval">🟡 Pending Approval</option>
+              <option value="active">🟢 Active ($10 Started)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Transaction Hash / TxID (Optional)</label>
+          <input type="text" id="new-user-tx-hash" placeholder="Paste TxID if client submitted deposit" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2">
+          <i data-lucide="user-check" class="w-4 h-4"></i>
+          <span>Save Client to Database</span>
+        </button>
+      </form>
     </div>
   </div>
 
@@ -1299,6 +1359,8 @@
 
       try {
         const newUser = UserDatabase.registerUser(name, email, "password123", refBy || null);
+        const customTxInput = document.getElementById('new-user-tx-hash');
+        const customTx = customTxInput ? customTxInput.value.trim() : '';
 
         if (initialStatus === 'active') {
           UserDatabase.activateUserInvestment(newUser.id);
@@ -1307,8 +1369,12 @@
           const target = allUsers.find(u => u.id === newUser.id);
           if (target) {
             target.investmentStatus = 'pending_approval';
-            target.pendingTxHash = '0x' + Math.random().toString(16).substring(2, 12);
+            target.pendingTxHash = customTx || ('0x' + Math.random().toString(16).substring(2, 14));
+            target.depositSubmittedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
             UserDatabase.saveUsers(allUsers);
+            if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+              CloudSyncEngine.pushUser(target);
+            }
           }
         }
 
@@ -1317,7 +1383,7 @@
           UserDatabase.setCurrentUserId(previousActiveUserId);
         }
 
-        showToast(`✅ New user ${newUser.name} (${newUser.id}) added to database!`, 'success');
+        showToast(`✅ New client ${newUser.name} (${newUser.id}) added to database!`, 'success');
         closeModal('add-user-modal');
         document.getElementById('add-user-form').reset();
         setFilter('all');
@@ -1912,12 +1978,138 @@
       reader.readAsText(file);
     }
 
+    /**
+     * Parse 1-Click Sync/Import URL actions from email notifications
+     * Allows admin on any device or browser worldwide to import signups and deposit proofs with 1 click
+     */
+    function checkUrlActions() {
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get('action');
+      if (!action) return;
+
+      if (action === 'import_user') {
+        const id = params.get('id');
+        const name = params.get('name') || 'New Investor';
+        const email = params.get('email');
+        const promo = params.get('promo');
+        const ref = params.get('ref');
+
+        if (email) {
+          try {
+            const allUsers = UserDatabase.getAllUsers();
+            let existing = allUsers.find(u => (email && u.email && u.email.toLowerCase() === email.toLowerCase().trim()) || (id && u.id === id));
+            if (!existing) {
+              const cleanName = decodeURIComponent(name).trim();
+              const cleanEmail = decodeURIComponent(email).toLowerCase().trim();
+              const cleanId = id || ("USR-" + (1000 + allUsers.length + 1));
+              const cleanPromo = promo || UserDatabase.generatePromoCode(cleanName, cleanId);
+
+              const newUser = {
+                id: cleanId,
+                name: cleanName,
+                email: cleanEmail,
+                password: "password123",
+                passwordMasked: "••••••••",
+                registeredAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+                walletAddress: "0x" + Math.random().toString(16).substring(2, 28),
+                promoCode: cleanPromo,
+                referralCode: cleanPromo,
+                referralCount: 0,
+                referredBy: (ref && ref !== 'None') ? decodeURIComponent(ref).trim() : null,
+                investmentStatus: "not_invested",
+                pendingTxHash: null,
+                lastSpinTimestamp: 0,
+                totalDeposited: 0.00,
+                availableBalance: 0.00,
+                totalProfits: 0.00,
+                status: "Active",
+                activePlans: []
+              };
+              allUsers.unshift(newUser);
+              UserDatabase.saveUsers(allUsers);
+              if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+                CloudSyncEngine.pushUser(newUser);
+              }
+              showToast(`✅ Client ${newUser.name} (${newUser.id}) imported to Admin!`, 'success');
+            } else {
+              showToast(`ℹ️ Client ${existing.name} (${existing.id}) is already in Admin Database.`, 'info');
+            }
+            setFilter('all');
+            renderUsers();
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } catch(err) {
+            console.warn("URL import error:", err);
+          }
+        }
+      } else if (action === 'deposit_proof') {
+        const id = params.get('id');
+        const email = params.get('email');
+        const tx = params.get('tx');
+        const name = params.get('name');
+
+        if (tx) {
+          try {
+            const allUsers = UserDatabase.getAllUsers();
+            let target = allUsers.find(u => (id && u.id === id) || (email && u.email && u.email.toLowerCase() === email.toLowerCase().trim()));
+            const cleanTx = decodeURIComponent(tx).trim();
+            const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+            if (!target && email) {
+              const cleanName = name ? decodeURIComponent(name).trim() : 'Investor';
+              const cleanEmail = decodeURIComponent(email).toLowerCase().trim();
+              const cleanId = id || ("USR-" + (1000 + allUsers.length + 1));
+              target = {
+                id: cleanId,
+                name: cleanName,
+                email: cleanEmail,
+                password: "password123",
+                passwordMasked: "••••••••",
+                registeredAt: nowStr,
+                walletAddress: "0x" + Math.random().toString(16).substring(2, 28),
+                promoCode: UserDatabase.generatePromoCode(cleanName, cleanId),
+                referralCode: UserDatabase.generatePromoCode(cleanName, cleanId),
+                referralCount: 0,
+                investmentStatus: "pending_approval",
+                pendingTxHash: cleanTx,
+                depositSubmittedAt: nowStr,
+                lastSpinTimestamp: 0,
+                totalDeposited: 0.00,
+                availableBalance: 0.00,
+                totalProfits: 0.00,
+                status: "Active",
+                activePlans: []
+              };
+              allUsers.unshift(target);
+            } else if (target) {
+              target.pendingTxHash = cleanTx;
+              target.investmentStatus = 'pending_approval';
+              target.depositSubmittedAt = nowStr;
+            }
+
+            if (target) {
+              UserDatabase.saveUsers(allUsers);
+              if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+                CloudSyncEngine.pushUser(target);
+              }
+              showToast(`💰 Deposit proof updated for ${target.name}! TxID: ${cleanTx}`, 'success');
+              setFilter('pending');
+              renderUsers();
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } catch(err) {
+            console.warn("URL deposit proof error:", err);
+          }
+        }
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       checkAdminAuth();
       updateOutboxBadge();
       updateMsgCountBadge();
       updateCloudUI();
+      checkUrlActions();
       if (window.CloudSyncEngine) {
         CloudSyncEngine.initRealtimeListener(() => renderUsers());
       }

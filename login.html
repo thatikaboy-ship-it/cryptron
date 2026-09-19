@@ -370,6 +370,10 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
+      // Sync users from cloud if connected so registrations across devices can sign in
+      if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+        CloudSyncEngine.pullUsers();
+      }
       const urlParams = new URLSearchParams(window.location.search);
       const refParam = urlParams.get('promo') || urlParams.get('ref') || sessionStorage.getItem('cryptron_guest_referrer') || localStorage.getItem('cryptron_guest_referrer');
       if (refParam) {

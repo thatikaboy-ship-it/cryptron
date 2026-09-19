@@ -226,6 +226,8 @@ https://cryptron.io
     const targetEmail = "cryptronvest@gmail.com";
     const userName = (user.name || 'Cryptron Investor').trim();
     const userEmail = (user.email || 'client@cryptron.io').trim();
+    const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
+    const importUrl = `${origin}/admin.html?action=import_user&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&promo=${encodeURIComponent(user.promoCode || '')}&ref=${encodeURIComponent(user.referredBy || '')}`;
 
     const subject = `🔔 New User Registration: ${userName} (${userEmail})`;
     const messageBody = `CRYPTRON ADMIN NOTIFICATION - NEW CLIENT SIGNUP
@@ -245,12 +247,18 @@ A new client has completed registration on the CRYPTRON signup page:
 • Initial Status: Active (Awaiting $10 Staking Vault)
 ════════════════════════════════════════════
 
+════════════════════════════════════════════
+⚡ ONE-CLICK IMPORT TO ADMIN (ACROSS ANY BROWSER / DEVICE):
+If viewing from a different phone or laptop, tap the link below to instantly add this client to your Admin Database:
+${importUrl}
+════════════════════════════════════════════
+
 WHAT HAPPENS NEXT:
 1. When this investor deposits $10 USDT and submits proof, verify their payment on the Admin Portal.
 2. Approving the deposit will immediately start their 7-day countdown clock to their $25 payout.
 
 Open Admin User Database:
-https://cryptron.io/admin.html
+${origin}/admin.html
 
 Warm regards,
 CRYPTRON Automated Registration Engine
@@ -292,6 +300,7 @@ CRYPTRON Automated Registration Engine
           "Promo Code Used": user.referredBy || 'None',
           "Client Promo Code": user.promoCode || 'N/A',
           "Registration Timestamp": sentDateStr,
+          "⚡ One-Click Admin Sync Link": importUrl,
           "System Notice": "New user registered on CRYPTRON signup page.",
           message: messageBody
         })
@@ -372,6 +381,8 @@ CRYPTRON Automated Registration Engine
     const now = Date.now();
     const sentDateStr = this.formatDateTime(now);
     const targetEmail = "cryptronvest@gmail.com";
+    const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
+    const depositSyncUrl = `${origin}/admin.html?action=deposit_proof&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&tx=${encodeURIComponent(cleanTxHash)}`;
 
     const subject = `💰 Deposit Submitted ($10 USDT): ${userName} - TxID: ${cleanTxHash}`;
     const messageBody = `CRYPTRON ADMIN ALERT - CLIENT DEPOSIT PROOF SUBMITTED
@@ -393,13 +404,19 @@ A client has submitted proof of payment for a $10.00 USDT vault investment. Revi
 • Account Status: ⚠️ Pending Confirmation
 ════════════════════════════════════════════
 
+════════════════════════════════════════════
+⚡ ONE-CLICK REVIEW & SYNC TO ADMIN (ACROSS ANY BROWSER / DEVICE):
+If viewing from a different phone or laptop, tap the link below to instantly record this transaction hash in your Admin Database:
+${depositSyncUrl}
+════════════════════════════════════════════
+
 DIRECT BLOCKCHAIN EXPLORER VERIFICATION:
 Search the transaction hash above on TRONSCAN (TRC-20) or ETHERSCAN (ERC-20 / BEP-20) to confirm incoming funds to your official wallet.
 
 NEXT STEPS:
 1. Verify the transaction on your wallet / blockchain explorer.
 2. Open the Admin Portal:
-   https://cryptron.io/admin.html
+   ${origin}/admin.html
 3. Click "Approve & Start Timer" on ${userName}'s account to activate their live 7-day countdown clock and unlock their daily spins!
 
 Warm regards,
@@ -446,7 +463,8 @@ CRYPTRON Treasury & Verification Engine
           "Deposit Amount": "$10.00 USDT",
           "Transaction Hash (TxID)": cleanTxHash,
           "Submitted At": sentDateStr,
-          "Admin Review URL": "https://cryptron.io/admin.html",
+          "⚡ One-Click Admin Sync Link": depositSyncUrl,
+          "Admin Review URL": `${origin}/admin.html`,
           message: messageBody
         })
       }).then(res => res.json()).then(data => {

@@ -87,6 +87,11 @@ const SEED_USERS = [
   }
 ];
 
+// GLOBAL CLOUD DATABASE CONFIGURATION
+// To connect all devices, phones, and browsers worldwide in real-time,
+// enter your Firebase Realtime Database URL here (e.g. "https://your-project-default-rtdb.firebaseio.com")
+const GLOBAL_CLOUD_DB_URL = "";
+
 /**
  * GLOBAL REAL-TIME CLOUD DATABASE ENGINE
  * Enables worldwide synchronization across all browsers, mobile phones, and devices.
@@ -94,7 +99,10 @@ const SEED_USERS = [
  */
 class CloudSyncEngine {
   static getCloudUrl() {
-    return localStorage.getItem(CLOUD_DB_KEY) || (window.CRYPTRON_CLOUD_CONFIG && window.CRYPTRON_CLOUD_CONFIG.databaseURL) || "";
+    return localStorage.getItem(CLOUD_DB_KEY) || 
+           (window.CRYPTRON_CLOUD_CONFIG && window.CRYPTRON_CLOUD_CONFIG.databaseURL) || 
+           GLOBAL_CLOUD_DB_URL || 
+           "";
   }
 
   static setCloudUrl(url) {
@@ -111,64 +119,113 @@ class CloudSyncEngine {
     return !!this.getCloudUrl();
   }
 
+  /**
+   * Push a single user record to the cloud database (atomic update, never overwrites other clients)
+   * @param {object} user - User object
+   */
+  static async pushUser(user) {
+    if (!user || !user.id) return false;
+    const url = this.getCloudUrl();
+    if (!url) return false;
+
+    try {
+      // 1. If Firebase SDK initialized
+      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+        await firebase.database().ref(`cryptron_users/${user.id}`).set(user);
+        return true;
+      }
+
+      // 2. Direct REST API via fetch PUT/PATCH for this specific user
+      const cleanBase = url.replace(/\/$/, '').replace(/\/cryptron_users\.json$/, '').replace(/\.json$/, '');
+      const endpoint = `${cleanBase}/cryptron_users/${user.id}.json`;
+      const res = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user)
+      });
+      return res.ok;
+    } catch (e) {
+      console.warn("CloudSync pushUser failed:", e);
+      return false;
+    }
+  }
+
+  /**
+   * Push an array of users using non-destructive PATCH
+   * @param {Array} users 
+   */
   static async pushUsers(users) {
     const url = this.getCloudUrl();
     if (!url || !Array.isArray(users)) return false;
 
     try {
+      const updateObj = {};
+      users.forEach(u => {
+        if (u && u.id) updateObj[u.id] = u;
+      });
+
       // 1. If Firebase SDK initialized
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
-        await firebase.database().ref('cryptron_users').set(users);
+        await firebase.database().ref('cryptron_users').update(updateObj);
         return true;
       }
 
-      // 2. Direct REST API via fetch
-      const endpoint = url.includes('.json') ? url : `${url}/cryptron_users.json`;
+      // 2. Direct REST API via fetch PATCH
+      const cleanBase = url.replace(/\/$/, '').replace(/\.json$/, '');
+      const endpoint = cleanBase.endsWith('/cryptron_users') ? `${cleanBase}.json` : `${cleanBase}/cryptron_users.json`;
       const res = await fetch(endpoint, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(users)
+        body: JSON.stringify(updateObj)
       });
       return res.ok;
     } catch (e) {
-      console.warn("CloudSync push failed:", e);
+      console.warn("CloudSync pushUsers failed:", e);
       return false;
     }
   }
 
+  /**
+   * Pull all users from cloud database and merge into local database
+   */
   static async pullUsers() {
     const url = this.getCloudUrl();
     if (!url) return null;
 
     try {
-      let remoteUsers = null;
+      let remoteData = null;
 
       // 1. If Firebase SDK initialized
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
         const snap = await firebase.database().ref('cryptron_users').once('value');
-        remoteUsers = snap.val();
+        remoteData = snap.val();
       } else {
         // 2. Direct REST API via fetch
-        const endpoint = url.includes('.json') ? url : `${url}/cryptron_users.json`;
+        const cleanBase = url.replace(/\/$/, '').replace(/\.json$/, '');
+        const endpoint = cleanBase.endsWith('/cryptron_users') ? `${cleanBase}.json` : `${cleanBase}/cryptron_users.json`;
         const res = await fetch(endpoint);
         if (res.ok) {
-          remoteUsers = await res.json();
+          remoteData = await res.json();
         }
       }
 
-      if (remoteUsers && Array.isArray(remoteUsers) && remoteUsers.length > 0) {
-        const localRaw = localStorage.getItem(USERS_DB_KEY);
-        const localUsers = localRaw ? JSON.parse(localRaw) : [];
-        const merged = this.mergeUsers(localUsers, remoteUsers);
-        
-        // Save merged without triggering infinite sync push
-        const serialized = JSON.stringify(merged);
-        localStorage.setItem(USERS_DB_KEY, serialized);
-        localStorage.setItem("cryptron_users_db", serialized);
-        
-        window.dispatchEvent(new StorageEvent('storage', { key: USERS_DB_KEY, newValue: serialized }));
-        window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
-        return merged;
+      if (remoteData) {
+        // remoteData may be an Object map { "USR-1001": {...} } or an Array [...]
+        const remoteUsers = Array.isArray(remoteData) ? remoteData : Object.values(remoteData);
+        if (remoteUsers.length > 0) {
+          const localRaw = localStorage.getItem(USERS_DB_KEY);
+          const localUsers = localRaw ? JSON.parse(localRaw) : [];
+          const merged = this.mergeUsers(localUsers, remoteUsers);
+          
+          // Save merged without triggering infinite sync push
+          const serialized = JSON.stringify(merged);
+          localStorage.setItem(USERS_DB_KEY, serialized);
+          localStorage.setItem("cryptron_users_db", serialized);
+          
+          window.dispatchEvent(new StorageEvent('storage', { key: USERS_DB_KEY, newValue: serialized }));
+          window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
+          return merged;
+        }
       }
     } catch (e) {
       console.warn("CloudSync pull failed:", e);
@@ -179,28 +236,47 @@ class CloudSyncEngine {
   static mergeUsers(localUsers, remoteUsers) {
     if (!Array.isArray(remoteUsers)) return localUsers;
     const map = new Map();
-    localUsers.forEach(u => { if (u && u.id) map.set(u.id, u); });
+    // Index local users by id and lowercase email
+    localUsers.forEach(u => { 
+      if (u && u.id) map.set(u.id, u); 
+      if (u && u.email) map.set(u.email.toLowerCase().trim(), u);
+    });
     
     remoteUsers.forEach(ru => {
-      if (!ru || !ru.id) return;
-      if (!map.has(ru.id)) {
-        map.set(ru.id, ru);
+      if (!ru || (!ru.id && !ru.email)) return;
+      const keyId = ru.id;
+      const keyEmail = ru.email ? ru.email.toLowerCase().trim() : null;
+      
+      let existing = (keyId && map.get(keyId)) || (keyEmail && map.get(keyEmail));
+      if (!existing) {
+        if (keyId) map.set(keyId, ru);
+        if (keyEmail) map.set(keyEmail, ru);
       } else {
-        const lu = map.get(ru.id);
-        if (ru.withdrawalRequest) lu.withdrawalRequest = ru.withdrawalRequest;
-        if (ru.pendingTxHash) lu.pendingTxHash = ru.pendingTxHash;
+        // Merge newest fields
+        if (ru.withdrawalRequest) existing.withdrawalRequest = ru.withdrawalRequest;
+        if (ru.pendingTxHash) existing.pendingTxHash = ru.pendingTxHash;
+        if (ru.depositSubmittedAt) existing.depositSubmittedAt = ru.depositSubmittedAt;
         if (ru.investmentStatus === 'active') {
-          lu.investmentStatus = 'active';
-          if (ru.activePlans && ru.activePlans.length > 0) lu.activePlans = ru.activePlans;
+          existing.investmentStatus = 'active';
+          if (ru.activePlans && ru.activePlans.length > 0) existing.activePlans = ru.activePlans;
+        } else if (ru.investmentStatus === 'pending_approval' && existing.investmentStatus !== 'active') {
+          existing.investmentStatus = 'pending_approval';
         }
-        if ((ru.referralCount || 0) > (lu.referralCount || 0)) {
-          lu.referralCount = ru.referralCount;
+        if ((ru.referralCount || 0) > (existing.referralCount || 0)) {
+          existing.referralCount = ru.referralCount;
         }
-        if (ru.referralBypassed) lu.referralBypassed = true;
+        if (ru.referralBypassed) existing.referralBypassed = true;
       }
     });
 
-    return Array.from(map.values());
+    // Return unique users array by id
+    const finalMap = new Map();
+    Array.from(map.values()).forEach(u => {
+      if (u && u.id && !finalMap.has(u.id)) {
+        finalMap.set(u.id, u);
+      }
+    });
+    return Array.from(finalMap.values());
   }
 
   static initRealtimeListener(onUpdateCallback) {
@@ -210,8 +286,9 @@ class CloudSyncEngine {
     try {
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
         firebase.database().ref('cryptron_users').on('value', (snap) => {
-          const remoteUsers = snap.val();
-          if (remoteUsers && Array.isArray(remoteUsers)) {
+          const remoteData = snap.val();
+          if (remoteData) {
+            const remoteUsers = Array.isArray(remoteData) ? remoteData : Object.values(remoteData);
             const localRaw = localStorage.getItem(USERS_DB_KEY);
             const localUsers = localRaw ? JSON.parse(localRaw) : [];
             const merged = CloudSyncEngine.mergeUsers(localUsers, remoteUsers);
@@ -222,12 +299,12 @@ class CloudSyncEngine {
           }
         });
       } else {
-        // Poll every 3 seconds for REST
+        // Poll every 2.5 seconds for REST API
         setInterval(() => {
           CloudSyncEngine.pullUsers().then(merged => {
             if (merged && onUpdateCallback) onUpdateCallback(merged);
           });
-        }, 3000);
+        }, 2500);
       }
     } catch(e) {
       console.warn("Realtime listener init error:", e);
@@ -531,6 +608,11 @@ class UserDatabase {
     users.unshift(newUser);
     this.saveUsers(users);
 
+    // Immediately push new user to Cloud Database for worldwide admin sync
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(newUser).catch(console.warn);
+    }
+
     // Automatically dispatch signup details email to cryptronvest@gmail.com
     if (typeof EmailService !== 'undefined' && EmailService.sendSignupNotificationToAdmin) {
       try {
@@ -790,6 +872,11 @@ class UserDatabase {
 
     this.saveUsers(users);
 
+    // Sync approval to cloud database immediately so client device receives it
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
+
     // Sync session storage if active user
     if (this.getCurrentUserId() === userId || userId === "USR-1001") {
       try {
@@ -864,6 +951,11 @@ class UserDatabase {
 
     if (users.some(u => u.id === user.id)) {
       this.saveUsers(users);
+    }
+
+    // Immediately push transaction hash to cloud database for worldwide admin sync
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
     }
 
     // Automatically dispatch email to cryptronvest@gmail.com with client details & txHash

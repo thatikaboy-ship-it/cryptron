@@ -1850,6 +1850,14 @@
       checkClientAdminMessages();
       // Live second-by-second countdown for 7-day contract and 24h spin cooldown
       setInterval(updateDashboardLiveTickers, 1000);
+
+      // Listen for worldwide cloud updates (e.g. when Admin approves contract)
+      if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+        CloudSyncEngine.initRealtimeListener(() => {
+          updateDashboardUI();
+          checkClientAdminMessages();
+        });
+      }
     });
 
     // Real-time synchronization across browser tabs (e.g. when Admin matures, settles, or messages)
