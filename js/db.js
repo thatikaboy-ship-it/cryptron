@@ -87,16 +87,7 @@ const SEED_USERS = [
  * Uses Firebase Realtime Database (WebSockets) or direct Cloud REST API.
  */
 class CloudSyncEngine {
-  static isDynamicServer() {
-    return typeof window !== 'undefined' && 
-      (window.location.protocol === 'http:' || window.location.protocol === 'https:') &&
-      !window.location.hostname.includes('github.io');
-  }
-
   static getCloudUrl() {
-    if (this.isDynamicServer()) {
-      return window.location.origin + '/api (Dynamic Server)';
-    }
     return localStorage.getItem(CLOUD_DB_KEY) || (window.CRYPTRON_CLOUD_CONFIG && window.CRYPTRON_CLOUD_CONFIG.databaseURL) || "";
   }
 
@@ -111,36 +102,21 @@ class CloudSyncEngine {
   }
 
   static isConnected() {
-    return this.isDynamicServer() || !!this.getCloudUrl();
+    return !!this.getCloudUrl();
   }
 
   static async pushUsers(users) {
-    if (!Array.isArray(users)) return false;
-
-    // 1. Primary: Dynamic Backend Server API (/api/sync)
-    if (this.isDynamicServer()) {
-      try {
-        const res = await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ users })
-        });
-        if (res.ok) {
-          CloudSyncEngine.dynamicConnected = true;
-          return true;
-        }
-      } catch (e) {}
-    }
-
     const url = this.getCloudUrl();
-    if (!url) return false;
+    if (!url || !Array.isArray(users)) return false;
 
     try {
+      // 1. If Firebase SDK initialized
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
         await firebase.database().ref('cryptron_users').set(users);
         return true;
       }
 
+      // 2. Direct REST API via fetch
       const endpoint = url.includes('.json') ? url : `${url}/cryptron_users.json`;
       const res = await fetch(endpoint, {
         method: 'PUT',
@@ -149,62 +125,47 @@ class CloudSyncEngine {
       });
       return res.ok;
     } catch (e) {
+      console.warn("CloudSync push failed:", e);
       return false;
     }
   }
 
   static async pullUsers() {
-    let remoteUsers = null;
+    const url = this.getCloudUrl();
+    if (!url) return null;
 
-    // 1. Dynamic Server
-    if (this.isDynamicServer()) {
-      try {
-        const res = await fetch('/api/users');
+    try {
+      let remoteUsers = null;
+
+      // 1. If Firebase SDK initialized
+      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+        const snap = await firebase.database().ref('cryptron_users').once('value');
+        remoteUsers = snap.val();
+      } else {
+        // 2. Direct REST API via fetch
+        const endpoint = url.includes('.json') ? url : `${url}/cryptron_users.json`;
+        const res = await fetch(endpoint);
         if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.users)) {
-            CloudSyncEngine.dynamicConnected = true;
-            remoteUsers = data.users;
-          }
+          remoteUsers = await res.json();
         }
-      } catch (e) {}
-    }
-
-    // 2. Cloud URL fallback
-    if (!remoteUsers) {
-      const url = this.getCloudUrl();
-      if (url) {
-        try {
-          if (window.firebase && firebase.apps && firebase.apps.length > 0) {
-            const snap = await firebase.database().ref('cryptron_users').once('value');
-            remoteUsers = snap.val();
-          } else {
-            const endpoint = url.includes('.json') ? url : `${url}/cryptron_users.json`;
-            const res = await fetch(endpoint);
-            if (res.ok) remoteUsers = await res.json();
-          }
-        } catch (e) {}
       }
-    }
 
-    if (remoteUsers && Array.isArray(remoteUsers) && remoteUsers.length > 0) {
-      const localRaw = localStorage.getItem(USERS_DB_KEY);
-      const localUsers = localRaw ? JSON.parse(localRaw) : [];
-      const merged = this.mergeUsers(localUsers, remoteUsers);
-      const serialized = JSON.stringify(merged);
-      
-      // CRITICAL: Stop infinite loop if data has not changed
-      if (localRaw === serialized) {
+      if (remoteUsers && Array.isArray(remoteUsers) && remoteUsers.length > 0) {
+        const localRaw = localStorage.getItem(USERS_DB_KEY);
+        const localUsers = localRaw ? JSON.parse(localRaw) : [];
+        const merged = this.mergeUsers(localUsers, remoteUsers);
+        
+        // Save merged without triggering infinite sync push
+        const serialized = JSON.stringify(merged);
+        localStorage.setItem(USERS_DB_KEY, serialized);
+        localStorage.setItem("cryptron_users_db", serialized);
+        
+        window.dispatchEvent(new StorageEvent('storage', { key: USERS_DB_KEY, newValue: serialized }));
+        window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
         return merged;
       }
-
-      localStorage.setItem(USERS_DB_KEY, serialized);
-      localStorage.setItem("cryptron_users_db", serialized);
-      
-      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-        window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
-      }
-      return merged;
+    } catch (e) {
+      console.warn("CloudSync pull failed:", e);
     }
     return null;
   }
@@ -237,16 +198,6 @@ class CloudSyncEngine {
   }
 
   static initRealtimeListener(onUpdateCallback) {
-    if (this.isDynamicServer()) {
-      setInterval(() => {
-        if (document.hidden) return;
-        CloudSyncEngine.pullUsers().then(merged => {
-          if (merged && onUpdateCallback) onUpdateCallback(merged);
-        });
-      }, 6000);
-      return;
-    }
-
     const url = this.getCloudUrl();
     if (!url) return;
 
@@ -259,18 +210,24 @@ class CloudSyncEngine {
             const localUsers = localRaw ? JSON.parse(localRaw) : [];
             const merged = CloudSyncEngine.mergeUsers(localUsers, remoteUsers);
             const serialized = JSON.stringify(merged);
-            if (localRaw === serialized) return;
             localStorage.setItem(USERS_DB_KEY, serialized);
             localStorage.setItem("cryptron_users_db", serialized);
             if (onUpdateCallback) onUpdateCallback(merged);
           }
         });
+      } else {
+        // Poll every 3 seconds for REST
+        setInterval(() => {
+          CloudSyncEngine.pullUsers().then(merged => {
+            if (merged && onUpdateCallback) onUpdateCallback(merged);
+          });
+        }, 3000);
       }
-    } catch(e) {}
+    } catch(e) {
+      console.warn("Realtime listener init error:", e);
+    }
   }
 }
-
-CloudSyncEngine.dynamicConnected = false;
 
 if (typeof window !== 'undefined') {
   window.CloudSyncEngine = CloudSyncEngine;
@@ -353,6 +310,14 @@ class UserDatabase {
       this.saveUsers(users);
     }
 
+    // Background sync with cloud database if connected
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected() && !this._isPullingCloud) {
+      this._isPullingCloud = true;
+      CloudSyncEngine.pullUsers().finally(() => {
+        setTimeout(() => { UserDatabase._isPullingCloud = false; }, 3000);
+      });
+    }
+
     return users;
   }
 
@@ -361,13 +326,24 @@ class UserDatabase {
    */
   static saveUsers(users) {
     const serialized = JSON.stringify(users);
-    const existing = localStorage.getItem(USERS_DB_KEY);
     localStorage.setItem(USERS_DB_KEY, serialized);
     localStorage.setItem("cryptron_users_db", serialized);
-
     try {
-      if (existing !== serialized && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-        window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: users }));
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        if (typeof StorageEvent !== 'undefined') {
+          window.dispatchEvent(new StorageEvent('storage', {
+            key: USERS_DB_KEY,
+            newValue: serialized
+          }));
+        }
+        if (typeof CustomEvent !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: users }));
+        }
+      }
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('cryptron_bus');
+        bc.postMessage({ type: 'USERS_UPDATED', users: users });
+        bc.close();
       }
 
       // Synchronize globally with Cloud Database (across any device or browser worldwide)
@@ -509,36 +485,6 @@ class UserDatabase {
 
     // Set as active session
     this.setCurrentUserId(newUser.id);
-    try {
-      sessionStorage.setItem(CURRENT_USER_KEY, newUser.id);
-      const acc = {
-        user: {
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          tier: "Staker",
-          walletAddress: newUser.walletAddress,
-          referralCode: newUser.referralCode,
-          referralCount: 0,
-          requiredReferrals: 5,
-          hasActiveInvestment: false,
-          investmentStatus: 'not_invested',
-          pendingTxHash: null,
-          lastSpinTimestamp: 0,
-          withdrawalRequest: null
-        },
-        wallet: {
-          availableBalance: 0.00,
-          investedBalance: 0.00,
-          totalProfits: 0.00,
-          pendingWithdrawal: 0.00,
-          currency: "USDT"
-        },
-        activePlans: [],
-        transactions: []
-      };
-      localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
-    } catch(e) {}
 
     return newUser;
   }
@@ -625,36 +571,6 @@ class UserDatabase {
       }
     }
     this.setCurrentUserId(user.id);
-    try {
-      sessionStorage.setItem(CURRENT_USER_KEY, user.id);
-      const acc = {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          tier: "Staker",
-          walletAddress: user.walletAddress,
-          referralCode: user.referralCode,
-          referralCount: user.referralCount || 0,
-          requiredReferrals: 5,
-          hasActiveInvestment: (user.investmentStatus === 'active' || (user.activePlans && user.activePlans.length > 0)),
-          investmentStatus: user.investmentStatus || 'not_invested',
-          pendingTxHash: user.pendingTxHash || null,
-          lastSpinTimestamp: user.lastSpinTimestamp || 0,
-          withdrawalRequest: user.withdrawalRequest || null
-        },
-        wallet: {
-          availableBalance: user.availableBalance || 0.00,
-          investedBalance: user.totalDeposited || 0.00,
-          totalProfits: user.totalProfits || 0.00,
-          pendingWithdrawal: 0.00,
-          currency: "USDT"
-        },
-        activePlans: user.activePlans || [],
-        transactions: []
-      };
-      localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
-    } catch(e) {}
     return user;
   }
 

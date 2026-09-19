@@ -13,6 +13,10 @@
 </head>
 <body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
 
+  <!-- Ambient Light Orbs -->
+  <div class="bg-ambient-orb w-96 h-96 bg-emerald-600 top-0 left-10 opacity-25"></div>
+  <div class="bg-ambient-orb w-96 h-96 bg-cyan-600 bottom-0 right-10 opacity-20"></div>
+
   <div class="w-full max-w-md relative z-10 space-y-6">
     
     <!-- Brand Header -->
@@ -67,12 +71,6 @@
         <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-sm">
           Enter Staking Dashboard
         </button>
-
-        <div class="pt-2 text-center">
-          <button type="button" onclick="quickFillAndLogin('d.miller@cryptron.io', 'password123')" class="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-emerald-400 border border-emerald-500/30 text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5">
-            <span>⚡ Quick Demo: Login as David Miller</span>
-          </button>
-        </div>
       </form>
 
       <!-- Sign Up Form (Inserts into Database) -->
@@ -268,49 +266,8 @@
       lucide.createIcons();
     }
 
-    function showToast(message, type = 'success') {
-      let toastContainer = document.getElementById('toast-container');
-      if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        toastContainer.className = 'fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none';
-        document.body.appendChild(toastContainer);
-      }
-
-      const colors = {
-        success: 'bg-emerald-950 border-emerald-500/50 text-emerald-300',
-        error: 'bg-rose-950 border-rose-500/50 text-rose-300',
-        info: 'bg-cyan-950 border-cyan-500/50 text-cyan-300',
-        warning: 'bg-amber-950 border-amber-500/50 text-amber-300'
-      };
-
-      const toast = document.createElement('div');
-      toast.className = `p-4 rounded-xl border ${colors[type] || colors.info} shadow-xl backdrop-blur-md flex items-center justify-between pointer-events-auto transition-all transform translate-y-2 opacity-0 font-sans text-xs font-bold`;
-      toast.innerHTML = `<span>${message}</span>`;
-      toastContainer.appendChild(toast);
-
-      setTimeout(() => {
-        toast.classList.remove('translate-y-2', 'opacity-0');
-      }, 10);
-
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-2');
-        setTimeout(() => toast.remove(), 300);
-      }, 3500);
-    }
-
-    function quickFillAndLogin(email, password) {
-      switchTab('signin');
-      const emailEl = document.getElementById('signin-email');
-      const passEl = document.getElementById('signin-password');
-      if (emailEl) emailEl.value = email;
-      if (passEl) passEl.value = password;
-      const fakeEvt = { preventDefault: () => {} };
-      handleAuthSubmit(fakeEvt, 'signin');
-    }
-
     function handleAuthSubmit(e, type) {
-      if (e && e.preventDefault) e.preventDefault();
+      e.preventDefault();
 
       if (type === 'signup') {
         const name = document.getElementById('signup-name').value;

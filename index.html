@@ -29,23 +29,9 @@
 </head>
 <body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white relative">
 
-  <!-- CoinMarketCap Live Market Feed Bar -->
-  <div class="bg-[#050811] border-b border-white/10 py-1.5 px-4 text-[11px] font-mono text-slate-400">
-    <div class="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto whitespace-nowrap scrollbar-none gap-6">
-      <div class="flex items-center gap-5 sm:gap-6">
-        <span>Cryptos: <strong class="text-white">2.4M+</strong></span>
-        <span>Exchanges: <strong class="text-white">748</strong></span>
-        <span>Market Cap: <strong class="text-white" id="cmc-total-mcap">$2.42T</strong> <span id="cmc-mcap-change" class="text-emerald-400 font-bold">▲ 2.14%</span></span>
-        <span>24h Vol: <strong class="text-white" id="cmc-24h-vol">$84.6B</strong></span>
-        <span>Dominance: <strong class="text-white">BTC 56.4% · ETH 14.2%</strong></span>
-        <span>ETH Gas: <strong class="text-emerald-400">12 Gwei</strong></span>
-      </div>
-      <div class="hidden md:flex items-center gap-2 text-slate-500 text-[10px]">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span>Live CoinMarketCap Feed</span>
-      </div>
-    </div>
-  </div>
+  <!-- Ambient Light Orbs -->
+  <div class="bg-ambient-orb w-96 h-96 bg-emerald-600 top-0 left-1/4 opacity-25"></div>
+  <div class="bg-ambient-orb w-[500px] h-[500px] bg-cyan-600 top-96 right-10 opacity-20" style="animation-delay: -5s;"></div>
 
   <!-- Navigation -->
   <nav class="sticky top-0 z-40 backdrop-blur-xl bg-[#080d1a]/85 border-b border-white/10">
@@ -74,7 +60,7 @@
             <i data-lucide="sparkles" class="w-4 h-4"></i>
             <span>Daily $10,000 Spin</span>
           </a>
-          <a href="#calculator" class="hover:text-emerald-400 transition-colors">Fixed $10 Staking</a>
+          <a href="#calculator" class="hover:text-emerald-400 transition-colors">Yield Calculator</a>
           <a href="markets.html" class="hover:text-emerald-400 transition-colors">Crypto Live</a>
           <a href="transactions.html" class="hover:text-emerald-400 transition-colors">Payout Proofs</a>
         </div>
@@ -114,151 +100,34 @@
     </div>
   </nav>
 
-  <!-- Live Crypto Ticker Bar (Continuously Moving with Live Fluctuation) -->
+  <!-- Live Crypto Ticker Bar -->
   <div class="bg-[#0b1224] border-b border-white/5 py-2.5 ticker-wrap">
     <div class="ticker-track space-x-8 text-xs font-mono text-slate-400">
-      <!-- Loop 1: 12 Crypto Pairs + Promos -->
       <div class="inline-flex items-center gap-2">
         <span class="text-white font-bold">BTC/USDT</span>
-        <span id="ticker-price-btc-1" class="text-emerald-400 font-bold transition-colors">$68,432.50</span>
-        <span id="ticker-pct-btc-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+3.42%</span>
+        <span class="text-emerald-400">$68,432.50</span>
+        <span class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded">+3.42%</span>
       </div>
       <div class="inline-flex items-center gap-2">
         <span class="text-white font-bold">ETH/USDT</span>
-        <span id="ticker-price-eth-1" class="text-emerald-400 font-bold transition-colors">$3,594.10</span>
-        <span id="ticker-pct-eth-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+2.84%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">SOL/USDT</span>
-        <span id="ticker-price-sol-1" class="text-emerald-400 font-bold transition-colors">$154.60</span>
-        <span id="ticker-pct-sol-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+5.12%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">BNB/USDT</span>
-        <span id="ticker-price-bnb-1" class="text-emerald-400 font-bold transition-colors">$592.80</span>
-        <span id="ticker-pct-bnb-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+1.45%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">XRP/USDT</span>
-        <span id="ticker-price-xrp-1" class="text-emerald-400 font-bold transition-colors">$0.5892</span>
-        <span id="ticker-pct-xrp-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+4.20%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">DOGE/USDT</span>
-        <span id="ticker-price-doge-1" class="text-emerald-400 font-bold transition-colors">$0.1245</span>
-        <span id="ticker-pct-doge-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+6.80%</span>
+        <span class="text-emerald-400">$3,594.10</span>
+        <span class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded">+2.84%</span>
       </div>
       <div class="inline-flex items-center gap-2">
         <span class="text-amber-400 font-bold">DAILY PROMOTION</span>
         <span class="text-white">SPIN WHEEL FOR UP TO $10,000</span>
-        <span class="text-amber-400 text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded font-bold">1 FREE SPIN</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">TON/USDT</span>
-        <span id="ticker-price-ton-1" class="text-emerald-400 font-bold transition-colors">$5.72</span>
-        <span id="ticker-pct-ton-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+3.10%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">ADA/USDT</span>
-        <span id="ticker-price-ada-1" class="text-emerald-400 font-bold transition-colors">$0.375</span>
-        <span id="ticker-pct-ada-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+1.95%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">TRX/USDT</span>
-        <span id="ticker-price-trx-1" class="text-emerald-400 font-bold transition-colors">$0.1584</span>
-        <span id="ticker-pct-trx-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+0.85%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">AVAX/USDT</span>
-        <span id="ticker-price-avax-1" class="text-emerald-400 font-bold transition-colors">$28.45</span>
-        <span id="ticker-pct-avax-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+3.60%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">LINK/USDT</span>
-        <span id="ticker-price-link-1" class="text-emerald-400 font-bold transition-colors">$12.30</span>
-        <span id="ticker-pct-link-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+2.40%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">SUI/USDT</span>
-        <span id="ticker-price-sui-1" class="text-emerald-400 font-bold transition-colors">$1.88</span>
-        <span id="ticker-pct-sui-1" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+8.40%</span>
+        <span class="text-amber-400 text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded">1 FREE SPIN</span>
       </div>
       <div class="inline-flex items-center gap-2">
         <span class="text-white font-bold">VAULT GUARANTEE</span>
         <span class="text-cyan-400 font-bold">INVEST $10 ➔ GET $25</span>
-        <span class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">7-DAY COUNTDOWN</span>
+        <span class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded">7-DAY COUNTDOWN</span>
       </div>
-
-      <!-- Loop 2 (Duplicate for Seamless Infinite Marquee) -->
+      <!-- Duplicate for loop -->
       <div class="inline-flex items-center gap-2">
         <span class="text-white font-bold">BTC/USDT</span>
-        <span id="ticker-price-btc-2" class="text-emerald-400 font-bold transition-colors">$68,432.50</span>
-        <span id="ticker-pct-btc-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+3.42%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">ETH/USDT</span>
-        <span id="ticker-price-eth-2" class="text-emerald-400 font-bold transition-colors">$3,594.10</span>
-        <span id="ticker-pct-eth-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+2.84%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">SOL/USDT</span>
-        <span id="ticker-price-sol-2" class="text-emerald-400 font-bold transition-colors">$154.60</span>
-        <span id="ticker-pct-sol-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+5.12%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">BNB/USDT</span>
-        <span id="ticker-price-bnb-2" class="text-emerald-400 font-bold transition-colors">$592.80</span>
-        <span id="ticker-pct-bnb-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+1.45%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">XRP/USDT</span>
-        <span id="ticker-price-xrp-2" class="text-emerald-400 font-bold transition-colors">$0.5892</span>
-        <span id="ticker-pct-xrp-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+4.20%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">DOGE/USDT</span>
-        <span id="ticker-price-doge-2" class="text-emerald-400 font-bold transition-colors">$0.1245</span>
-        <span id="ticker-pct-doge-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+6.80%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-amber-400 font-bold">DAILY PROMOTION</span>
-        <span class="text-white">SPIN WHEEL FOR UP TO $10,000</span>
-        <span class="text-amber-400 text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded font-bold">1 FREE SPIN</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">TON/USDT</span>
-        <span id="ticker-price-ton-2" class="text-emerald-400 font-bold transition-colors">$5.72</span>
-        <span id="ticker-pct-ton-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+3.10%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">ADA/USDT</span>
-        <span id="ticker-price-ada-2" class="text-emerald-400 font-bold transition-colors">$0.375</span>
-        <span id="ticker-pct-ada-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+1.95%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">TRX/USDT</span>
-        <span id="ticker-price-trx-2" class="text-emerald-400 font-bold transition-colors">$0.1584</span>
-        <span id="ticker-pct-trx-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+0.85%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">AVAX/USDT</span>
-        <span id="ticker-price-avax-2" class="text-emerald-400 font-bold transition-colors">$28.45</span>
-        <span id="ticker-pct-avax-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+3.60%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">LINK/USDT</span>
-        <span id="ticker-price-link-2" class="text-emerald-400 font-bold transition-colors">$12.30</span>
-        <span id="ticker-pct-link-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+2.40%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">SUI/USDT</span>
-        <span id="ticker-price-sui-2" class="text-emerald-400 font-bold transition-colors">$1.88</span>
-        <span id="ticker-pct-sui-2" class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">+8.40%</span>
-      </div>
-      <div class="inline-flex items-center gap-2">
-        <span class="text-white font-bold">VAULT GUARANTEE</span>
-        <span class="text-cyan-400 font-bold">INVEST $10 ➔ GET $25</span>
-        <span class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">7-DAY COUNTDOWN</span>
+        <span class="text-emerald-400">$68,432.50</span>
+        <span class="text-emerald-400 text-[10px] bg-emerald-500/10 px-1.5 py-0.5 rounded">+3.42%</span>
       </div>
     </div>
   </div>
@@ -502,63 +371,56 @@
     </div>
   </section>
 
-  <!-- ==================== FIXED $10 STAKING PROTOCOL ==================== -->
+  <!-- ==================== CALCULATOR (MULTIPLES OF $10) ==================== -->
   <section id="calculator" class="py-20 border-t border-white/5 relative">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="glass-panel p-8 sm:p-10 rounded-3xl border-2 border-emerald-500/50 glow-emerald relative overflow-hidden">
+      <div class="glass-panel p-8 sm:p-10 rounded-3xl border border-white/10 glow-emerald">
         
-        <div class="text-center max-w-xl mx-auto mb-8 space-y-2">
-          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-mono font-bold border border-emerald-500/30">
-            <span>🔒 FIXED $10 ENTRY PROTOCOL</span>
-          </div>
-          <h3 class="text-2xl sm:text-4xl font-extrabold text-white">Fixed $10 Staking For Everyone</h3>
-          <p class="text-slate-300 text-sm">Universal single-tier model: Every staker deposits exactly <strong class="text-emerald-400 font-mono">$10.00 USDT</strong> and receives <strong class="text-cyan-400 font-mono">$25.00 USDT</strong> in exactly 7 days.</p>
+        <div class="text-center max-w-xl mx-auto mb-8 space-y-1">
+          <h2 class="text-xs font-bold text-emerald-400 uppercase tracking-widest font-mono">Slot Multiplier Simulator</h2>
+          <h3 class="text-2xl sm:text-3xl font-extrabold text-white">How Many $10 Contracts Do You Want?</h3>
+          <p class="text-slate-400 text-xs">Each contract is $10 and pays out $25 in 7 days.</p>
         </div>
 
-        <!-- 3-Column Fixed Metrics Grid -->
-        <div class="grid md:grid-cols-3 gap-4 font-mono text-center">
-          <div class="bg-[#070b16] p-6 rounded-2xl border border-white/10">
-            <div class="text-xs text-slate-400 uppercase tracking-wider">Stake Amount</div>
-            <div class="text-3xl sm:text-4xl font-black text-white mt-1">$10.00</div>
-            <div class="text-xs text-emerald-400 mt-1 font-bold">Universal Fixed Amount</div>
+        <div class="space-y-6 max-w-xl mx-auto">
+          <!-- Slider -->
+          <div>
+            <div class="flex justify-between items-center text-sm font-mono mb-2">
+              <span class="text-slate-300 font-bold">Invested Amount:</span>
+              <span id="calc-principal-val" class="text-emerald-400 font-black text-xl">$10.00 (1 Contract)</span>
+            </div>
+            <input type="range" id="calc-principal" min="10" max="200" step="10" value="10" class="w-full">
+            <div class="flex justify-between text-[11px] text-slate-500 font-mono mt-1">
+              <span>$10 (1x)</span>
+              <span>$50 (5x)</span>
+              <span>$100 (10x)</span>
+              <span>$200 (20x)</span>
+            </div>
           </div>
-          <div class="bg-[#070b16] p-6 rounded-2xl border border-white/10">
-            <div class="text-xs text-slate-400 uppercase tracking-wider">Maturity Period</div>
-            <div class="text-3xl sm:text-4xl font-black text-cyan-400 mt-1">7 Days</div>
-            <div class="text-xs text-slate-400 mt-1">Live Second-by-Second Timer</div>
-          </div>
-          <div class="bg-[#070b16] p-6 rounded-2xl border border-emerald-500/40 bg-emerald-950/20">
-            <div class="text-xs text-emerald-400 uppercase tracking-wider">Guaranteed Return</div>
-            <div class="text-3xl sm:text-4xl font-black text-emerald-400 mt-1">$25.00</div>
-            <div class="text-xs text-emerald-300 mt-1 font-bold">+$15.00 Net Profit (250%)</div>
-          </div>
-        </div>
 
-        <!-- Feature Points -->
-        <div class="mt-6 grid sm:grid-cols-2 gap-3 text-xs font-mono text-slate-300">
-          <div class="flex items-center gap-2.5 p-3.5 bg-black/40 rounded-xl border border-white/5">
-            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
-            <span>Fixed $10.00 contract allocation for all participants</span>
+          <!-- Result Display Box -->
+          <div class="bg-[#070b16] p-6 rounded-2xl border border-emerald-500/30 text-center space-y-4">
+            <div class="text-xs uppercase font-mono tracking-wider text-slate-400">You Will Receive in 7 Days:</div>
+            <div id="calc-future-val" class="text-5xl font-black text-emerald-400 font-mono tracking-tight">$25.00</div>
+            
+            <div class="flex justify-center gap-6 text-xs font-mono pt-2 border-t border-white/10">
+              <div>
+                <span class="text-slate-500 block">Pure Profit:</span>
+                <span id="calc-profit-val" class="text-white font-bold">+$15.00</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block">Payout Date:</span>
+                <span class="text-cyan-400 font-bold">In 7 Days</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block">Total Return:</span>
+                <span class="text-emerald-400 font-bold">250%</span>
+              </div>
+            </div>
           </div>
-          <div class="flex items-center gap-2.5 p-3.5 bg-black/40 rounded-xl border border-white/5">
-            <i data-lucide="sparkles" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
-            <span>Includes 1 free daily spin on the $10,000 Lucky Wheel</span>
-          </div>
-          <div class="flex items-center gap-2.5 p-3.5 bg-black/40 rounded-xl border border-white/5">
-            <i data-lucide="clock" class="w-4 h-4 text-cyan-400 flex-shrink-0"></i>
-            <span>Live countdown in your client portal tracks exact release</span>
-          </div>
-          <div class="flex items-center gap-2.5 p-3.5 bg-black/40 rounded-xl border border-white/5">
-            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
-            <span>Guaranteed $25.00 return disbursed directly in USDT</span>
-          </div>
-        </div>
 
-        <!-- Direct CTA -->
-        <div class="mt-8 text-center">
-          <a href="login.html?tab=signup" class="btn-shimmer inline-flex items-center justify-center gap-2.5 w-full sm:w-auto px-10 py-4 rounded-xl font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 shadow-xl shadow-emerald-500/30 transition-all text-base uppercase tracking-wider font-sans">
-            <span>Invest $10 Now ➔ Get $25</span>
-            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+          <a href="login.html?tab=signup" class="btn-shimmer block w-full py-4 rounded-xl font-bold text-center text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 shadow-md transition-all font-sans text-base">
+            Claim Your $25 Return in 7 Days
           </a>
         </div>
 
@@ -638,7 +500,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="js/db.js"></script>
   <script src="js/calculator.js"></script>
-  <script src="js/markets.js"></script>
   <script src="js/app.js"></script>
   <script>
     function openVerifiedInvestorModal() {
