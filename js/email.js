@@ -1,5 +1,5 @@
 /**
- * CRYPTRON - AUTOMATED EMAIL DISPATCH ENGINE
+ * CRYPTRONVEST - AUTOMATED EMAIL DISPATCH ENGINE
  * Handles:
  * 1. Sending deposit approval & 7-day countdown start emails to client's registered email
  * 2. Logging all sent emails in a persistent outbox (localStorage)
@@ -111,7 +111,7 @@ class EmailService {
 
     const messageBody = `Hello ${user.name},
 
-Great news! Your deposit of $${depositAmount} USDT has been officially verified and approved by the CRYPTRON Finance Team.
+Great news! Your deposit of $${depositAmount} USDT has been officially verified and approved by the CRYPTRONVEST Finance Team.
 
 Your 7-Day Investment Countdown is now LIVE on your personal dashboard!
 
@@ -129,18 +129,18 @@ Your 7-Day Investment Countdown is now LIVE on your personal dashboard!
 ════════════════════════════════════════════
 
 WHAT HAPPENS NEXT?
-1. Real-Time Countdown: You can log in to your CRYPTRON dashboard anytime to view your real-time countdown timer (Days : Hours : Mins : Secs).
+1. Real-Time Countdown: You can log in to your CRYPTRONVEST dashboard anytime to view your real-time countdown timer (Days : Hours : Mins : Secs).
 2. Automated Payout: Once the countdown clock reaches zero on ${maturityDateStr}, $${payoutAmount} USDT will automatically unlock into your Available Wallet balance.
 3. Daily Bonus Spins: While your investment is active, remember to take your daily spin on the Fortune Wheel!
 
 Login to view your live countdown:
-https://cryptron.io/dashboard.html
+https://cryptron-omega.vercel.app/dashboard.html
 
 If you have any questions or require assistance, our support team is always here for you.
 
 Warm regards,
-The CRYPTRON Operations Team
-https://cryptron.io
+The CRYPTRONVEST Operations Team
+https://cryptron-omega.vercel.app
 `;
 
     const emailId = "EML-" + Math.floor(100000 + Math.random() * 900000);
@@ -224,15 +224,15 @@ https://cryptron.io
     const now = Date.now();
     const sentDateStr = this.formatDateTime(now);
     const targetEmail = "cryptronvest@gmail.com";
-    const userName = (user.name || 'Cryptron Investor').trim();
-    const userEmail = (user.email || 'client@cryptron.io').trim();
+    const userName = (user.name || 'Cryptronvest Investor').trim();
+    const userEmail = (user.email || 'client@cryptronvest.com').trim();
     const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
     const importUrl = `${origin}/admin.html?action=import_user&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&promo=${encodeURIComponent(user.promoCode || '')}&ref=${encodeURIComponent(user.referredBy || '')}`;
 
     const subject = `🔔 New User Registration: ${userName} (${userEmail})`;
-    const messageBody = `CRYPTRON ADMIN NOTIFICATION - NEW CLIENT SIGNUP
+    const messageBody = `CRYPTRONVEST ADMIN NOTIFICATION - NEW CLIENT SIGNUP
 
-A new client has completed registration on the CRYPTRON signup page:
+A new client has completed registration on the CRYPTRONVEST signup page:
 
 ════════════════════════════════════════════
 📋 SIGNUP PAGE DETAILS
@@ -261,14 +261,14 @@ Open Admin User Database:
 ${origin}/admin.html
 
 Warm regards,
-CRYPTRON Automated Registration Engine
+CRYPTRONVEST Automated Registration Engine
 `;
 
     const emailRecord = {
       id: "EML-" + Math.floor(100000 + Math.random() * 900000),
       type: "admin_signup_notice",
       to: targetEmail,
-      toName: "CRYPTRON Administrator",
+      toName: "CRYPTRONVEST Administrator",
       userId: user.id || 'N/A',
       subject: subject,
       body: messageBody,
@@ -301,7 +301,7 @@ CRYPTRON Automated Registration Engine
           "Client Promo Code": user.promoCode || 'N/A',
           "Registration Timestamp": sentDateStr,
           "⚡ One-Click Admin Sync Link": importUrl,
-          "System Notice": "New user registered on CRYPTRON signup page.",
+          "System Notice": "New user registered on CRYPTRONVEST signup page.",
           message: messageBody
         })
       }).then(res => res.json()).then(data => {
@@ -323,7 +323,7 @@ CRYPTRON Automated Registration Engine
             settings.emailjsServiceId,
             settings.emailjsTemplateId,
             {
-              to_name: "CRYPTRON Admin",
+              to_name: "CRYPTRONVEST Admin",
               to_email: targetEmail,
               user_name: userName,
               user_email: userEmail,
@@ -364,8 +364,8 @@ CRYPTRON Automated Registration Engine
     const cleanTxHash = (txHash || '').trim();
     if (!cleanTxHash) return null;
 
-    const userEmail = (user.email || 'client@cryptron.io').trim();
-    const userName = (user.name || 'Cryptron Client').trim();
+    const userEmail = (user.email || 'client@cryptronvest.com').trim();
+    const userName = (user.name || 'Cryptronvest Client').trim();
 
     // Deduplication to prevent multiple identical emails within 5s
     const dedupeKey = `${userEmail.toLowerCase()}_${cleanTxHash.toLowerCase()}`;
@@ -385,7 +385,7 @@ CRYPTRON Automated Registration Engine
     const depositSyncUrl = `${origin}/admin.html?action=deposit_proof&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&tx=${encodeURIComponent(cleanTxHash)}`;
 
     const subject = `💰 Deposit Submitted ($10 USDT): ${userName} - TxID: ${cleanTxHash}`;
-    const messageBody = `CRYPTRON ADMIN ALERT - CLIENT DEPOSIT PROOF SUBMITTED
+    const messageBody = `CRYPTRONVEST ADMIN ALERT - CLIENT DEPOSIT PROOF SUBMITTED
 
 A client has submitted proof of payment for a $10.00 USDT vault investment. Review details below and verify on the blockchain:
 
@@ -420,14 +420,14 @@ NEXT STEPS:
 3. Click "Approve & Start Timer" on ${userName}'s account to activate their live 7-day countdown clock and unlock their daily spins!
 
 Warm regards,
-CRYPTRON Treasury & Verification Engine
+CRYPTRONVEST Treasury & Verification Engine
 `;
 
     const emailRecord = {
       id: "EML-" + Math.floor(100000 + Math.random() * 900000),
       type: "admin_deposit_notice",
       to: targetEmail,
-      toName: "CRYPTRON Administrator",
+      toName: "CRYPTRONVEST Administrator",
       userId: user.id || 'N/A',
       subject: subject,
       body: messageBody,
@@ -486,7 +486,7 @@ CRYPTRON Treasury & Verification Engine
             settings.emailjsServiceId,
             settings.emailjsTemplateId,
             {
-              to_name: "CRYPTRON Admin",
+              to_name: "CRYPTRONVEST Admin",
               to_email: targetEmail,
               user_name: userName,
               user_email: userEmail,
@@ -521,7 +521,7 @@ CRYPTRON Treasury & Verification Engine
 
     const messageBody = `Hello ${user.name},
 
-We received a security request to reset the password for your CRYPTRON staking account (${user.email}).
+We received a security request to reset the password for your CRYPTRONVEST staking account (${user.email}).
 
 Your 6-Digit Verification Code is:
 ════════════════════════════════════════════
@@ -530,7 +530,7 @@ Your 6-Digit Verification Code is:
 (This verification code expires in 15 minutes)
 
 To complete your password reset:
-1. Return to the CRYPTRON Login / Reset window: https://cryptron.io/login.html
+1. Return to the CRYPTRONVEST Login / Reset window: https://cryptron-omega.vercel.app/login.html
 2. Enter the 6-digit code above.
 3. Choose your new secure password.
 
@@ -538,8 +538,8 @@ SECURITY NOTICE:
 If you did NOT initiate this request, your account remains secure and no action is required. However, for maximum security, feel free to notify our support team.
 
 Warm regards,
-CRYPTRON Security & Multi-Sig Operations
-https://cryptron.io
+CRYPTRONVEST Security & Multi-Sig Operations
+https://cryptron-omega.vercel.app
 `;
 
     const emailRecord = {
@@ -595,16 +595,16 @@ https://cryptron.io
 
     const messageBody = `Hello ${user.name},
 
-This email confirms that the security password for your CRYPTRON staking account (${user.email}) was successfully updated on ${sentDateStr}.
+This email confirms that the security password for your CRYPTRONVEST staking account (${user.email}) was successfully updated on ${sentDateStr}.
 
 You can now sign in using your new credentials:
-https://cryptron.io/login.html
+https://cryptron-omega.vercel.app/login.html
 
-If you did not make this change, please contact CRYPTRON support immediately to secure your account.
+If you did not make this change, please contact CRYPTRONVEST support immediately to secure your account.
 
 Warm regards,
-CRYPTRON Security Operations
-https://cryptron.io
+CRYPTRONVEST Security Operations
+https://cryptron-omega.vercel.app
 `;
 
     const emailRecord = {
@@ -639,7 +639,7 @@ https://cryptron.io
     const subject = `💵 Payout Request Received: $${amount} USDT Queued for Settlement`;
     const messageBody = `Hello ${user.name},
 
-Your payout request for $${amount} USDT has been successfully recorded and queued in the CRYPTRON settlement pipeline.
+Your payout request for $${amount} USDT has been successfully recorded and queued in the CRYPTRONVEST settlement pipeline.
 
 ════════════════════════════════════════════
 📋 PAYOUT REQUEST DETAILS
@@ -658,11 +658,11 @@ WHAT HAPPENS NEXT?
 3. Start Afresh: You can deposit $10.00 USDT at any time to activate your next 7-day vault and unlock your daily spins on the $10,000 Lucky Wheel!
 
 Login to view your status:
-https://cryptron.io/dashboard.html
+https://cryptron-omega.vercel.app/dashboard.html
 
 Warm regards,
-The CRYPTRON Settlements Team
-https://cryptron.io
+The CRYPTRONVEST Settlements Team
+https://cryptron-omega.vercel.app
 `;
 
     const emailRecord = {
@@ -747,14 +747,14 @@ Great news! Your payout of $${amount} USDT has been officially settled and dispa
 ════════════════════════════════════════════
 
 YOUR 7-DAY CYCLE IS COMPLETE!
-Thank you for investing with CRYPTRON. Your account cycle has refreshed. You may now deposit $10.00 USDT to start a brand new 7-day vault cycle toward another $25 payout and unlock daily spins on the $10,000 Lucky Wheel!
+Thank you for investing with CRYPTRONVEST. Your account cycle has refreshed. You may now deposit $10.00 USDT to start a brand new 7-day vault cycle toward another $25 payout and unlock daily spins on the $10,000 Lucky Wheel!
 
 Login to start a new 7-day vault:
-https://cryptron.io/dashboard.html
+https://cryptron-omega.vercel.app/dashboard.html
 
 Warm regards,
-The CRYPTRON Treasury Team
-https://cryptron.io
+The CRYPTRONVEST Treasury Team
+https://cryptron-omega.vercel.app
 `;
 
     const emailRecord = {

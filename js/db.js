@@ -1,5 +1,5 @@
 /**
- * CRYPTRON - USER DATABASE ENGINE
+ * CRYPTRONVEST - USER DATABASE ENGINE
  * Handles user registration, credentials storage, manual investment activations,
  * 7-day countdown timers, and admin user directories.
  */
@@ -16,7 +16,7 @@ const SEED_USERS = [
   {
     id: "USR-1001",
     name: "David Miller",
-    email: "d.miller@cryptron.io",
+    email: "d.miller@cryptronvest.com",
     password: "password123",
     passwordMasked: "••••••••",
     registeredAt: "2026-09-12 14:30:22",
@@ -1055,7 +1055,7 @@ class UserDatabase {
       user = users[0];
     }
     if (!user) {
-      user = { id: userId || "USR-1001", name: "Cryptron Investor", email: "client@cryptron.io" };
+      user = { id: userId || "USR-1001", name: "Cryptronvest Investor", email: "client@cryptronvest.com" };
     }
 
     user.investmentStatus = "pending_approval";
@@ -1133,7 +1133,7 @@ class UserDatabase {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('href', url);
-    a.setAttribute('download', `CRYPTRON_Users_Database_${new Date().toISOString().substring(0,10)}.csv`);
+    a.setAttribute('download', `CRYPTRONVEST_Users_Database_${new Date().toISOString().substring(0,10)}.csv`);
     a.click();
   }
 
@@ -1432,7 +1432,7 @@ class UserDatabase {
       const initialMessages = [
         {
           id: "MSG-1001",
-          sender: "CRYPTRON Protocol Admin",
+          sender: "CRYPTRONVEST Protocol Admin",
           targetType: "all_active",
           targetUserId: null,
           targetUserName: null,
@@ -1445,12 +1445,12 @@ class UserDatabase {
         },
         {
           id: "MSG-1002",
-          sender: "CRYPTRON Protocol Admin",
+          sender: "CRYPTRONVEST Protocol Admin",
           targetType: "all_inactive",
           targetUserId: null,
           targetUserName: null,
-          subject: "Welcome to CRYPTRON - Activate Your $10 Contract",
-          body: "Welcome to CRYPTRON Protocol! Complete your initial $10.00 USDT deposit to activate your 7-day countdown to $25.00 and unlock your daily spin on the $10,000 Lucky Wheel.",
+          subject: "Welcome to CRYPTRONVEST - Activate Your $10 Contract",
+          body: "Welcome to CRYPTRONVEST Protocol! Complete your initial $10.00 USDT deposit to activate your 7-day countdown to $25.00 and unlock your daily spin on the $10,000 Lucky Wheel.",
           priority: "info",
           category: "Getting Started",
           createdAt: "2026-09-17 10:30:00",
@@ -1483,7 +1483,7 @@ class UserDatabase {
     const messages = this.getAllMessages();
     const newMsg = {
       id: "MSG-" + Date.now(),
-      sender: "CRYPTRON Protocol Admin",
+      sender: "CRYPTRONVEST Protocol Admin",
       targetType: targetType || "all_active", // "individual" | "all_active" | "all_inactive" | "withdrawal_requested" | "all"
       targetUserId: targetUserId || null,
       targetUserName: targetUserName || null,

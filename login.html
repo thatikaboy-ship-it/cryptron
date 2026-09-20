@@ -3,9 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Connect & Authenticate | CRYPTRON Protocol</title>
+  <title>Connect & Authenticate | CRYPTRONVEST Protocol</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: ['selector', '[data-theme="dark"]'],
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+            }
+          }
+        }
+      }
+    }
+  </script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- EmailJS SDK -->
@@ -13,15 +29,15 @@
   <!-- Custom Styles -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+<body class="bg-[#080d1a] text-slate-100 min-h-screen flex items-center justify-center p-4 relative antialiased selection:bg-emerald-500 selection:text-white">
 
   <!-- Ambient Light Orbs -->
-  <div class="bg-ambient-orb w-96 h-96 bg-emerald-600 top-0 left-10 opacity-25"></div>
-  <div class="bg-ambient-orb w-96 h-96 bg-cyan-600 bottom-0 right-10 opacity-20"></div>
+  <div class="bg-ambient-orb w-96 h-96 bg-emerald-600 top-1/4 left-1/4 opacity-20"></div>
+  <div class="bg-ambient-orb w-96 h-96 bg-cyan-600 bottom-1/4 right-1/4 opacity-15"></div>
 
-  <div class="w-full max-w-md relative z-10 space-y-6">
+  <div class="max-w-md w-full space-y-6 relative z-10">
     
-    <!-- Brand Header -->
+    <!-- Header Logo -->
     <div class="text-center space-y-2">
       <a href="index.html" class="inline-flex items-center gap-3 group">
         <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/25">
@@ -30,7 +46,7 @@
           </div>
         </div>
         <span class="text-3xl font-black tracking-tight text-white">
-          CRYP<span class="text-emerald-400">TRON</span>
+          CRYPTRON<span class="text-emerald-400">VEST</span>
         </span>
       </a>
       <p class="text-xs text-slate-400 font-mono">Secured by On-Chain Database & Multi-Sig Vaults</p>
@@ -134,7 +150,7 @@
             <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Registered Email Address</label>
             <div class="relative">
               <i data-lucide="mail" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-              <input type="email" id="forgot-email" required placeholder="e.g. investor@cryptron.io" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 transition-colors font-mono">
+              <input type="email" id="forgot-email" required placeholder="e.g. investor@cryptronvest.com" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500 transition-colors font-mono">
             </div>
           </div>
 

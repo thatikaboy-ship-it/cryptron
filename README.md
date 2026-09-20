@@ -1,6 +1,6 @@
-# CRYPTRON - User Database & 7-Day Crypto Staking Platform
+# CRYPTRONVEST - User Database & 7-Day Crypto Staking Platform
 
-CRYPTRON is a crypto yield platform designed with an interactive 7-Day Maturity Countdown, gamified Daily Spin Wheel, and a user registration database system.
+CRYPTRONVEST is a crypto yield platform designed with an interactive 7-Day Maturity Countdown, gamified Daily Spin Wheel, and a user registration database system.
 
 ---
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>User Database & Admin Portal | CRYPTRON</title>
+  <title>User Database & Admin Portal | CRYPTRONVEST</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
@@ -28,7 +28,7 @@
             </div>
           </div>
           <span class="text-xl font-black tracking-tight text-white">
-            CRYP<span class="text-emerald-400">ADMIN</span>
+            CRYPTRONVEST <span class="text-emerald-400">ADMIN</span>
           </span>
           <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-mono font-bold">USER DATABASE</span>
         </a>
@@ -703,7 +703,7 @@
 
         <div>
           <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">Client Email Address</label>
-          <input type="email" id="new-user-email" required placeholder="e.g. satoshi@cryptron.io" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500">
+          <input type="email" id="new-user-email" required placeholder="e.g. satoshi@cryptronvest.com" class="w-full bg-[#0a1122] border border-white/10 rounded-xl px-4 py-3 text-xs sm:text-sm text-white font-mono focus:outline-none focus:border-emerald-500">
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -761,7 +761,7 @@
   <!-- Footer -->
   <footer class="mt-auto bg-[#050811] border-t border-white/10 py-8 text-slate-400 text-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div>© 2026 CRYPTRON Admin System. Real-time user database.</div>
+      <div>© 2026 CRYPTRONVEST Admin System. Real-time user database.</div>
       <div class="flex gap-6 font-mono">
         <a href="index.html" class="hover:text-white">Homepage</a>
         <a href="dashboard.html" class="hover:text-white">Client Portal</a>
@@ -1847,7 +1847,7 @@
         prioSelect.value = "success";
       } else if (type === 'payout_sent') {
         subjInput.value = "✅ USDT Payout Sent - Blockchain Settlement Complete";
-        bodyInput.value = "Your requested withdrawal has been processed and dispatched to your USDT Tether destination wallet address. Thank you for staking with CRYPTRON Protocol!";
+        bodyInput.value = "Your requested withdrawal has been processed and dispatched to your USDT Tether destination wallet address. Thank you for staking with CRYPTRONVEST Protocol!";
         prioSelect.value = "success";
       } else if (type === 'deposit_reminder') {
         subjInput.value = "⚡ Activate Your 7-Day $10 Vault to Earn $25";
@@ -1855,7 +1855,7 @@
         prioSelect.value = "info";
       } else if (type === 'security') {
         subjInput.value = "🔒 Protocol Notice: Liquidity Vault Audit & Reserve Security";
-        bodyInput.value = "All client deposits and 7-day payouts remain 100% secured by CRYPTRON multi-sig smart contract reserves. Withdrawals are processed 24/7.";
+        bodyInput.value = "All client deposits and 7-day payouts remain 100% secured by CRYPTRONVEST multi-sig smart contract reserves. Withdrawals are processed 24/7.";
         prioSelect.value = "info";
       }
     }
@@ -2036,7 +2036,7 @@
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(users, null, 2));
       const a = document.createElement('a');
       a.setAttribute("href", dataStr);
-      a.setAttribute("download", `cryptron_users_backup_${new Date().toISOString().substring(0, 10)}.json`);
+      a.setAttribute("download", `cryptronvest_users_backup_${new Date().toISOString().substring(0, 10)}.json`);
       document.body.appendChild(a);
       a.click();
       a.remove();

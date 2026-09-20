@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Client Staking Portal | CRYPTRON ($10 ➔ $25 in 7 Days)</title>
+  <title>Client Staking Portal | CRYPTRONVEST ($10 ➔ $25 in 7 Days)</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
@@ -13,23 +13,23 @@
   <!-- Custom Styles -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="bg-[#080d1a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex flex-col">
+<body class="bg-[#040711] text-slate-100 antialiased selection:bg-emerald-500 selection:text-white min-h-screen flex flex-col font-sans relative overflow-x-hidden">
 
   <!-- Navigation -->
-  <nav class="sticky top-0 z-40 backdrop-blur-xl bg-[#080d1a]/90 border-b border-white/10">
+  <nav class="sticky top-0 z-40 backdrop-blur-xl bg-[#040711]/80 border-b border-white/10 transition-all">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-20">
         
-        <!-- Left: Logo & Portal Tag -->
-        <div class="flex items-center gap-6">
-          <a href="index.html" class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/20">
+        <!-- Left: Logo & Navigation Tabs -->
+        <div class="flex items-center space-x-6">
+          <a href="index.html" class="flex items-center gap-3 group">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-[1px] shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/40 transition-all">
               <div class="w-full h-full bg-[#090e1d] rounded-xl flex items-center justify-center">
                 <i data-lucide="zap" class="w-5 h-5 text-emerald-400"></i>
               </div>
             </div>
             <span class="text-xl font-black tracking-tight text-white">
-              CRYP<span class="text-emerald-400">TRON</span>
+              CRYPTRON<span class="text-emerald-400">VEST</span>
             </span>
           </a>
 
@@ -138,7 +138,7 @@
         <div>
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">📢 ADMIN NOTICE</span>
-            <h4 id="admin-banner-subject" class="text-sm font-bold text-white">Notice from CRYPTRON Protocol</h4>
+            <h4 id="admin-banner-subject" class="text-sm font-bold text-white">Notice from CRYPTRONVEST Protocol</h4>
           </div>
           <p id="admin-banner-body" class="text-xs text-slate-300 mt-1 line-clamp-2 max-w-2xl">
             You have received a message from the protocol administrator.
@@ -167,7 +167,7 @@
             <h4 class="text-sm font-bold text-white">Payout Processing: <span id="wreq-banner-amount" class="text-emerald-400 font-mono">$25.00 USDT</span></h4>
           </div>
           <p class="text-xs text-slate-300 mt-1 font-mono">
-            Destination: <code id="wreq-banner-address" class="text-amber-300 font-bold bg-black/40 px-2 py-0.5 rounded">0x...</code> · Status: <span class="text-cyan-400 font-bold">Pending Cryptron Settlement</span>
+            Destination: <code id="wreq-banner-address" class="text-amber-300 font-bold bg-black/40 px-2 py-0.5 rounded">0x...</code> · Status: <span class="text-cyan-400 font-bold">Pending Cryptronvest Settlement</span>
           </p>
         </div>
       </div>
@@ -565,7 +565,7 @@
         </div>
         <div>
           <h3 class="text-xl font-black text-white">Protocol Messages & Alerts</h3>
-          <p class="text-xs text-slate-400 font-mono">Official communications from CRYPTRON Protocol Admin</p>
+          <p class="text-xs text-slate-400 font-mono">Official communications from CRYPTRONVEST Protocol Admin</p>
         </div>
       </div>
 
@@ -658,7 +658,7 @@
         </div>
         <div>
           <h3 class="text-xl font-bold text-white">Confirm $10 Transfer</h3>
-          <p class="text-xs text-slate-400 font-mono">Notify cryptron to approve & start your 7-day timer</p>
+          <p class="text-xs text-slate-400 font-mono">Notify cryptronvest to approve & start your 7-day timer</p>
         </div>
       </div>
 
@@ -695,7 +695,7 @@
         </div>
 
         <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 shadow-lg shadow-amber-500/20 transition-all font-sans text-xs uppercase tracking-wider">
-          Submit For Cryptron Confirmation
+          Submit For Cryptronvest Confirmation
         </button>
       </form>
     </div>
@@ -704,7 +704,7 @@
   <!-- Footer -->
   <footer class="mt-auto bg-[#050811] border-t border-white/10 py-8 text-slate-400 text-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div>© 2026 CRYPTRON Protocol. Real-time 7-day maturity countdown engine.</div>
+      <div>© 2026 CRYPTRONVEST Protocol. Real-time 7-day maturity countdown engine.</div>
       <div class="flex gap-6 font-mono">
         <a href="index.html" class="hover:text-white">Home</a>
         <a href="plans.html" class="hover:text-white">The $10 Vault</a>
@@ -822,7 +822,7 @@
           EmailService.sendDepositNoticeToAdmin(dbUser, hash);
         }
         closeModal('submit-hash-modal');
-        showToast("✅ Payment submitted! cryptron has been notified via email and will verify your $10 deposit.", "success");
+        showToast("✅ Payment submitted! cryptronvest has been notified via email and will verify your $10 deposit.", "success");
         updateDashboardUI();
       } catch (err) {
         showToast(err.message, "error");
@@ -847,7 +847,7 @@
         if (window.EmailService) {
           EmailService.sendDepositNoticeToAdmin(dbUser, hash);
         }
-        showToast("✅ Transaction hash received! cryptron has been notified via email to confirm your deposit.", "success");
+        showToast("✅ Transaction hash received! cryptronvest has been notified via email to confirm your deposit.", "success");
         updateDashboardUI();
       } catch (err) {
         showToast(err.message, "error");
@@ -1481,10 +1481,10 @@
               <div class="space-y-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <h3 class="text-lg font-black text-white">$10 Deposit Confirmation Submitted</h3>
-                  <span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30">PENDING CRYPTRON APPROVAL</span>
+                  <span class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30">PENDING CRYPTRONVEST APPROVAL</span>
                 </div>
                 <p class="text-xs text-slate-300">
-                  Your payment hash is currently being verified by our team. Once confirmed by Cryptron, your <strong>7-day countdown timer will begin counting down immediately</strong> toward your $25.00 USDT payout!
+                  Your payment hash is currently being verified by our team. Once confirmed by Cryptronvest, your <strong>7-day countdown timer will begin counting down immediately</strong> toward your $25.00 USDT payout!
                 </p>
               </div>
             </div>
@@ -1520,14 +1520,14 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
                     <span class="text-sm font-bold text-white font-mono">💸 Payout Request Submitted ($${(user.withdrawalRequest.amount || 25).toFixed(2)} USDT)</span>
                   </div>
-                  <span class="px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold border border-cyan-500/40">Awaiting Cryptron Confirmation</span>
+                  <span class="px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold border border-cyan-500/40">Awaiting Cryptronvest Confirmation</span>
                 </div>
                 <div class="p-3 bg-black/50 rounded-xl border border-white/10 font-mono text-xs flex items-center justify-between gap-2 flex-wrap">
                   <span class="text-slate-400">Destination USDT Address:</span>
                   <span class="text-amber-300 font-bold break-all">${user.withdrawalRequest.usdtAddress}</span>
                 </div>
                 <p class="text-xs text-slate-300 font-sans leading-relaxed">
-                  Your $25.00 payout has been submitted and registered with cryptron. <strong>Everything starts afresh:</strong> deposit another $10.00 USDT below to start your next 7-day vault to $25 and unlock the daily wheel!
+                  Your $25.00 payout has been submitted and registered with cryptronvest. <strong>Everything starts afresh:</strong> deposit another $10.00 USDT below to start your next 7-day vault to $25 and unlock the daily wheel!
                 </p>
               </div>
             ` : ''}
@@ -1540,7 +1540,7 @@
                 </div>
                 <div>
                   <h3 class="text-lg font-black text-white">Start Your 7-Day Crypto Yield ($10 ➔ $25)</h3>
-                  <p class="text-xs text-slate-300">Deposit $10 USDT, paste your transaction hash below, and cryptron will activate your 7-day countdown timer!</p>
+                  <p class="text-xs text-slate-300">Deposit $10 USDT, paste your transaction hash below, and cryptronvest will activate your 7-day countdown timer!</p>
                 </div>
               </div>
               <div class="px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono text-xs font-bold text-center self-start sm:self-auto">
@@ -1586,7 +1586,7 @@
                 </div>
                 <button type="submit" class="btn-shimmer w-full sm:w-auto px-6 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
                   <i data-lucide="send" class="w-4 h-4"></i>
-                  <span>Submit Hash & Request Cryptron Activation</span>
+                  <span>Submit Hash & Request Cryptronvest Activation</span>
                 </button>
               </form>
             </div>

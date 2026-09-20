@@ -1,5 +1,5 @@
-﻿/**
- * CRYPTRON - LIVE MARKET SIMULATOR & COINMARKETCAP TELEMETRY ENGINE
+/**
+ * CRYPTRONVEST - LIVE MARKET SIMULATOR & COINMARKETCAP TELEMETRY ENGINE
  * Real-time ticking engine for crypto prices with dynamic green/red micro-pulses
  */
 
