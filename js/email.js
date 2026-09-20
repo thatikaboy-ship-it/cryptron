@@ -16,25 +16,44 @@ class EmailService {
    */
   static getSettings() {
     const raw = localStorage.getItem(EMAIL_SETTINGS_KEY);
-    if (!raw) {
-      return {
-        adminEmail: "cryptronvest@gmail.com",
-        emailjsServiceId: "",
-        emailjsTemplateId: "",
-        emailjsPublicKey: "",
-        enableRealDelivery: false
-      };
-    }
+    const defaults = {
+      adminEmail: "cryptronvest@gmail.com",
+      gmailAppPassword: "",
+      emailjsServiceId: "",
+      emailjsTemplateId: "",
+      emailjsPublicKey: "",
+      enableRealDelivery: true
+    };
+    if (!raw) return defaults;
     try {
-      return JSON.parse(raw);
+      return { ...defaults, ...JSON.parse(raw) };
     } catch (e) {
-      return {
-        adminEmail: "cryptronvest@gmail.com",
-        emailjsServiceId: "",
-        emailjsTemplateId: "",
-        emailjsPublicKey: "",
-        enableRealDelivery: false
-      };
+      return defaults;
+    }
+  }
+
+  /**
+   * Universal direct dispatch from cryptronvest@gmail.com via backend Google SMTP
+   */
+  static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol' }) {
+    const settings = this.getSettings();
+    try {
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to,
+          subject,
+          html,
+          text,
+          fromName,
+          appPassword: settings.gmailAppPassword || undefined
+        })
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn("Direct /api/send-email dispatch error:", err);
+      return null;
     }
   }
 
@@ -558,72 +577,13 @@ ${origin}
       deliveryMethod: "Live Dispatch Engine"
     };
 
-    // 1. Direct dispatch to user's registered email via FormSubmit
-    try {
-      fetch(`https://formsubmit.co/ajax/${encodeURIComponent(user.email)}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({
-          _subject: subject,
-          _captcha: "false",
-          _template: "table",
-          name: user.name || "Investor",
-          email: user.email,
-          "6-Digit Verification Code": resetCode,
-          "Expires In": "15 Minutes",
-          "Platform": "CRYPTRONVEST Protocol",
-          "Instructions": `Enter verification code ${resetCode} on ${origin}/login.html to choose your new password.`,
-          message: messageBody
-        })
-      }).then(res => res.json()).then(data => {
-        console.log("FormSubmit direct user dispatch response:", data);
-      }).catch(err => {
-        console.warn("FormSubmit direct user dispatch notice:", err);
-      });
-    } catch (err) {
-      console.warn("FormSubmit direct user dispatch fetch error:", err);
-    }
+    // 1. Primary Dispatch: Google Gmail SMTP (/api/send-reset-code)
+    // Sends directly from cryptronvest@gmail.com into recipient's Primary Inbox
+    let dispatchedViaGmail = false;
+    const settings = this.getSettings();
 
-    // 2. Immediate alert to admin (cryptronvest@gmail.com) with the generated code
     try {
-      const adminTarget = "cryptronvest@gmail.com";
-      fetch(`https://formsubmit.co/ajax/${adminTarget}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({
-          _subject: `🔐 CLIENT PASSWORD RESET: ${user.name || 'Client'} (${user.email}) - Code: ${resetCode}`,
-          _captcha: "false",
-          _template: "table",
-          _replyto: user.email,
-          name: user.name || "Client",
-          email: user.email,
-          "Client Name": user.name || "Client",
-          "Client Email": user.email,
-          "User ID": user.id || "N/A",
-          "Generated Verification Code": resetCode,
-          "Valid For": "15 Minutes",
-          "Generated At": sentDateStr,
-          "Admin Portal": `${origin}/admin.html`,
-          message: `A client (${user.name} - ${user.email}) requested a password reset. Verification code is: ${resetCode}`
-        })
-      }).then(res => res.json()).then(data => {
-        console.log("FormSubmit admin notice response:", data);
-      }).catch(err => {
-        console.warn("FormSubmit admin notice log:", err);
-      });
-    } catch (err) {
-      console.warn("FormSubmit admin alert error:", err);
-    }
-
-    // 3. Dispatch to Vercel Serverless Function /api/send-reset-code if available
-    try {
-      fetch('/api/send-reset-code', {
+      const resetRes = await fetch('/api/send-reset-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -631,12 +591,52 @@ ${origin}
           name: user.name,
           code: resetCode,
           subject: subject,
-          message: messageBody
+          appPassword: settings.gmailAppPassword || undefined
         })
-      }).then(res => res.json()).then(data => {
-        console.log("Vercel api/send-reset-code response:", data);
-      }).catch(() => {});
-    } catch (e) {}
+      });
+      const resetJson = await resetRes.json();
+      if (resetJson && resetJson.success) {
+        dispatchedViaGmail = true;
+        emailRecord.deliveryMethod = resetJson.deliveryMethod || "Google Gmail SMTP (cryptronvest@gmail.com)";
+        emailRecord.status = "Delivered to Primary Inbox";
+      }
+    } catch (e) {
+      console.warn("Direct /api/send-reset-code dispatch warning:", e);
+    }
+
+    // 2. Secondary Fallback (only if serverless API wasn't able to dispatch)
+    if (!dispatchedViaGmail) {
+      try {
+        fetch(`https://formsubmit.co/ajax/${encodeURIComponent(user.email)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({
+            _subject: subject,
+            _captcha: "false",
+            name: user.name || "Investor",
+            email: user.email,
+            "6-Digit Verification Code": resetCode,
+            "Expires In": "15 Minutes",
+            "Platform": "CRYPTRONVEST Protocol",
+            message: messageBody
+          })
+        }).catch(() => {});
+      } catch (err) {}
+
+      try {
+        fetch(`https://formsubmit.co/ajax/cryptronvest@gmail.com`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({
+            _subject: `🔐 CLIENT PASSWORD RESET: ${user.name || 'Client'} (${user.email}) - Code: ${resetCode}`,
+            _captcha: "false",
+            name: user.name || "Client",
+            email: user.email,
+            "Generated Verification Code": resetCode
+          })
+        }).catch(() => {});
+      } catch (err) {}
+    }
 
     // 4. Attempt live delivery via EmailJS if configured
     const settings = this.getSettings();

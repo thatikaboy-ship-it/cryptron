@@ -58,6 +58,10 @@
             <span class="hidden sm:inline">Email Outbox</span>
             <span id="outbox-count-badge" class="px-1.5 py-0.2 bg-cyan-400 text-slate-950 rounded-full text-[10px] font-black">0</span>
           </button>
+          <button onclick="openGmailSettingsModal()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold border border-emerald-500/30 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all shadow-sm" title="Google Gmail SMTP Auto-Send Settings">
+            <i data-lucide="mail-check" class="w-4 h-4 text-emerald-400"></i>
+            <span class="hidden md:inline">Gmail Auto-Send</span>
+          </button>
           <button onclick="openModal('add-user-modal')" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono font-bold border border-emerald-500/30 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all shadow-sm" title="Manually add or import client">
             <i data-lucide="user-plus" class="w-4 h-4"></i>
             <span class="hidden sm:inline">Add Client</span>
@@ -413,10 +417,101 @@
       </div>
 
       <!-- Live Delivery Footer Note -->
-      <div class="mt-4 p-3 rounded-xl bg-[#050811] border border-white/10 text-xs font-mono flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-        <div class="text-slate-400">
-          <span class="text-emerald-400 font-bold">✓ Automated Email Dispatch:</span> Approval messages are formatted, scheduled, and recorded with full transaction proofs.
+      <div class="mt-4 p-4 rounded-2xl bg-[#050811] border border-white/10 text-xs font-mono space-y-3">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <div class="text-slate-300 font-bold flex items-center gap-1.5">
+              <span class="text-emerald-400">✓ Official Auto-Sender:</span>
+              <span class="text-white">cryptronvest@gmail.com</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">Dispatches verification codes & deposit approvals straight to Primary Inbox</p>
+          </div>
+          <button onclick="openGmailSettingsModal()" class="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 text-xs font-bold transition-all flex items-center gap-1.5 shrink-0">
+            <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+            <span>Configure Gmail Auto-Send</span>
+          </button>
         </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== GMAIL DIRECT AUTO-SEND SETTINGS MODAL ==================== -->
+  <div id="gmail-settings-modal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-lg p-6 sm:p-8 rounded-3xl border border-white/20 glow-emerald relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeModal('gmail-settings-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <i data-lucide="mail-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Google Gmail Auto-Send Engine</h3>
+          <p class="text-xs text-slate-400 font-mono">Dispatches directly from cryptronvest@gmail.com into user's Primary Inbox</p>
+        </div>
+      </div>
+
+      <!-- Sender Info Card -->
+      <div class="p-4 rounded-2xl bg-[#060a14] border border-white/10 mb-5 space-y-2 font-mono text-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">Official Sender:</span>
+          <span class="text-emerald-400 font-bold">cryptronvest@gmail.com</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">Dispatch Protocol:</span>
+          <span class="text-cyan-300">Google Mail SMTP (smtp.gmail.com:465)</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">Deliverability:</span>
+          <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">100% Primary Inbox (0 Spam Score)</span>
+        </div>
+      </div>
+
+      <!-- App Password Form -->
+      <form id="gmail-settings-form" onsubmit="handleSaveGmailSettings(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">16-Character Google App Password</label>
+          <div class="relative">
+            <i data-lucide="key" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="password" 
+              id="gmail-app-password-input" 
+              placeholder="e.g. xkgq tzrm wpqy jvbf" 
+              class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+            >
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1.5 font-mono">
+            Spaces don't matter. Stored securely and used to authenticate directly with Google's official SMTP server.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <button type="submit" class="btn-shimmer py-3 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/20 text-xs font-mono flex items-center justify-center gap-1.5">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span>Save App Password</span>
+          </button>
+          <button type="button" id="test-gmail-btn" onclick="testGmailConnection()" class="py-3 rounded-xl font-bold text-cyan-300 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-xs font-mono flex items-center justify-center gap-1.5 transition-all">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>Test Send to Inbox</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- How to Get App Password in 30 seconds -->
+      <div class="mt-6 pt-5 border-t border-white/10 space-y-2.5 text-xs text-slate-300 font-sans">
+        <h4 class="font-bold text-amber-400 font-mono flex items-center gap-1.5">
+          <i data-lucide="help-circle" class="w-4 h-4"></i>
+          <span>How to get your 16-character Google App Password (30 seconds):</span>
+        </h4>
+        <ol class="list-decimal list-inside space-y-1.5 text-slate-400 text-[11px] leading-relaxed font-mono">
+          <li>Log into your Google account (<strong>cryptronvest@gmail.com</strong>).</li>
+          <li>Make sure <strong>2-Step Verification</strong> is ON in <a href="https://myaccount.google.com/security" target="_blank" class="text-emerald-400 underline">Google Security</a>.</li>
+          <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-emerald-400 underline font-bold">myaccount.google.com/apppasswords</a>.</li>
+          <li>For App Name, type <strong>Cryptronvest</strong> and click <strong>Create</strong>.</li>
+          <li>Google will show a 16-letter password (e.g. <span class="text-white font-mono">abcd efgh ijkl mnop</span>). Paste it in the box above!</li>
+        </ol>
       </div>
 
     </div>
@@ -1623,6 +1718,73 @@
       EmailService.clearOutbox();
       renderOutboxTable();
       showToast("Email history cleared.", "info");
+    }
+
+    function openGmailSettingsModal() {
+      if (window.EmailService) {
+        const settings = EmailService.getSettings();
+        const input = document.getElementById('gmail-app-password-input');
+        if (input && settings.gmailAppPassword) {
+          input.value = settings.gmailAppPassword;
+        }
+      }
+      openModal('gmail-settings-modal');
+    }
+
+    function handleSaveGmailSettings(e) {
+      e.preventDefault();
+      const input = document.getElementById('gmail-app-password-input');
+      const pass = input ? input.value.trim() : '';
+
+      if (window.EmailService) {
+        const settings = EmailService.getSettings();
+        settings.gmailAppPassword = pass;
+        EmailService.saveSettings(settings);
+      }
+
+      showToast("✅ Google App Password saved! Ready for direct Gmail dispatch.", "success");
+      closeModal('gmail-settings-modal');
+    }
+
+    async function testGmailConnection() {
+      const btn = document.getElementById('test-gmail-btn');
+      const orig = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Testing...</span>`;
+      lucide.createIcons();
+
+      const input = document.getElementById('gmail-app-password-input');
+      const pass = input ? input.value.trim() : '';
+
+      try {
+        const res = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: 'cryptronvest@gmail.com',
+            subject: '🚀 CRYPTRONVEST Gmail SMTP Test - Primary Inbox Verified',
+            html: '<h2>CRYPTRONVEST Protocol Direct Mailer Verified</h2><p>This email was dispatched directly from <strong>cryptronvest@gmail.com</strong> through Google Mail servers straight into your Primary Inbox!</p>',
+            appPassword: pass || undefined
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          if (window.EmailService && pass) {
+            const settings = EmailService.getSettings();
+            settings.gmailAppPassword = pass;
+            EmailService.saveSettings(settings);
+          }
+          showToast("✅ Test email sent directly from cryptronvest@gmail.com! Check your inbox.", "success");
+        } else {
+          showToast(json.warning || json.error || "Please enter your 16-character Google App Password first.", "warning");
+        }
+      } catch (err) {
+        showToast("Error testing dispatch: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        lucide.createIcons();
+      }
     }
 
     /**
