@@ -57,15 +57,24 @@ async function sendViaGmail({ to, subject, html, text, fromName = 'CRYPTRONVEST 
     html: html
   };
 
-  const info = await transporter.sendMail(mailOptions);
-  return {
-    success: true,
-    configured: true,
-    messageId: info.messageId,
-    response: info.response,
-    from: GMAIL_ADDRESS,
-    to: to
-  };
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    return {
+      success: true,
+      configured: true,
+      messageId: info.messageId,
+      response: info.response,
+      from: GMAIL_ADDRESS,
+      to: to
+    };
+  } catch (err) {
+    console.error("Gmail SMTP sendMail error:", err.message);
+    return {
+      success: false,
+      configured: true,
+      error: err.message
+    };
+  }
 }
 
 /**

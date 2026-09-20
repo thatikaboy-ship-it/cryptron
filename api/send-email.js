@@ -54,7 +54,17 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 2. Fallback response if Gmail App Password is not yet provided
+    // 2. Authentication failure or misconfiguration
+    if (result.configured && !result.success) {
+      return res.status(200).json({
+        success: false,
+        configured: true,
+        sender: GMAIL_ADDRESS,
+        error: result.error || 'Authentication with Google failed. Please check your 16-character App Password.'
+      });
+    }
+
+    // 3. Fallback response if Gmail App Password is not yet provided
     return res.status(200).json({
       success: false,
       configured: false,
