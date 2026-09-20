@@ -853,8 +853,16 @@ class UserDatabase {
    * Request a 6-digit verification code to reset password
    * @param {string} email - Registered email
    */
-  static requestPasswordReset(email) {
-    const user = this.getUserByEmail(email);
+  static async requestPasswordReset(email) {
+    let user = this.getUserByEmail(email);
+    if (!user && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      try {
+        await CloudSyncEngine.pullUsers();
+        user = this.getUserByEmail(email);
+      } catch (e) {
+        console.warn("Cloud pull before reset check:", e);
+      }
+    }
     if (!user) {
       throw new Error("No account registered with this email address. Please check your spelling or sign up.");
     }
@@ -871,9 +879,18 @@ class UserDatabase {
       this.saveUsers(users);
     }
 
-    // Dispatch email notification via EmailService
+    // Immediately push resetCode state to Firebase Cloud Database
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
+
+    // Dispatch real email with the code to user and outbox
     if (window.EmailService) {
-      EmailService.sendPasswordResetEmail(user, resetCode);
+      try {
+        await EmailService.sendPasswordResetEmail(user, resetCode);
+      } catch (e) {
+        console.warn("sendPasswordResetEmail dispatch warning:", e);
+      }
     }
 
     return { user, resetCode };
@@ -885,8 +902,16 @@ class UserDatabase {
    * @param {string} code - 6-digit code received
    * @param {string} newPassword - New password chosen by user
    */
-  static resetPasswordWithCode(email, code, newPassword) {
-    const user = this.getUserByEmail(email);
+  static async resetPasswordWithCode(email, code, newPassword) {
+    let user = this.getUserByEmail(email);
+    if (!user && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      try {
+        await CloudSyncEngine.pullUsers();
+        user = this.getUserByEmail(email);
+      } catch (e) {
+        console.warn("Cloud pull before verify:", e);
+      }
+    }
     if (!user) {
       throw new Error("User account not found.");
     }
@@ -904,6 +929,7 @@ class UserDatabase {
     }
 
     user.password = newPassword;
+    user.passwordMasked = '••••••••';
     user.resetCode = null;
     user.resetCodeExpires = null;
 
@@ -914,8 +940,21 @@ class UserDatabase {
       this.saveUsers(users);
     }
 
+    // Immediately push to Firebase Cloud Database
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      try {
+        await CloudSyncEngine.pushUser(user);
+      } catch (e) {
+        console.warn("Cloud push warning:", e);
+      }
+    }
+
     if (window.EmailService) {
-      EmailService.sendPasswordChangedEmail(user);
+      try {
+        await EmailService.sendPasswordChangedEmail(user);
+      } catch (e) {
+        console.warn("Password changed notification email warning:", e);
+      }
     }
 
     this.setCurrentUserId(user.id);

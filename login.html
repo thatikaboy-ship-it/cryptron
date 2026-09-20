@@ -86,9 +86,24 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-sm">
+        <button type="submit" id="signin-submit-btn" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-sm">
           Enter Staking Dashboard
         </button>
+
+        <!-- Interactive helper shown if user cannot log in -->
+        <div id="login-failed-helper" class="hidden p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2.5">
+          <div class="flex items-center gap-2 text-amber-400 font-bold">
+            <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+            <span>Cannot log in or forgot password?</span>
+          </div>
+          <p class="text-slate-300 text-[11px] leading-relaxed">
+            Don't worry! We will dispatch a 6-digit one-time verification code to your registered email so you can safely reset your password.
+          </p>
+          <button type="button" onclick="quickResetPassword()" class="w-full py-2 px-3 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5">
+            <i data-lucide="key-round" class="w-3.5 h-3.5"></i>
+            <span>Send Verification Code to My Email</span>
+          </button>
+        </div>
       </form>
 
       <!-- Sign Up Form (Inserts into Database) -->
@@ -143,7 +158,7 @@
               <i data-lucide="key-round" class="w-6 h-6"></i>
             </div>
             <h3 class="text-lg font-bold text-white">Reset Account Password</h3>
-            <p class="text-xs text-slate-400 font-mono">Enter your registered email to receive a 6-digit security code</p>
+            <p class="text-xs text-slate-400 font-mono">Enter your registered email to receive a 6-digit verification code</p>
           </div>
 
           <div>
@@ -154,8 +169,9 @@
             </div>
           </div>
 
-          <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 shadow-lg shadow-amber-500/25 transition-all text-sm font-sans">
-            Send 6-Digit Security Code
+          <button type="submit" id="forgot-step1-submit-btn" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 shadow-lg shadow-amber-500/25 transition-all text-sm font-sans flex items-center justify-center gap-2">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>Send 6-Digit Verification Code</span>
           </button>
 
           <div class="text-center pt-2">
@@ -172,22 +188,31 @@
               <i data-lucide="shield-check" class="w-6 h-6"></i>
             </div>
             <h3 class="text-lg font-bold text-white">Enter Security Code</h3>
-            <p class="text-xs text-slate-400 font-mono">Code sent to: <span id="reset-email-display" class="text-emerald-400 font-bold"></span></p>
+            <p class="text-xs text-slate-400 font-mono">Verification code dispatched to your email</p>
           </div>
 
-          <!-- Code Display / Auto-fill helper for convenience -->
-          <div id="reset-code-banner" class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs font-mono text-emerald-300 flex items-center justify-between">
-            <span>Your Code: <strong id="reset-preview-code" class="text-white tracking-widest text-sm font-black font-mono"></strong></span>
-            <button type="button" onclick="autoFillCode()" class="px-2.5 py-1 rounded bg-emerald-400 text-slate-950 text-[10px] font-bold uppercase tracking-wider">
-              Auto-Fill
-            </button>
+          <!-- Professional Delivery Card (Secret Verification Code Sent via Email) -->
+          <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-slate-300 space-y-2.5">
+            <div class="flex items-center gap-2 text-emerald-400 font-semibold">
+              <i data-lucide="mail-check" class="w-4 h-4 shrink-0"></i>
+              <span>Verification Code Sent to Email</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed font-mono">
+              A 6-digit one-time code has been sent directly to <strong id="reset-email-display" class="text-emerald-400 font-bold"></strong>. Please check your inbox and spam folder.
+            </p>
+            <div class="flex items-center justify-between pt-2 border-t border-white/10 text-[11px] font-mono">
+              <span id="resend-timer-text" class="text-slate-400">Resend code in <strong id="resend-countdown" class="text-amber-400">60s</strong></span>
+              <button type="button" id="resend-code-btn" onclick="handleResendCode()" disabled class="text-emerald-400 hover:text-emerald-300 underline font-bold disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed">
+                Resend Code
+              </button>
+            </div>
           </div>
 
           <div>
-            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">6-Digit Code</label>
+            <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">6-Digit Verification Code</label>
             <div class="relative">
               <i data-lucide="hash" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-              <input type="text" id="reset-code-input" required maxlength="6" placeholder="123456" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-lg text-white font-mono font-black tracking-widest focus:outline-none focus:border-emerald-500 transition-colors text-center">
+              <input type="text" id="reset-code-input" required maxlength="6" pattern="[0-9]{6}" placeholder="e.g. 849201" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-lg text-white font-mono font-black tracking-widest focus:outline-none focus:border-emerald-500 transition-colors text-center" autocomplete="one-time-code">
             </div>
           </div>
 
@@ -207,8 +232,9 @@
             </div>
           </div>
 
-          <button type="submit" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-sm font-sans">
-            Update Password & Sign In
+          <button type="submit" id="forgot-step2-submit-btn" class="btn-shimmer w-full py-3.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 transition-all text-sm font-sans flex items-center justify-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>Update Password & Sign In</span>
           </button>
 
           <div class="flex justify-between items-center pt-2 text-xs font-mono">
@@ -243,7 +269,15 @@
   <script src="js/app.js"></script>
   <script>
     let activeResetEmail = '';
-    let currentGeneratedCode = '';
+    let resendTimerInterval = null;
+
+    function quickResetPassword() {
+      const signinEmail = document.getElementById('signin-email').value.trim();
+      if (signinEmail) {
+        document.getElementById('forgot-email').value = signinEmail;
+      }
+      switchTab('forgot');
+    }
 
     function switchTab(tab) {
       const tabHeader = document.getElementById('auth-tab-header');
@@ -254,6 +288,12 @@
       const forgotForm = document.getElementById('forgot-form');
 
       if (tab === 'forgot') {
+        const signinEmail = document.getElementById('signin-email').value.trim();
+        const forgotEmailInput = document.getElementById('forgot-email');
+        if (signinEmail && (!forgotEmailInput.value || forgotEmailInput.value === '')) {
+          forgotEmailInput.value = signinEmail;
+        }
+
         tabHeader.classList.add('hidden');
         signinForm.classList.add('hidden');
         signupForm.classList.add('hidden');
@@ -315,72 +355,189 @@
           showToast(err.message, 'error');
         }
       } else {
-        const email = document.getElementById('signin-email').value;
+        const email = document.getElementById('signin-email').value.trim();
         const password = document.getElementById('signin-password').value;
+        const submitBtn = document.getElementById('signin-submit-btn');
+        const origText = submitBtn ? submitBtn.innerHTML : '';
+
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = `<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Authenticating...</span>`;
+          lucide.createIcons();
+        }
 
         try {
-          const user = UserDatabase.loginUser(email, password);
-          showToast(`Welcome back, ${user.name}! Loading staker dashboard...`, 'success');
+          // If user isn't found locally, attempt cloud pull first
+          let user = UserDatabase.getUserByEmail(email);
+          if (!user && window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+            await CloudSyncEngine.pullUsers();
+          }
+
+          const loggedUser = UserDatabase.loginUser(email, password);
+          showToast(`Welcome back, ${loggedUser.name}! Loading staker dashboard...`, 'success');
           setTimeout(() => {
             window.location.href = 'dashboard.html';
           }, 800);
         } catch (err) {
           showToast(err.message, 'error');
+          // Reveal password reset helper banner to immediately guide the user
+          const helper = document.getElementById('login-failed-helper');
+          if (helper) {
+            helper.classList.remove('hidden');
+            lucide.createIcons();
+          }
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origText;
+            lucide.createIcons();
+          }
         }
       }
     }
 
-    function handleRequestResetCode(e) {
+    async function handleRequestResetCode(e) {
       e.preventDefault();
       const email = document.getElementById('forgot-email').value.trim();
+      const submitBtn = document.getElementById('forgot-step1-submit-btn');
+      const origHtml = submitBtn ? submitBtn.innerHTML : '';
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Dispatching Code to Email...</span>`;
+        lucide.createIcons();
+      }
+
       try {
-        const result = UserDatabase.requestPasswordReset(email);
+        const result = await UserDatabase.requestPasswordReset(email);
         activeResetEmail = email;
-        currentGeneratedCode = result.resetCode;
 
         document.getElementById('reset-email-display').textContent = email;
-        document.getElementById('reset-preview-code').textContent = result.resetCode;
         document.getElementById('forgot-step1-form').classList.add('hidden');
         document.getElementById('forgot-step2-form').classList.remove('hidden');
+        document.getElementById('reset-code-input').value = '';
+        document.getElementById('reset-new-password').value = '';
+        document.getElementById('reset-confirm-password').value = '';
+
+        startResendCountdown();
         lucide.createIcons();
 
-        showToast(`✉️ Verification code generated & dispatched to ${email}!`, 'success');
+        showToast(`✉️ 6-digit verification code sent to ${email}. Check your email inbox & spam!`, 'success');
       } catch (err) {
         showToast(err.message, 'error');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origHtml;
+          lucide.createIcons();
+        }
       }
     }
 
-    function autoFillCode() {
-      if (currentGeneratedCode) {
-        document.getElementById('reset-code-input').value = currentGeneratedCode;
+    function startResendCountdown() {
+      let timeLeft = 60;
+      const resendBtn = document.getElementById('resend-code-btn');
+      const resendTimerText = document.getElementById('resend-timer-text');
+      const countdownEl = document.getElementById('resend-countdown');
+
+      if (resendBtn) resendBtn.disabled = true;
+      if (resendTimerInterval) clearInterval(resendTimerInterval);
+
+      resendTimerInterval = setInterval(() => {
+        timeLeft--;
+        if (countdownEl) countdownEl.textContent = `${timeLeft}s`;
+
+        if (timeLeft <= 0) {
+          clearInterval(resendTimerInterval);
+          if (resendBtn) {
+            resendBtn.disabled = false;
+            resendBtn.textContent = 'Resend Code Now';
+          }
+          if (resendTimerText) {
+            resendTimerText.innerHTML = `<span class="text-amber-400">Didn't receive code?</span>`;
+          }
+        }
+      }, 1000);
+    }
+
+    async function handleResendCode() {
+      if (!activeResetEmail) return;
+      const resendBtn = document.getElementById('resend-code-btn');
+      const origText = resendBtn ? resendBtn.textContent : '';
+
+      if (resendBtn) {
+        resendBtn.disabled = true;
+        resendBtn.textContent = 'Dispatching...';
+      }
+
+      try {
+        await UserDatabase.requestPasswordReset(activeResetEmail);
+        showToast(`✉️ Fresh verification code dispatched to ${activeResetEmail}!`, 'success');
+        const resendTimerText = document.getElementById('resend-timer-text');
+        if (resendTimerText) {
+          resendTimerText.innerHTML = `Resend code in <strong id="resend-countdown" class="text-amber-400">60s</strong>`;
+        }
+        startResendCountdown();
+      } catch (err) {
+        showToast(err.message, 'error');
+        if (resendBtn) {
+          resendBtn.disabled = false;
+          resendBtn.textContent = origText;
+        }
       }
     }
 
     function backToStep1() {
+      if (resendTimerInterval) clearInterval(resendTimerInterval);
       document.getElementById('forgot-step1-form').classList.remove('hidden');
       document.getElementById('forgot-step2-form').classList.add('hidden');
       lucide.createIcons();
     }
 
-    function handleVerifyAndResetPassword(e) {
+    async function handleVerifyAndResetPassword(e) {
       e.preventDefault();
       const code = document.getElementById('reset-code-input').value.trim();
       const newPass = document.getElementById('reset-new-password').value;
       const confirmPass = document.getElementById('reset-confirm-password').value;
+      const submitBtn = document.getElementById('forgot-step2-submit-btn');
+      const origHtml = submitBtn ? submitBtn.innerHTML : '';
 
-      if (newPass !== confirmPass) {
-        showToast("Passwords do not match. Please ensure both fields match.", "error");
+      if (!code || code.length !== 6) {
+        showToast("Please enter the complete 6-digit verification code.", "error");
         return;
       }
 
+      if (newPass !== confirmPass) {
+        showToast("Passwords do not match. Please ensure both password fields match.", "error");
+        return;
+      }
+
+      if (newPass.length < 6) {
+        showToast("Password must be at least 6 characters long.", "error");
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Updating Password...</span>`;
+        lucide.createIcons();
+      }
+
       try {
-        const user = UserDatabase.resetPasswordWithCode(activeResetEmail, code, newPass);
+        const user = await UserDatabase.resetPasswordWithCode(activeResetEmail, code, newPass);
+        if (resendTimerInterval) clearInterval(resendTimerInterval);
         showToast(`✅ Password successfully reset for ${user.name}! Signing in...`, 'success');
         setTimeout(() => {
           window.location.href = 'dashboard.html';
         }, 900);
       } catch (err) {
         showToast(err.message, 'error');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origHtml;
+          lucide.createIcons();
+        }
       }
     }
 

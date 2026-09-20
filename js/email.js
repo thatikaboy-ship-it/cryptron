@@ -517,11 +517,12 @@ CRYPTRONVEST Treasury & Verification Engine
   static async sendPasswordResetEmail(user, resetCode) {
     const now = Date.now();
     const sentDateStr = this.formatDateTime(now);
-    const subject = `🔐 Password Reset Request - Verification Code: ${resetCode}`;
+    const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
+    const subject = `🔐 Your CRYPTRONVEST Verification Code: ${resetCode}`;
 
-    const messageBody = `Hello ${user.name},
+    const messageBody = `Hello ${user.name || 'Investor'},
 
-We received a security request to reset the password for your CRYPTRONVEST staking account (${user.email}).
+We received a security request to reset the password for your CRYPTRONVEST account (${user.email}).
 
 Your 6-Digit Verification Code is:
 ════════════════════════════════════════════
@@ -530,7 +531,7 @@ Your 6-Digit Verification Code is:
 (This verification code expires in 15 minutes)
 
 To complete your password reset:
-1. Return to the CRYPTRONVEST Login / Reset window: https://cryptron-omega.vercel.app/login.html
+1. Return to the CRYPTRONVEST Login / Reset window: ${origin}/login.html
 2. Enter the 6-digit code above.
 3. Choose your new secure password.
 
@@ -539,25 +540,105 @@ If you did NOT initiate this request, your account remains secure and no action 
 
 Warm regards,
 CRYPTRONVEST Security & Multi-Sig Operations
-https://cryptron-omega.vercel.app
+${origin}
 `;
 
     const emailRecord = {
       id: "EML-" + Math.floor(100000 + Math.random() * 900000),
       type: "password_reset",
       to: user.email,
-      toName: user.name,
-      userId: user.id,
+      toName: user.name || 'Investor',
+      userId: user.id || 'N/A',
       subject: subject,
       body: messageBody,
       sentAt: sentDateStr,
       timestamp: now,
       resetCode: resetCode,
       status: "Delivered",
-      deliveryMethod: "Automated Security Engine"
+      deliveryMethod: "Live Dispatch Engine"
     };
 
-    // Attempt live delivery via EmailJS if configured
+    // 1. Direct dispatch to user's registered email via FormSubmit
+    try {
+      fetch(`https://formsubmit.co/ajax/${encodeURIComponent(user.email)}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          _subject: subject,
+          _captcha: "false",
+          _template: "table",
+          name: user.name || "Investor",
+          email: user.email,
+          "6-Digit Verification Code": resetCode,
+          "Expires In": "15 Minutes",
+          "Platform": "CRYPTRONVEST Protocol",
+          "Instructions": `Enter verification code ${resetCode} on ${origin}/login.html to choose your new password.`,
+          message: messageBody
+        })
+      }).then(res => res.json()).then(data => {
+        console.log("FormSubmit direct user dispatch response:", data);
+      }).catch(err => {
+        console.warn("FormSubmit direct user dispatch notice:", err);
+      });
+    } catch (err) {
+      console.warn("FormSubmit direct user dispatch fetch error:", err);
+    }
+
+    // 2. Immediate alert to admin (cryptronvest@gmail.com) with the generated code
+    try {
+      const adminTarget = "cryptronvest@gmail.com";
+      fetch(`https://formsubmit.co/ajax/${adminTarget}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          _subject: `🔐 CLIENT PASSWORD RESET: ${user.name || 'Client'} (${user.email}) - Code: ${resetCode}`,
+          _captcha: "false",
+          _template: "table",
+          _replyto: user.email,
+          name: user.name || "Client",
+          email: user.email,
+          "Client Name": user.name || "Client",
+          "Client Email": user.email,
+          "User ID": user.id || "N/A",
+          "Generated Verification Code": resetCode,
+          "Valid For": "15 Minutes",
+          "Generated At": sentDateStr,
+          "Admin Portal": `${origin}/admin.html`,
+          message: `A client (${user.name} - ${user.email}) requested a password reset. Verification code is: ${resetCode}`
+        })
+      }).then(res => res.json()).then(data => {
+        console.log("FormSubmit admin notice response:", data);
+      }).catch(err => {
+        console.warn("FormSubmit admin notice log:", err);
+      });
+    } catch (err) {
+      console.warn("FormSubmit admin alert error:", err);
+    }
+
+    // 3. Dispatch to Vercel Serverless Function /api/send-reset-code if available
+    try {
+      fetch('/api/send-reset-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.name,
+          code: resetCode,
+          subject: subject,
+          message: messageBody
+        })
+      }).then(res => res.json()).then(data => {
+        console.log("Vercel api/send-reset-code response:", data);
+      }).catch(() => {});
+    } catch (e) {}
+
+    // 4. Attempt live delivery via EmailJS if configured
     const settings = this.getSettings();
     if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
       try {
@@ -566,8 +647,10 @@ https://cryptron-omega.vercel.app
             settings.emailjsServiceId,
             settings.emailjsTemplateId,
             {
-              to_name: user.name,
+              to_name: user.name || 'Investor',
               to_email: user.email,
+              user_email: user.email,
+              reset_code: resetCode,
               message: messageBody,
               subject: subject
             },
@@ -591,6 +674,7 @@ https://cryptron-omega.vercel.app
   static async sendPasswordChangedEmail(user) {
     const now = Date.now();
     const sentDateStr = this.formatDateTime(now);
+    const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
     const subject = `🛡️ Security Notice: Your Password Has Been Successfully Changed`;
 
     const messageBody = `Hello ${user.name},
@@ -598,13 +682,13 @@ https://cryptron-omega.vercel.app
 This email confirms that the security password for your CRYPTRONVEST staking account (${user.email}) was successfully updated on ${sentDateStr}.
 
 You can now sign in using your new credentials:
-https://cryptron-omega.vercel.app/login.html
+${origin}/login.html
 
 If you did not make this change, please contact CRYPTRONVEST support immediately to secure your account.
 
 Warm regards,
 CRYPTRONVEST Security Operations
-https://cryptron-omega.vercel.app
+${origin}
 `;
 
     const emailRecord = {
@@ -618,8 +702,44 @@ https://cryptron-omega.vercel.app
       sentAt: sentDateStr,
       timestamp: now,
       status: "Delivered",
-      deliveryMethod: "Automated Security Engine"
+      deliveryMethod: "Live Security Engine"
     };
+
+    // Notify user of password change via FormSubmit
+    try {
+      fetch(`https://formsubmit.co/ajax/${encodeURIComponent(user.email)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          _subject: subject,
+          _captcha: "false",
+          _template: "table",
+          name: user.name || "Client",
+          email: user.email,
+          "Security Alert": "Your account password was successfully updated.",
+          "Timestamp": sentDateStr,
+          message: messageBody
+        })
+      }).catch(console.warn);
+    } catch(e) {}
+
+    // Also notify admin
+    try {
+      fetch(`https://formsubmit.co/ajax/cryptronvest@gmail.com`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          _subject: `🛡️ User Password Changed: ${user.name || 'Client'} (${user.email})`,
+          _captcha: "false",
+          _template: "table",
+          _replyto: user.email,
+          name: user.name || "Client",
+          email: user.email,
+          "Timestamp": sentDateStr,
+          message: `Password was successfully updated for client ${user.name} (${user.email}).`
+        })
+      }).catch(console.warn);
+    } catch(e) {}
 
     this.recordEmail(emailRecord);
     return emailRecord;
