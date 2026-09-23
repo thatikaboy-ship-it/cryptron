@@ -226,11 +226,45 @@
         </div>
       </div>
 
+      <!-- Bulk Actions Bar (Revealed when 1 or more users selected) -->
+      <div id="admin-bulk-actions-bar" class="hidden mb-4 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-cyan-950/80 border border-emerald-500/40 shadow-xl flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-3">
+          <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-xs sm:text-sm font-bold font-mono text-white">
+            <span id="bulk-selected-count" class="text-emerald-400 font-black">0</span> Clients Selected
+          </span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="bulkApproveSelected()" class="btn-shimmer px-3 py-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs font-mono flex items-center gap-1 shadow-md shadow-emerald-500/20 cursor-pointer">
+            <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+            <span>Approve & Start ($10)</span>
+          </button>
+          <button onclick="bulkMatureSelected()" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs flex items-center gap-1 cursor-pointer">
+            <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
+            <span>Mature Now</span>
+          </button>
+          <button onclick="bulkResetSelected()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 border border-white/10 text-slate-300 font-mono text-xs flex items-center gap-1 cursor-pointer">
+            <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+            <span>Reset ($0)</span>
+          </button>
+          <button onclick="bulkDeleteSelected()" class="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-mono font-bold text-xs flex items-center gap-1 cursor-pointer">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Delete Selected (Cloud & Local)</span>
+          </button>
+          <button onclick="deselectAllUsers()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 font-mono text-xs cursor-pointer">
+            Cancel
+          </button>
+        </div>
+      </div>
+
       <!-- Users Table -->
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs sm:text-sm">
           <thead>
             <tr class="border-b border-white/10 text-slate-400 font-mono text-[11px] uppercase tracking-wider">
+              <th class="pb-3 w-8 text-center">
+                <input type="checkbox" id="select-all-users-cb" onchange="handleSelectAllToggle(this.checked)" class="rounded bg-slate-900 border-white/20 text-emerald-400 focus:ring-0 w-4 h-4 cursor-pointer" title="Select / Deselect All Users">
+              </th>
               <th class="pb-3 font-semibold">User Details</th>
               <th class="pb-3 font-semibold">Registered Email</th>
               <th class="pb-3 font-semibold">Registered At</th>
@@ -1425,9 +1459,9 @@
         // 4. Referral Waiver Toggle Action
         const isBypassed = !!user.referralBypassed;
         actionsHtml += `
-            <button onclick="toggleUserReferralBypass('${user.id}')" title="${isBypassed ? 'Re-enforce 5-referral requirement' : 'Skip / Waive 5-referral requirement for this client'}" class="px-2.5 py-1.5 rounded-lg ${isBypassed ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30' : 'bg-slate-800 hover:bg-purple-500/20 hover:text-purple-300 border border-white/10 text-slate-400'} font-mono text-xs flex items-center gap-1 transition-all">
+            <button onclick="toggleUserReferralBypass('${user.id}')" title="${isBypassed ? 'Re-enforce 5-referral requirement' : 'Skip referral requirement for this client'}" class="px-2.5 py-1.5 rounded-lg ${isBypassed ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30' : 'bg-slate-800 hover:bg-purple-500/20 hover:text-purple-300 border border-white/10 text-slate-400'} font-mono text-xs flex items-center gap-1 transition-all">
               <i data-lucide="${isBypassed ? 'unlock' : 'lock'}" class="w-3 h-3 text-purple-400"></i>
-              <span>${isBypassed ? 'Waived' : 'Skip Ref'}</span>
+              <span>${isBypassed ? 'Unlocked' : 'Skip Ref'}</span>
             </button>
             <button onclick="openAdminMessageModal('${user.id}')" title="Send direct message to this client" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono text-xs flex items-center gap-1 transition-all">
               <i data-lucide="message-square" class="w-3 h-3"></i>
@@ -1458,6 +1492,9 @@
 
         return `
           <tr class="hover:bg-white/[0.03] transition-colors">
+            <td class="py-4 w-8 text-center">
+              <input type="checkbox" value="${user.id}" onchange="handleUserCheckboxChange()" class="user-select-cb rounded bg-slate-900 border-white/20 text-emerald-400 focus:ring-0 w-4 h-4 cursor-pointer">
+            </td>
             <td class="py-4">
               <div class="flex items-center gap-2.5">
                 <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-xs font-bold text-emerald-400">
@@ -1465,7 +1502,7 @@
                 </div>
                 <div>
                   <div class="font-bold text-white">${displayName}</div>
-                  <div class="text-[11px] text-emerald-400 font-mono">${safeId} · <span class="text-slate-300 font-bold" title="Promo Code">🎟️ ${safePromo}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Waived</span>' : ''}${safeRefBy ? ` · <span class="text-cyan-300 font-bold" title="Used Promo Code">🎟️ ${safeRefBy}</span>` : ''}</div>
+                  <div class="text-[11px] text-emerald-400 font-mono">${safeId} · <span class="text-slate-300 font-bold" title="Promo Code">🎟️ ${safePromo}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Unlocked</span>' : ''}${safeRefBy ? ` · <span class="text-cyan-300 font-bold" title="Used Promo Code">🎟️ ${safeRefBy}</span>` : ''}</div>
                 </div>
               </div>
             </td>
@@ -1478,6 +1515,7 @@
       }).join('');
 
       lucide.createIcons();
+      handleUserCheckboxChange();
     }
 
     async function refreshAdminUsers() {
@@ -1506,10 +1544,15 @@
         users.forEach(user => {
           if (user.activePlans && user.activePlans.length > 0) {
             const plan = user.activePlans[0];
-            const cd = formatCountdown(plan.maturityTimestamp);
+            const isMatured = plan.isMatured || (plan.maturityTimestamp <= Date.now());
             const el = document.getElementById(`admin-cd-${user.id}`);
             if (el) {
-              el.textContent = `${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s`;
+              if (isMatured) {
+                el.textContent = "00d 00h 00m 00s (Matured)";
+              } else {
+                const cd = formatCountdown(plan.maturityTimestamp);
+                el.textContent = `${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s`;
+              }
             }
           }
         });
@@ -1619,7 +1662,7 @@
         const updated = UserDatabase.toggleUserReferralBypass(userId);
         showToast(
           willBypass 
-            ? `🔓 Referral requirement waived for ${updated.name}! Client can now withdraw immediately.` 
+            ? `🔓 Withdrawals unlocked for ${updated.name}! Client can now withdraw immediately.` 
             : `🔒 Referral requirement re-enforced for ${updated.name}.`,
           'success'
         );
@@ -1788,16 +1831,16 @@
     }
 
     /**
-     * Reset / Pause User Investment
+     * Reset / Cancel User Investment - Starts Completely Afresh ($0)
      */
-    function resetUser(userId) {
+    async function resetUser(userId) {
       const user = UserDatabase.getUserById(userId);
       const name = user ? user.name : userId;
-      if (!confirm(`Are you sure you want to reset the active timer for ${name}?`)) return;
-      recordAdminAction(`Reset active timer for ${name}`);
+      if (!confirm(`Are you sure you want to reset the account for "${name}"?\n\nThis will return their balances to $0.00 and clear active contracts so they can start afresh.`)) return;
+      recordAdminAction(`Reset account to fresh start for ${name}`);
       try {
         const updated = UserDatabase.deactivateUserInvestment(userId);
-        showToast(`Timer reset for ${updated.name}.`, 'info');
+        showToast(`Account for ${updated.name} reset to fresh state ($0.00).`, 'info');
         renderUsers();
       } catch (err) {
         showToast(err.message, 'error');
@@ -1817,20 +1860,122 @@
     }
 
     /**
-     * Permanently delete a user from the database
+     * Permanently delete a user from the database and Firebase Cloud
      */
-    function deleteUserRecord(userId) {
+    async function deleteUserRecord(userId) {
       const user = UserDatabase.getUserById(userId);
       const name = user ? user.name : userId;
-      if (!confirm(`⚠️ PERMANENT ACTION:\n\nAre you sure you want to delete user "${name}" (${userId})?\n\nThis will remove their account and all their records from the platform.`)) {
+      if (!confirm(`⚠️ PERMANENT ACTION:\n\nAre you sure you want to delete user "${name}" (${userId})?\n\nThis will permanently delete their account from both this device and the Firebase Cloud Database.`)) {
         return;
       }
       recordAdminAction(`Deleted user account: ${name} (${userId})`);
 
       try {
-        UserDatabase.deleteUser(userId);
-        showToast(`User ${name} was permanently deleted.`, 'info');
+        await UserDatabase.deleteUser(userId);
+        showToast(`User ${name} was permanently deleted from local and cloud database.`, 'info');
         renderUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    /**
+     * BULK ACTIONS LOGIC
+     */
+    function getSelectedUserIds() {
+      const cbs = document.querySelectorAll('.user-select-cb:checked');
+      return Array.from(cbs).map(cb => cb.value);
+    }
+
+    function handleUserCheckboxChange() {
+      const selected = getSelectedUserIds();
+      const allCbs = document.querySelectorAll('.user-select-cb');
+      const selectAll = document.getElementById('select-all-users-cb');
+      if (selectAll) {
+        selectAll.checked = allCbs.length > 0 && selected.length === allCbs.length;
+      }
+      const bulkBar = document.getElementById('admin-bulk-actions-bar');
+      const countEl = document.getElementById('bulk-selected-count');
+      if (bulkBar && countEl) {
+        countEl.textContent = selected.length;
+        if (selected.length > 0) {
+          bulkBar.classList.remove('hidden');
+        } else {
+          bulkBar.classList.add('hidden');
+        }
+      }
+    }
+
+    function handleSelectAllToggle(checked) {
+      const allCbs = document.querySelectorAll('.user-select-cb');
+      allCbs.forEach(cb => cb.checked = checked);
+      handleUserCheckboxChange();
+    }
+
+    function deselectAllUsers() {
+      handleSelectAllToggle(false);
+    }
+
+    async function bulkDeleteSelected() {
+      const ids = getSelectedUserIds();
+      if (ids.length === 0) return;
+      if (!confirm(`⚠️ PERMANENT BULK ACTION:\n\nAre you sure you want to delete ${ids.length} selected users from the database and Firebase Cloud?\n\nThis cannot be undone.`)) {
+        return;
+      }
+      recordAdminAction(`Bulk deleted ${ids.length} users`);
+      try {
+        await UserDatabase.deleteUsersBulk(ids);
+        deselectAllUsers();
+        renderUsers();
+        showToast(`🗑️ ${ids.length} users permanently deleted from platform and cloud database!`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function bulkApproveSelected() {
+      const ids = getSelectedUserIds();
+      if (ids.length === 0) return;
+      recordAdminAction(`Bulk approved ${ids.length} users`);
+      try {
+        for (const id of ids) {
+          await activateUser(id);
+        }
+        deselectAllUsers();
+        renderUsers();
+        showToast(`✅ ${ids.length} clients approved & 7-day timers started!`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function bulkMatureSelected() {
+      const ids = getSelectedUserIds();
+      if (ids.length === 0) return;
+      recordAdminAction(`Bulk matured ${ids.length} contracts`);
+      try {
+        for (const id of ids) {
+          try { UserDatabase.matureUserInvestment(id); } catch(e) {}
+        }
+        deselectAllUsers();
+        renderUsers();
+        showToast(`⚡ ${ids.length} contracts instantly matured! $25 payouts unlocked.`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function bulkResetSelected() {
+      const ids = getSelectedUserIds();
+      if (ids.length === 0) return;
+      recordAdminAction(`Bulk reset ${ids.length} users`);
+      try {
+        for (const id of ids) {
+          try { UserDatabase.deactivateUserInvestment(id); } catch(e) {}
+        }
+        deselectAllUsers();
+        renderUsers();
+        showToast(`🔄 ${ids.length} user accounts reset to fresh start ($0).`, 'info');
       } catch (err) {
         showToast(err.message, 'error');
       }

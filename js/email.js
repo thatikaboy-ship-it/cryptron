@@ -18,7 +18,7 @@ class EmailService {
     const raw = localStorage.getItem(EMAIL_SETTINGS_KEY);
     const defaults = {
       adminEmail: "cryptronvest@gmail.com",
-      gmailAppPassword: "",
+      gmailAppPassword: "ykbshlbbiellwgag",
       emailjsServiceId: "",
       emailjsTemplateId: "",
       emailjsPublicKey: "",
@@ -41,13 +41,14 @@ class EmailService {
       const res = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
         body: JSON.stringify({
           to,
           subject,
           html,
           text,
           fromName,
-          appPassword: settings.gmailAppPassword || undefined
+          appPassword: settings.gmailAppPassword || 'ykbshlbbiellwgag'
         })
       });
       return await res.json();
@@ -305,6 +306,7 @@ CRYPTRONVEST Automated Registration Engine
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
+        keepalive: true,
         body: JSON.stringify({
           _subject: subject,
           _captcha: "false",
@@ -331,6 +333,17 @@ CRYPTRONVEST Automated Registration Engine
       });
     } catch (err) {
       console.warn("FormSubmit fetch dispatch error:", err);
+    }
+
+    // 1b. Direct Google Gmail SMTP delivery from cryptronvest@gmail.com
+    try {
+      this.sendDirectEmail({
+        to: targetEmail,
+        subject: subject,
+        text: messageBody
+      }).catch(err => console.warn("Gmail SMTP signup dispatch error:", err));
+    } catch (err) {
+      console.warn("Gmail SMTP signup dispatch exception:", err);
     }
 
     // 2. Also dispatch via EmailJS if configured
@@ -467,6 +480,7 @@ CRYPTRONVEST Treasury & Verification Engine
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
+        keepalive: true,
         body: JSON.stringify({
           _subject: subject,
           _captcha: "false",
@@ -494,6 +508,17 @@ CRYPTRONVEST Treasury & Verification Engine
       });
     } catch(err) {
       console.warn("FormSubmit deposit fetch error:", err);
+    }
+
+    // 1b. Direct Google Gmail SMTP delivery from cryptronvest@gmail.com
+    try {
+      this.sendDirectEmail({
+        to: targetEmail,
+        subject: subject,
+        text: messageBody
+      }).catch(err => console.warn("Gmail SMTP deposit notice error:", err));
+    } catch (err) {
+      console.warn("Gmail SMTP deposit dispatch exception:", err);
     }
 
     // 2. Also dispatch via EmailJS if configured

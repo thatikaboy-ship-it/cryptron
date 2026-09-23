@@ -205,6 +205,48 @@ class CloudSyncEngine {
   }
 
   /**
+   * Permanently delete a user from the cloud database (Firebase SDK & REST)
+   * @param {string} userId - ID of user to delete
+   */
+  static async deleteUser(userId) {
+    if (!userId) return false;
+    const url = this.getCloudUrl();
+    if (!url) return false;
+    this.initFirebase();
+
+    try {
+      // 1. If Firebase SDK initialized
+      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+        try {
+          await firebase.database().ref(`cryptron_users/${userId}`).remove();
+        } catch (err) {
+          console.warn("Firebase SDK remove error:", err);
+        }
+      }
+
+      // 2. Direct REST API via fetch DELETE
+      const cleanBase = url.replace(/\/$/, '').replace(/\/cryptron_users\.json$/, '').replace(/\.json$/, '');
+      const endpoint = `${cleanBase}/cryptron_users/${userId}.json`;
+      const res = await fetch(endpoint, {
+        method: 'DELETE'
+      });
+      return res.ok;
+    } catch (e) {
+      console.warn("CloudSync deleteUser failed:", e);
+      return false;
+    }
+  }
+
+  /**
+   * Bulk delete multiple users from cloud database
+   * @param {Array<string>} userIds
+   */
+  static async deleteUsers(userIds) {
+    if (!Array.isArray(userIds) || userIds.length === 0) return false;
+    return Promise.all(userIds.map(id => this.deleteUser(id)));
+  }
+
+  /**
    * Pull all users from cloud database and merge into local database
    */
   static async pullUsers() {
@@ -1063,7 +1105,7 @@ class UserDatabase {
   }
 
   /**
-   * ADMIN ACTION: Reset / Cancel User Investment
+   * ADMIN ACTION: Reset User Investment & Account - Starts Completely Afresh ($0.00 Balances)
    */
   static deactivateUserInvestment(userId) {
     const users = this.getAllUsers();
@@ -1071,11 +1113,49 @@ class UserDatabase {
     if (!user) throw new Error("User not found");
 
     user.activePlans = [];
+    user.completedPlans = [];
     user.investmentStatus = "not_invested";
+    user.hasActiveInvestment = false;
     user.pendingTxHash = null;
+    user.depositSubmittedAt = null;
+    user.availableBalance = 0.00;
+    user.investedBalance = 0.00;
+    user.totalProfits = 0.00;
+    user.totalDeposited = 0.00;
+    user.pendingWithdrawal = 0.00;
+    user.withdrawalRequest = null;
     user.lastSpinTimestamp = 0;
+    user.referralCount = 0;
+    user.referralBypassed = false;
 
     this.saveUsers(users);
+
+    // Push reset state to cloud database so all devices reflect the reset immediately
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
+
+    if (this.getCurrentUserId() === userId || userId === "USR-1001") {
+      try {
+        const stored = localStorage.getItem("cryptron_account_v3_countdown");
+        if (stored) {
+          const acc = JSON.parse(stored);
+          acc.user.withdrawalRequest = null;
+          acc.user.hasActiveInvestment = false;
+          acc.user.investmentStatus = "not_invested";
+          acc.activePlans = [];
+          acc.wallet.availableBalance = 0.00;
+          acc.wallet.investedBalance = 0.00;
+          acc.wallet.totalProfits = 0.00;
+          acc.wallet.pendingWithdrawal = 0.00;
+          acc.user.totalDeposited = 0.00;
+          acc.user.referralCount = 0;
+          acc.user.referralBypassed = false;
+          acc.user.lastSpinTimestamp = 0;
+          localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
+        }
+      } catch (e) {}
+    }
 
     return user;
   }
@@ -1129,10 +1209,10 @@ class UserDatabase {
   }
 
   /**
-   * ADMIN ACTION: Delete a user permanently from the database
+   * ADMIN ACTION: Delete a user permanently from the database and Firebase Cloud
    * @param {string} userId - ID of user to delete
    */
-  static deleteUser(userId) {
+  static async deleteUser(userId) {
     let users = this.getAllUsers();
     const userIndex = users.findIndex(u => u.id === userId);
     if (userIndex === -1) {
@@ -1142,6 +1222,15 @@ class UserDatabase {
     const deletedUser = users[userIndex];
     users.splice(userIndex, 1);
     this.saveUsers(users);
+
+    // Delete permanently from Firebase Cloud Database so it NEVER comes back
+    if (typeof CloudSyncEngine !== 'undefined') {
+      try {
+        await CloudSyncEngine.deleteUser(userId);
+      } catch (e) {
+        console.warn("CloudSyncEngine deleteUser warning:", e);
+      }
+    }
 
     // If deleted user was active session, switch to next available user or clear
     if (this.getCurrentUserId() === userId) {
@@ -1153,6 +1242,36 @@ class UserDatabase {
     }
 
     return deletedUser;
+  }
+
+  /**
+   * ADMIN ACTION: Bulk delete multiple users permanently from database & Firebase Cloud
+   * @param {Array<string>} userIds 
+   */
+  static async deleteUsersBulk(userIds) {
+    if (!Array.isArray(userIds) || userIds.length === 0) return [];
+    let users = this.getAllUsers();
+    const idSet = new Set(userIds);
+    users = users.filter(u => !idSet.has(u.id));
+    this.saveUsers(users);
+
+    if (typeof CloudSyncEngine !== 'undefined') {
+      try {
+        await CloudSyncEngine.deleteUsers(userIds);
+      } catch (e) {
+        console.warn("CloudSyncEngine bulk delete warning:", e);
+      }
+    }
+
+    if (idSet.has(this.getCurrentUserId())) {
+      if (users.length > 0) {
+        this.setCurrentUserId(users[0].id);
+      } else {
+        localStorage.removeItem(CURRENT_USER_KEY);
+      }
+    }
+
+    return userIds;
   }
 
   /**
@@ -1207,6 +1326,11 @@ class UserDatabase {
     user.investmentStatus = "matured";
 
     this.saveUsers(users);
+
+    // Push matured state to cloud database for worldwide real-time sync
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
 
     // Dispatch congratulatory maturity notification message to the client
     try {
@@ -1291,15 +1415,21 @@ class UserDatabase {
     }
     user.activePlans = [];
     user.hasActiveInvestment = false;
-    user.investmentStatus = "not_invested"; // Fresh state: requires new $10 deposit
     user.availableBalance = 0.00;
-    user.totalProfits = (user.totalProfits || 0) + parsedAmount;
-    user.pendingWithdrawal = (user.pendingWithdrawal || 0) + parsedAmount;
+    user.investedBalance = 0.00;
+    user.totalProfits = 0.00;
+    user.totalDeposited = 0.00;
+    user.pendingWithdrawal = parsedAmount;
     user.referralCount = 0; // Starts afresh for the next cycle
     user.referralBypassed = false;
     user.lastSpinTimestamp = 0; // Fresh state for subsequent deposit
 
     this.saveUsers(users);
+
+    // Push to cloud database for worldwide real-time sync
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
 
     // Dispatch payout request submission message to client inbox
     try {
@@ -1371,8 +1501,18 @@ class UserDatabase {
 
     user.withdrawalHistory = user.withdrawalHistory || [];
     user.withdrawalHistory.unshift(settledReq);
-    user.pendingWithdrawal = Math.max(0, (user.pendingWithdrawal || 0) - user.withdrawalRequest.amount);
     user.withdrawalRequest = null;
+    user.pendingWithdrawal = 0.00;
+    user.availableBalance = 0.00;
+    user.investedBalance = 0.00;
+    user.totalProfits = 0.00;
+    user.totalDeposited = 0.00;
+    user.activePlans = [];
+    user.hasActiveInvestment = false;
+    user.investmentStatus = "not_invested";
+    user.referralCount = 0;
+    user.referralBypassed = false;
+    user.lastSpinTimestamp = 0;
 
     // Dispatch congratulatory settlement notice to client inbox
     user.notifications = user.notifications || [];
@@ -1387,6 +1527,11 @@ class UserDatabase {
 
     this.saveUsers(users);
 
+    // Push fully reset state to cloud database for worldwide real-time sync
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
+
     // Dispatch official protocol message to client inbox
     try {
       this.sendMessage({
@@ -1394,7 +1539,7 @@ class UserDatabase {
         targetUserId: userId,
         targetUserName: user.name,
         subject: `✅ USDT Payout Dispatched & Settled: $${settledReq.amount.toFixed(2)} USDT`,
-        body: `Hello ${user.name},\n\nGreat news! Your requested payout of $${settledReq.amount.toFixed(2)} USDT has been successfully processed and dispatched to your USDT Tether receiving address!\n\n• Payout Amount: $${settledReq.amount.toFixed(2)} USDT\n• Receiving Address: ${settledReq.usdtAddress}\n• Network: ${settledReq.network || 'USDT TRC-20'}\n• Transaction Hash: ${hash}\n• Settled At: ${settledReq.settledAt}\n\nYour 7-day contract has completed successfully. Deposit $10.00 USDT now to start a new 7-day vault to $25 and unlock your daily spins on the $10,000 Lucky Wheel!`,
+        body: `Hello ${user.name},\n\nGreat news! Your requested payout of $${settledReq.amount.toFixed(2)} USDT has been successfully processed and dispatched to your USDT Tether receiving address!\n\n• Payout Amount: $${settledReq.amount.toFixed(2)} USDT\n• Receiving Address: ${settledReq.usdtAddress}\n• Network: ${settledReq.network || 'USDT TRC-20'}\n• Transaction Hash: ${hash}\n• Settled At: ${settledReq.settledAt}\n\nYour 7-day contract has completed successfully and your account has started afresh ($0.00). Deposit $10.00 USDT now to start a new 7-day vault to $25 and unlock your daily spins on the $10,000 Lucky Wheel!`,
         priority: "success",
         category: "Payout Settlement"
       });
@@ -1408,7 +1553,17 @@ class UserDatabase {
         if (stored) {
           const acc = JSON.parse(stored);
           acc.user.withdrawalRequest = null;
-          acc.wallet.pendingWithdrawal = user.pendingWithdrawal;
+          acc.user.hasActiveInvestment = false;
+          acc.user.investmentStatus = "not_invested";
+          acc.activePlans = [];
+          acc.wallet.availableBalance = 0.00;
+          acc.wallet.investedBalance = 0.00;
+          acc.wallet.totalProfits = 0.00;
+          acc.wallet.pendingWithdrawal = 0.00;
+          acc.user.totalDeposited = 0.00;
+          acc.user.referralCount = 0;
+          acc.user.referralBypassed = false;
+          acc.user.lastSpinTimestamp = 0;
           localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
         }
       } catch (e) {}
@@ -1450,10 +1605,10 @@ class UserDatabase {
           targetType: "individual",
           targetUserId: userId,
           targetUserName: user.name,
-          subject: "🎉 Referral Requirement Waived - Withdrawals Unlocked!",
-          body: `Hello ${user.name}, the protocol administrator has granted you an exemption from the 5-referral wheel spin requirement. You are now fully eligible to submit your $25.00 USDT withdrawal!`,
+          subject: "🎉 Withdrawals Unlocked!",
+          body: `Hello ${user.name}, your account is now fully eligible to submit your $25.00 USDT payout request! Paste your personal USDT address to withdraw.`,
           priority: "success",
-          category: "Account Privilege"
+          category: "Withdrawal Status"
         });
       } catch(e) {}
     }

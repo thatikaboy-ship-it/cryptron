@@ -74,7 +74,7 @@ function getAccountData() {
       base.activePlans = dbUser.activePlans || [];
 
       // Ensure that if user is active, they have an active 7-day vault plan with a running countdown
-      if ((base.user.investmentStatus === 'active' || (dbUser.totalDeposited && dbUser.totalDeposited >= 10)) && base.activePlans.length === 0) {
+      if (base.user.investmentStatus === 'active' && !base.user.withdrawalRequest && base.activePlans.length === 0) {
         const now = Date.now();
         const autoPlan = {
           id: "cryp-" + Math.floor(700 + Math.random() * 200),
@@ -356,7 +356,8 @@ function processWithdrawal(amount, method, address) {
   // Client must deposit another $10 to start a new vault; active contract is concluded & wheel is locked
   account.wallet.availableBalance = 0.00;
   account.wallet.investedBalance = 0.00;
-  account.wallet.pendingWithdrawal = (account.wallet.pendingWithdrawal || 0) + amount;
+  account.wallet.totalProfits = 0.00;
+  account.wallet.pendingWithdrawal = amount;
   account.completedPlans = account.completedPlans || [];
   if (account.activePlans && account.activePlans.length > 0) {
     account.completedPlans.unshift(...account.activePlans);
@@ -364,8 +365,10 @@ function processWithdrawal(amount, method, address) {
   account.activePlans = [];
   account.user.hasActiveInvestment = false;
   account.user.investmentStatus = 'not_invested'; // Fresh state awaiting next $10 deposit
+  account.user.totalDeposited = 0.00;
   account.user.referralCount = 0; // Starts afresh for the next cycle
   account.user.referralBypassed = false;
+  account.user.lastSpinTimestamp = 0;
   account.user.withdrawalRequest = {
     amount: amount,
     usdtAddress: address.trim(),
@@ -820,7 +823,7 @@ function formatCountdown(targetTimestamp) {
     return {
       expired: true,
       text: "00d : 00h : 00m : 00s",
-      days: 0, hours: 0, minutes: 0, seconds: 0
+      days: "00", hours: "00", minutes: "00", seconds: "00"
     };
   }
 
