@@ -289,6 +289,33 @@ class CloudSyncEngine {
           const serialized = JSON.stringify(merged);
           localStorage.setItem(USERS_DB_KEY, serialized);
           localStorage.setItem("cryptron_users_db", serialized);
+
+          // Synchronize active session countdown storage if the active user was merged
+          try {
+            const curId = UserDatabase.getCurrentUserId();
+            const curUser = merged.find(u => u.id === curId);
+            if (curUser && curUser.investmentStatus === 'not_invested') {
+              const storedRaw = localStorage.getItem("cryptron_account_v3_countdown");
+              if (storedRaw) {
+                const acc = JSON.parse(storedRaw);
+                acc.user = acc.user || {};
+                acc.user.investmentStatus = 'not_invested';
+                acc.user.hasActiveInvestment = false;
+                acc.user.withdrawalRequest = null;
+                acc.activePlans = [];
+                acc.wallet = acc.wallet || {};
+                acc.wallet.availableBalance = 0.00;
+                acc.wallet.investedBalance = 0.00;
+                acc.wallet.totalProfits = 0.00;
+                acc.wallet.pendingWithdrawal = 0.00;
+                acc.user.totalDeposited = 0.00;
+                acc.user.referralCount = curUser.referralCount || 0;
+                acc.user.referralBypassed = !!curUser.referralBypassed;
+                acc.user.lastSpinTimestamp = 0;
+                localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
+              }
+            }
+          } catch(e) {}
           
           window.dispatchEvent(new StorageEvent('storage', { key: USERS_DB_KEY, newValue: serialized }));
           window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
@@ -365,23 +392,72 @@ class CloudSyncEngine {
         if (ru.promoCode) existing.promoCode = ru.promoCode;
         if (ru.referralCode) existing.referralCode = ru.referralCode;
         if (ru.walletAddress && (!existing.walletAddress || existing.walletAddress === '0x...')) existing.walletAddress = ru.walletAddress;
-        if (ru.withdrawalRequest) existing.withdrawalRequest = ru.withdrawalRequest;
-        if (ru.pendingTxHash) existing.pendingTxHash = ru.pendingTxHash;
-        if (ru.depositSubmittedAt) existing.depositSubmittedAt = ru.depositSubmittedAt;
+        if (ru.pendingTxHash !== undefined) existing.pendingTxHash = ru.pendingTxHash;
+        if (ru.depositSubmittedAt !== undefined) existing.depositSubmittedAt = ru.depositSubmittedAt;
         if (ru.registeredAt && !existing.registeredAt) existing.registeredAt = ru.registeredAt;
-        if (ru.investmentStatus === 'active') {
+        if (ru.withdrawalHistory) existing.withdrawalHistory = ru.withdrawalHistory;
+        if (ru.notifications) existing.notifications = ru.notifications;
+
+        // Determine if remote user is settled, reset, or uninvested
+        const remoteIsSettledOrReset = ru.investmentStatus === 'not_invested' || 
+          (ru.withdrawalHistory && ru.withdrawalHistory.length > 0 && !ru.withdrawalRequest);
+
+        if (remoteIsSettledOrReset) {
+          existing.investmentStatus = 'not_invested';
+          existing.hasActiveInvestment = false;
+          existing.activePlans = [];
+          existing.withdrawalRequest = null;
+          existing.pendingWithdrawal = 0.00;
+          existing.availableBalance = 0.00;
+          existing.investedBalance = 0.00;
+          existing.totalProfits = 0.00;
+          existing.totalDeposited = 0.00;
+          existing.referralCount = ru.referralCount !== undefined ? ru.referralCount : 0;
+          existing.referralBypassed = !!ru.referralBypassed;
+          existing.lastSpinTimestamp = ru.lastSpinTimestamp || 0;
+        } else if (ru.investmentStatus === 'active') {
           existing.investmentStatus = 'active';
-          if (ru.activePlans && ru.activePlans.length > 0) existing.activePlans = ru.activePlans;
-        } else if (ru.investmentStatus === 'pending_approval' && existing.investmentStatus !== 'active') {
+          existing.hasActiveInvestment = true;
+          if (ru.activePlans && Array.isArray(ru.activePlans) && ru.activePlans.length > 0) {
+            existing.activePlans = ru.activePlans;
+          }
+          if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
+          if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
+          if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
+          existing.withdrawalRequest = ru.withdrawalRequest || null;
+          if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
+          if (ru.referralCount !== undefined) existing.referralCount = ru.referralCount;
+          if (ru.referralBypassed !== undefined) existing.referralBypassed = !!ru.referralBypassed;
+          if (ru.lastSpinTimestamp !== undefined) existing.lastSpinTimestamp = ru.lastSpinTimestamp;
+        } else if (ru.investmentStatus === 'pending_approval') {
           existing.investmentStatus = 'pending_approval';
+          existing.hasActiveInvestment = false;
+          existing.activePlans = [];
+          if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
+          if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
+          if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
+          existing.withdrawalRequest = ru.withdrawalRequest || null;
+          if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
+        } else if (ru.investmentStatus === 'matured') {
+          existing.investmentStatus = 'matured';
+          existing.hasActiveInvestment = false;
+          if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
+          if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          existing.withdrawalRequest = ru.withdrawalRequest || null;
+          if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
+          if (ru.referralCount !== undefined) existing.referralCount = ru.referralCount;
+          if (ru.referralBypassed !== undefined) existing.referralBypassed = !!ru.referralBypassed;
+        } else {
+          if (ru.investmentStatus !== undefined) existing.investmentStatus = ru.investmentStatus;
+          if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
+          if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
+          if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
+          existing.withdrawalRequest = ru.withdrawalRequest || null;
+          if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
         }
-        if ((ru.referralCount || 0) > (existing.referralCount || 0)) {
-          existing.referralCount = ru.referralCount;
-        }
-        if (ru.referralBypassed) existing.referralBypassed = true;
-        if (ru.totalDeposited > (existing.totalDeposited || 0)) existing.totalDeposited = ru.totalDeposited;
-        if (ru.availableBalance > (existing.availableBalance || 0)) existing.availableBalance = ru.availableBalance;
-        if (ru.totalProfits > (existing.totalProfits || 0)) existing.totalProfits = ru.totalProfits;
       } else {
         // NEW PERSON FROM REMOTE!
         const newUser = { ...ru };
@@ -1135,15 +1211,17 @@ class UserDatabase {
       CloudSyncEngine.pushUser(user).catch(console.warn);
     }
 
-    if (this.getCurrentUserId() === userId || userId === "USR-1001") {
-      try {
-        const stored = localStorage.getItem("cryptron_account_v3_countdown");
-        if (stored) {
-          const acc = JSON.parse(stored);
+    try {
+      const stored = localStorage.getItem("cryptron_account_v3_countdown");
+      if (stored) {
+        const acc = JSON.parse(stored);
+        if (!acc.user || acc.user.id === userId || (user.email && acc.user.email && acc.user.email.toLowerCase() === user.email.toLowerCase()) || this.getCurrentUserId() === userId || userId === "USR-1001") {
+          acc.user = acc.user || {};
           acc.user.withdrawalRequest = null;
           acc.user.hasActiveInvestment = false;
           acc.user.investmentStatus = "not_invested";
           acc.activePlans = [];
+          acc.wallet = acc.wallet || {};
           acc.wallet.availableBalance = 0.00;
           acc.wallet.investedBalance = 0.00;
           acc.wallet.totalProfits = 0.00;
@@ -1154,8 +1232,8 @@ class UserDatabase {
           acc.user.lastSpinTimestamp = 0;
           localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
         }
-      } catch (e) {}
-    }
+      }
+    } catch (e) {}
 
     return user;
   }
@@ -1454,15 +1532,17 @@ class UserDatabase {
     }
 
     // Sync active session if this is the active user
-    if (this.getCurrentUserId() === userId || userId === "USR-1001") {
-      try {
-        const stored = localStorage.getItem("cryptron_account_v3_countdown");
-        if (stored) {
-          const acc = JSON.parse(stored);
+    try {
+      const stored = localStorage.getItem("cryptron_account_v3_countdown");
+      if (stored) {
+        const acc = JSON.parse(stored);
+        if (!acc.user || acc.user.id === userId || (user.email && acc.user.email && acc.user.email.toLowerCase() === user.email.toLowerCase()) || this.getCurrentUserId() === userId || userId === "USR-1001") {
+          acc.user = acc.user || {};
           acc.user.withdrawalRequest = user.withdrawalRequest;
           acc.user.hasActiveInvestment = false;
           acc.user.investmentStatus = "not_invested";
           acc.activePlans = [];
+          acc.wallet = acc.wallet || {};
           acc.wallet.availableBalance = 0.00;
           acc.wallet.investedBalance = 0.00;
           acc.wallet.pendingWithdrawal = user.pendingWithdrawal;
@@ -1471,8 +1551,8 @@ class UserDatabase {
           acc.user.lastSpinTimestamp = 0;
           localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
         }
-      } catch (e) {}
-    }
+      }
+    } catch (e) {}
 
     return user.withdrawalRequest;
   }
@@ -1547,15 +1627,17 @@ class UserDatabase {
       console.warn("Could not dispatch payout settlement message:", e);
     }
 
-    if (this.getCurrentUserId() === userId || userId === "USR-1001") {
-      try {
-        const stored = localStorage.getItem("cryptron_account_v3_countdown");
-        if (stored) {
-          const acc = JSON.parse(stored);
+    try {
+      const stored = localStorage.getItem("cryptron_account_v3_countdown");
+      if (stored) {
+        const acc = JSON.parse(stored);
+        if (!acc.user || acc.user.id === userId || (user.email && acc.user.email && acc.user.email.toLowerCase() === user.email.toLowerCase()) || this.getCurrentUserId() === userId || userId === "USR-1001") {
+          acc.user = acc.user || {};
           acc.user.withdrawalRequest = null;
           acc.user.hasActiveInvestment = false;
           acc.user.investmentStatus = "not_invested";
           acc.activePlans = [];
+          acc.wallet = acc.wallet || {};
           acc.wallet.availableBalance = 0.00;
           acc.wallet.investedBalance = 0.00;
           acc.wallet.totalProfits = 0.00;
@@ -1566,8 +1648,8 @@ class UserDatabase {
           acc.user.lastSpinTimestamp = 0;
           localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
         }
-      } catch (e) {}
-    }
+      }
+    } catch (e) {}
 
     return settledReq;
   }

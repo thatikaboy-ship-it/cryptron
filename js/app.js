@@ -116,9 +116,31 @@ function getAccountData() {
       
       const investedTotal = base.activePlans.reduce((sum, p) => sum + (p.principal || 10), 0);
       base.wallet.investedBalance = investedTotal;
-      if (dbUser.availableBalance !== undefined) base.wallet.availableBalance = dbUser.availableBalance;
-      if (dbUser.pendingWithdrawal !== undefined) base.wallet.pendingWithdrawal = dbUser.pendingWithdrawal;
-      if (dbUser.totalProfits !== undefined) base.wallet.totalProfits = dbUser.totalProfits;
+      if (dbUser.availableBalance !== undefined) base.wallet.availableBalance = Number(dbUser.availableBalance) || 0.00;
+      if (dbUser.pendingWithdrawal !== undefined) base.wallet.pendingWithdrawal = Number(dbUser.pendingWithdrawal) || 0.00;
+      if (dbUser.totalProfits !== undefined) base.wallet.totalProfits = Number(dbUser.totalProfits) || 0.00;
+
+      // RULE: When account is not invested (post-withdrawal settlement, account reset, or initial sign up):
+      // EVERYTHING starts afresh with strictly $0.00 across all wallet metrics!
+      if (base.user.investmentStatus === 'not_invested' || (base.activePlans.length === 0 && base.user.investmentStatus !== 'active' && base.user.investmentStatus !== 'matured')) {
+        base.activePlans = [];
+        base.user.hasActiveInvestment = false;
+        base.wallet.availableBalance = 0.00;
+        base.wallet.investedBalance = 0.00;
+        base.wallet.totalProfits = 0.00;
+        base.wallet.pendingWithdrawal = 0.00;
+        base.user.totalDeposited = 0.00;
+        base.user.withdrawalRequest = null;
+      } else if (base.user.withdrawalRequest) {
+        // While withdrawal is queued awaiting admin settlement, wallet displays $0.00 available and pending payout
+        base.activePlans = [];
+        base.user.hasActiveInvestment = false;
+        base.wallet.availableBalance = 0.00;
+        base.wallet.investedBalance = 0.00;
+        base.wallet.totalProfits = 0.00;
+        base.wallet.pendingWithdrawal = Number(base.user.withdrawalRequest.amount) || 25.00;
+        base.user.totalDeposited = 0.00;
+      }
 
       return base;
     }
@@ -131,7 +153,17 @@ function getAccountData() {
   }
   try {
     const data = JSON.parse(stored);
-    if (data.user && (data.user.investmentStatus === 'active' || data.user.hasActiveInvestment) && (!data.activePlans || data.activePlans.length === 0)) {
+    if (data.user && data.user.investmentStatus === 'not_invested') {
+      data.activePlans = [];
+      data.user.hasActiveInvestment = false;
+      data.user.withdrawalRequest = null;
+      data.wallet = data.wallet || {};
+      data.wallet.availableBalance = 0.00;
+      data.wallet.investedBalance = 0.00;
+      data.wallet.totalProfits = 0.00;
+      data.wallet.pendingWithdrawal = 0.00;
+      data.user.totalDeposited = 0.00;
+    } else if (data.user && (data.user.investmentStatus === 'active' || data.user.hasActiveInvestment) && (!data.activePlans || data.activePlans.length === 0)) {
       const now = Date.now();
       data.activePlans = [{
         id: "cryp-701",

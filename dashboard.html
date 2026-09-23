@@ -1164,7 +1164,7 @@
 
       // Determine if account is currently uninvested / post-withdrawal / reset
       const hasActivePlan = data.activePlans && data.activePlans.length > 0;
-      const isUninvestedOrWithdrawn = (!hasActivePlan && user.investmentStatus !== 'active' && user.investmentStatus !== 'matured') || !!user.withdrawalRequest;
+      const isUninvestedOrWithdrawn = (!hasActivePlan && user.investmentStatus !== 'active' && user.investmentStatus !== 'matured') || !!user.withdrawalRequest || user.investmentStatus === 'not_invested';
 
       const portfolioVal = isUninvestedOrWithdrawn ? 0 : totalPortfolio;
       const availVal = isUninvestedOrWithdrawn ? 0 : data.wallet.availableBalance;
