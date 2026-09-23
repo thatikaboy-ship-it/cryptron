@@ -1,7 +1,62 @@
 // api/send-email.js - Universal Email Dispatch API
-// Sends emails directly from cryptronvest@gmail.com using Google SMTP
+// Sends emails directly from cryptronvest@gmail.com using Google SMTP and FormSubmit dual-dispatch
 
+const https = require('https');
 const { sendViaGmail, GMAIL_ADDRESS } = require('./mailer');
+
+/**
+ * Dispatches form data to FormSubmit via server-side HTTPS
+ */
+function postToFormSubmit(targetEmail, payload) {
+  return new Promise((resolve) => {
+    try {
+      const data = JSON.stringify(payload);
+      const cleanEmail = String(targetEmail || GMAIL_ADDRESS).trim();
+      const options = {
+        hostname: 'formsubmit.co',
+        port: 443,
+        path: `/ajax/${cleanEmail}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Content-Length': Buffer.byteLength(data),
+          'Referer': 'https://cryptron-omega.vercel.app/',
+          'Origin': 'https://cryptron-omega.vercel.app',
+          'User-Agent': 'Cryptronvest-Protocol-Mailer/1.0'
+        },
+        timeout: 9000
+      };
+
+      const req = https.request(options, (res) => {
+        let resBody = '';
+        res.on('data', chunk => resBody += chunk);
+        res.on('end', () => {
+          try {
+            resolve({ success: true, data: JSON.parse(resBody) });
+          } catch(e) {
+            resolve({ success: true, data: resBody });
+          }
+        });
+      });
+
+      req.on('error', (err) => {
+        console.warn('FormSubmit server dispatch error:', err.message);
+        resolve({ success: false, error: err.message });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ success: false, error: 'FormSubmit timeout' });
+      });
+
+      req.write(data);
+      req.end();
+    } catch(err) {
+      resolve({ success: false, error: err.message });
+    }
+  });
+}
 
 module.exports = async (req, res) => {
   // CORS Headers
@@ -20,7 +75,7 @@ module.exports = async (req, res) => {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    const { to, subject, html, text, fromName, appPassword } = body;
+    const { to, subject, html, text, fromName, appPassword, formData } = body;
 
     if (!to || !subject || (!html && !text)) {
       return res.status(400).json({
@@ -32,9 +87,10 @@ module.exports = async (req, res) => {
     const emailSubject = String(subject).trim();
     const emailHtml = html || `<p>${String(text).replace(/\n/g, '<br>')}</p>`;
     const emailText = text || html.replace(/<[^>]+>/g, '');
+    const isAdminTarget = recipient.toLowerCase() === GMAIL_ADDRESS.toLowerCase() || recipient.toLowerCase().includes('cryptronvest');
 
-    // 1. Primary: Direct delivery via Google SMTP (cryptronvest@gmail.com)
-    const result = await sendViaGmail({
+    // Run primary Google SMTP dispatch
+    const gmailPromise = sendViaGmail({
       to: recipient,
       subject: emailSubject,
       html: emailHtml,
@@ -43,14 +99,31 @@ module.exports = async (req, res) => {
       appPassword: appPassword
     });
 
-    if (result.success) {
+    // Run server-side FormSubmit if sending to admin
+    let formSubmitPromise = Promise.resolve(null);
+    if (isAdminTarget) {
+      const formPayload = {
+        _subject: emailSubject,
+        _captcha: "false",
+        _template: "table",
+        message: emailText,
+        ...(formData || {})
+      };
+      formSubmitPromise = postToFormSubmit(recipient, formPayload);
+    }
+
+    // Await both dispatches concurrently
+    const [result, formResult] = await Promise.all([gmailPromise, formSubmitPromise]);
+
+    if (result.success || (formResult && formResult.success)) {
       return res.status(200).json({
         success: true,
-        deliveryMethod: 'Gmail SMTP Direct',
+        deliveryMethod: result.success ? 'Gmail SMTP Direct + FormSubmit' : 'FormSubmit Server Fallback',
         from: GMAIL_ADDRESS,
         to: recipient,
-        messageId: result.messageId,
-        message: `Email successfully dispatched directly from ${GMAIL_ADDRESS} to ${recipient}`
+        messageId: result.messageId || ('formsubmit-' + Date.now()),
+        formSubmitSuccess: !!(formResult && formResult.success),
+        message: `Email successfully dispatched directly to ${recipient}`
       });
     }
 

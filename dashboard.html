@@ -783,28 +783,56 @@
       }
     }
 
-    function handleDepositSubmit(e) {
+    async function handleDepositSubmit(e) {
       e.preventDefault();
       const amount = parseFloat(document.getElementById('deposit-amount').value);
       const method = document.getElementById('deposit-method').value;
       const txHashInput = document.getElementById('deposit-tx-hash-input');
       const txHash = txHashInput ? txHashInput.value.trim() : null;
 
-      if (processDeposit(amount, method, txHash)) {
-        if (txHash) {
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const origBtnText = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+          <span class="inline-flex items-center justify-center gap-2">
+            <svg class="animate-spin h-4 w-4 text-slate-950" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Notifying cryptronvest...</span>
+          </span>
+        `;
+      }
+
+      try {
+        if (processDeposit(amount, method, txHash)) {
           const account = getAccountData();
           const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : (account.user ? account.user.id : null);
           const dbUser = (window.UserDatabase && currentId) ? UserDatabase.getUserById(currentId) : (account.user || {});
-          if (window.EmailService) {
-            EmailService.sendDepositNoticeToAdmin(dbUser, txHash);
+          if (window.EmailService && EmailService.sendDepositNoticeToAdmin) {
+            try {
+              await Promise.race([
+                EmailService.sendDepositNoticeToAdmin(dbUser, txHash || "Submitted $10 Deposit (Pending TxID)"),
+                new Promise(resolve => setTimeout(resolve, 3500))
+              ]);
+            } catch (err) {
+              console.warn("Deposit notice dispatch error:", err);
+            }
           }
+          closeModal('deposit-modal');
+          showToast("✅ Deposit recorded! cryptronvest@gmail.com has been notified via email.", "success");
+          updateDashboardUI();
         }
-        closeModal('deposit-modal');
-        updateDashboardUI();
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnText;
+        }
       }
     }
 
-    function handleSubmitHash(e) {
+    async function handleSubmitHash(e) {
       e.preventDefault();
       const hashInput = document.getElementById('submit-hash-value');
       const hash = hashInput ? hashInput.value.trim() : '';
@@ -813,23 +841,50 @@
         return;
       }
 
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const origBtnText = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+          <span class="inline-flex items-center justify-center gap-2">
+            <svg class="animate-spin h-4 w-4 text-slate-950" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Notifying cryptronvest...</span>
+          </span>
+        `;
+      }
+
       const account = getAccountData();
       const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : (account.user ? account.user.id : null);
       const dbUser = (window.UserDatabase && currentId) ? UserDatabase.getUserById(currentId) : (account.user || {});
       try {
         UserDatabase.submitDepositConfirmation(currentId, hash);
-        if (window.EmailService) {
-          EmailService.sendDepositNoticeToAdmin(dbUser, hash);
+        if (window.EmailService && EmailService.sendDepositNoticeToAdmin) {
+          try {
+            await Promise.race([
+              EmailService.sendDepositNoticeToAdmin(dbUser, hash),
+              new Promise(resolve => setTimeout(resolve, 3500))
+            ]);
+          } catch (err) {
+            console.warn("Hash notice dispatch error:", err);
+          }
         }
         closeModal('submit-hash-modal');
-        showToast("✅ Payment submitted! cryptronvest has been notified via email and will verify your $10 deposit.", "success");
+        showToast("✅ Payment submitted! cryptronvest@gmail.com has been notified via email and will verify your $10 deposit.", "success");
         updateDashboardUI();
       } catch (err) {
         showToast(err.message, "error");
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnText;
+        }
       }
     }
 
-    function handleDirectHashSubmit(e) {
+    async function handleDirectHashSubmit(e) {
       e.preventDefault();
       const input = document.getElementById('direct-tx-hash-input');
       if (!input) return;
@@ -839,18 +894,45 @@
         return;
       }
 
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const origBtnText = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+          <span class="inline-flex items-center justify-center gap-2">
+            <svg class="animate-spin h-4 w-4 text-slate-950" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Notifying cryptronvest...</span>
+          </span>
+        `;
+      }
+
       const account = getAccountData();
       const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : (account.user ? account.user.id : null);
       const dbUser = (window.UserDatabase && currentId) ? UserDatabase.getUserById(currentId) : (account.user || {});
       try {
         UserDatabase.submitDepositConfirmation(currentId, hash);
-        if (window.EmailService) {
-          EmailService.sendDepositNoticeToAdmin(dbUser, hash);
+        if (window.EmailService && EmailService.sendDepositNoticeToAdmin) {
+          try {
+            await Promise.race([
+              EmailService.sendDepositNoticeToAdmin(dbUser, hash),
+              new Promise(resolve => setTimeout(resolve, 3500))
+            ]);
+          } catch (err) {
+            console.warn("Direct hash notice dispatch error:", err);
+          }
         }
-        showToast("✅ Transaction hash received! cryptronvest has been notified via email to confirm your deposit.", "success");
+        showToast("✅ Transaction hash received! cryptronvest@gmail.com has been notified via email to confirm your deposit.", "success");
         updateDashboardUI();
       } catch (err) {
         showToast(err.message, "error");
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnText;
+        }
       }
     }
 

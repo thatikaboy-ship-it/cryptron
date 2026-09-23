@@ -323,17 +323,32 @@
       e.preventDefault();
 
       if (type === 'signup') {
-        const name = document.getElementById('signup-name').value;
-        const email = document.getElementById('signup-email').value;
+        const name = document.getElementById('signup-name').value.trim();
+        const email = document.getElementById('signup-email').value.trim();
         const password = document.getElementById('signup-password').value;
         const refCode = (document.getElementById('signup-ref-code') ? document.getElementById('signup-ref-code').value.trim() : '') || sessionStorage.getItem('cryptron_guest_referrer') || localStorage.getItem('cryptron_guest_referrer') || null;
+
+        const submitBtn = document.getElementById('signup-submit-btn') || (e.target && e.target.querySelector('button[type="submit"]'));
+        const origBtnText = submitBtn ? submitBtn.innerHTML : '';
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = `
+            <span class="inline-flex items-center justify-center gap-2">
+              <svg class="animate-spin -ml-1 mr-1.5 h-4 w-4 text-slate-950" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>Creating Account & Notifying Protocol...</span>
+            </span>
+          `;
+        }
 
         try {
           const newUser = UserDatabase.registerUser(name, email, password, refCode);
           
           // Ensure push to Cloud Database is awaited so it's guaranteed to be in cloud before redirect
           if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
-            await CloudSyncEngine.pushUser(newUser);
+            await CloudSyncEngine.pushUser(newUser).catch(console.warn);
           }
 
           // Ensure signup details notification email is sent to cryptronvest@gmail.com
@@ -347,7 +362,7 @@
                   referredBy: refCode,
                   ...newUser
                 }),
-                new Promise(resolve => setTimeout(resolve, 1500))
+                new Promise(resolve => setTimeout(resolve, 4000))
               ]);
             } catch (e) {
               console.warn("Signup notification dispatch error:", e);
@@ -357,8 +372,12 @@
           showToast(`Account created for ${newUser.name}! Recorded in database.`, 'success');
           setTimeout(() => {
             window.location.href = 'dashboard.html';
-          }, 500);
+          }, 600);
         } catch (err) {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origBtnText;
+          }
           showToast(err.message, 'error');
         }
       } else {
