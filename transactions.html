@@ -276,7 +276,8 @@
 
     function getLedgerTransactions() {
       const data = getAccountData();
-      const userTxs = data.transactions || [];
+      const isUninvested = !data.user || data.user.investmentStatus === 'not_invested' || !!data.user.withdrawalRequest;
+      const userTxs = isUninvested ? [] : (data.transactions || []);
       const userIds = new Set(userTxs.map(t => t.id));
       const filteredProtocol = PROTOCOL_LEDGER_RECORDS.filter(t => !userIds.has(t.id));
       return [...userTxs, ...filteredProtocol];

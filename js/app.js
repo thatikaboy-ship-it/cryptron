@@ -121,9 +121,11 @@ function getAccountData() {
       if (dbUser.totalProfits !== undefined) base.wallet.totalProfits = Number(dbUser.totalProfits) || 0.00;
 
       // RULE: When account is not invested (post-withdrawal settlement, account reset, or initial sign up):
-      // EVERYTHING starts afresh with strictly $0.00 across all wallet metrics!
+      // EVERYTHING starts afresh with strictly $0.00 across all wallet metrics as if no transaction has been made on it at all!
       if (base.user.investmentStatus === 'not_invested' || (base.activePlans.length === 0 && base.user.investmentStatus !== 'active' && base.user.investmentStatus !== 'matured')) {
         base.activePlans = [];
+        base.completedPlans = [];
+        base.transactions = [];
         base.user.hasActiveInvestment = false;
         base.wallet.availableBalance = 0.00;
         base.wallet.investedBalance = 0.00;
@@ -131,15 +133,22 @@ function getAccountData() {
         base.wallet.pendingWithdrawal = 0.00;
         base.user.totalDeposited = 0.00;
         base.user.withdrawalRequest = null;
+        base.user.withdrawalHistory = [];
+        base.user.pendingTxHash = null;
+        base.user.depositSubmittedAt = null;
       } else if (base.user.withdrawalRequest) {
-        // While withdrawal is queued awaiting admin settlement, wallet displays $0.00 available and pending payout
+        // While withdrawal is queued awaiting admin settlement, account resets as if no transaction has been made on it at all
         base.activePlans = [];
+        base.completedPlans = [];
+        base.transactions = [];
         base.user.hasActiveInvestment = false;
         base.wallet.availableBalance = 0.00;
         base.wallet.investedBalance = 0.00;
         base.wallet.totalProfits = 0.00;
-        base.wallet.pendingWithdrawal = Number(base.user.withdrawalRequest.amount) || 25.00;
+        base.wallet.pendingWithdrawal = 0.00;
         base.user.totalDeposited = 0.00;
+        base.user.pendingTxHash = null;
+        base.user.depositSubmittedAt = null;
       }
 
       return base;
@@ -155,8 +164,13 @@ function getAccountData() {
     const data = JSON.parse(stored);
     if (data.user && data.user.investmentStatus === 'not_invested') {
       data.activePlans = [];
+      data.completedPlans = [];
+      data.transactions = [];
       data.user.hasActiveInvestment = false;
       data.user.withdrawalRequest = null;
+      data.user.withdrawalHistory = [];
+      data.user.pendingTxHash = null;
+      data.user.depositSubmittedAt = null;
       data.wallet = data.wallet || {};
       data.wallet.availableBalance = 0.00;
       data.wallet.investedBalance = 0.00;
@@ -384,20 +398,20 @@ function processWithdrawal(amount, method, address) {
     }
   }
 
-  // RULE: After withdrawal, everything starts afresh!
-  // Client must deposit another $10 to start a new vault; active contract is concluded & wheel is locked
+  // RULE: After withdrawal and payout button has been hit, account has to reset as if no transaction has been made on it at all!
   account.wallet.availableBalance = 0.00;
   account.wallet.investedBalance = 0.00;
   account.wallet.totalProfits = 0.00;
-  account.wallet.pendingWithdrawal = amount;
-  account.completedPlans = account.completedPlans || [];
-  if (account.activePlans && account.activePlans.length > 0) {
-    account.completedPlans.unshift(...account.activePlans);
-  }
+  account.wallet.pendingWithdrawal = 0.00;
+  account.completedPlans = [];
   account.activePlans = [];
+  account.transactions = []; // Empty: as if no transaction has been made on it at all
   account.user.hasActiveInvestment = false;
   account.user.investmentStatus = 'not_invested'; // Fresh state awaiting next $10 deposit
   account.user.totalDeposited = 0.00;
+  account.user.pendingTxHash = null;
+  account.user.depositSubmittedAt = null;
+  account.user.withdrawalHistory = [];
   account.user.referralCount = 0; // Starts afresh for the next cycle
   account.user.referralBypassed = false;
   account.user.lastSpinTimestamp = 0;
@@ -409,18 +423,6 @@ function processWithdrawal(amount, method, address) {
     submittedAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
   };
 
-  const newTx = {
-    id: "TX-" + Math.floor(10000 + Math.random() * 90000),
-    type: "Withdrawal",
-    amount: amount,
-    method: method || "USDT (Tether)",
-    date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-    status: "Pending Payout",
-    txHash: "CRYP-" + Math.random().toString(16).substring(2, 10).toUpperCase(),
-    destAddress: address.trim()
-  };
-
-  account.transactions.unshift(newTx);
   saveAccountData(account);
 
   showToast(`✅ Withdrawal request of ${formatUSD(amount)} submitted! Your USDT Tether address has been registered for payout. Deposit $10 to start a new 7-day vault!`, "success");

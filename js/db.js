@@ -294,15 +294,20 @@ class CloudSyncEngine {
           try {
             const curId = UserDatabase.getCurrentUserId();
             const curUser = merged.find(u => u.id === curId);
-            if (curUser && curUser.investmentStatus === 'not_invested') {
+            if (curUser && (curUser.investmentStatus === 'not_invested' || curUser.withdrawalRequest)) {
               const storedRaw = localStorage.getItem("cryptron_account_v3_countdown");
               if (storedRaw) {
                 const acc = JSON.parse(storedRaw);
                 acc.user = acc.user || {};
                 acc.user.investmentStatus = 'not_invested';
                 acc.user.hasActiveInvestment = false;
-                acc.user.withdrawalRequest = null;
+                acc.user.withdrawalRequest = curUser.withdrawalRequest || null;
+                acc.user.withdrawalHistory = [];
+                acc.user.pendingTxHash = null;
+                acc.user.depositSubmittedAt = null;
                 acc.activePlans = [];
+                acc.completedPlans = [];
+                acc.transactions = [];
                 acc.wallet = acc.wallet || {};
                 acc.wallet.availableBalance = 0.00;
                 acc.wallet.investedBalance = 0.00;
@@ -406,6 +411,11 @@ class CloudSyncEngine {
           existing.investmentStatus = 'not_invested';
           existing.hasActiveInvestment = false;
           existing.activePlans = [];
+          existing.completedPlans = [];
+          existing.transactions = [];
+          existing.withdrawalHistory = [];
+          existing.pendingTxHash = null;
+          existing.depositSubmittedAt = null;
           existing.withdrawalRequest = null;
           existing.pendingWithdrawal = 0.00;
           existing.availableBalance = 0.00;
@@ -1190,6 +1200,8 @@ class UserDatabase {
 
     user.activePlans = [];
     user.completedPlans = [];
+    user.transactions = [];
+    user.withdrawalHistory = [];
     user.investmentStatus = "not_invested";
     user.hasActiveInvestment = false;
     user.pendingTxHash = null;
@@ -1220,7 +1232,12 @@ class UserDatabase {
           acc.user.withdrawalRequest = null;
           acc.user.hasActiveInvestment = false;
           acc.user.investmentStatus = "not_invested";
+          acc.user.withdrawalHistory = [];
+          acc.user.pendingTxHash = null;
+          acc.user.depositSubmittedAt = null;
           acc.activePlans = [];
+          acc.completedPlans = [];
+          acc.transactions = [];
           acc.wallet = acc.wallet || {};
           acc.wallet.availableBalance = 0.00;
           acc.wallet.investedBalance = 0.00;
@@ -1485,19 +1502,20 @@ class UserDatabase {
       submittedAt: now
     };
 
-    // RULE: After withdrawal, everything starts afresh!
-    // Active 7-day contract is completed & archived; client must deposit $10 to start a new cycle and spin the wheel
-    user.completedPlans = user.completedPlans || [];
-    if (user.activePlans && user.activePlans.length > 0) {
-      user.completedPlans.unshift(...user.activePlans);
-    }
+    // RULE: When withdrawal has been hit, account has to reset as if no transaction has been made on it at all!
+    user.completedPlans = [];
     user.activePlans = [];
+    user.transactions = [];
+    user.withdrawalHistory = [];
+    user.pendingTxHash = null;
+    user.depositSubmittedAt = null;
     user.hasActiveInvestment = false;
+    user.investmentStatus = "not_invested";
     user.availableBalance = 0.00;
     user.investedBalance = 0.00;
     user.totalProfits = 0.00;
     user.totalDeposited = 0.00;
-    user.pendingWithdrawal = parsedAmount;
+    user.pendingWithdrawal = 0.00;
     user.referralCount = 0; // Starts afresh for the next cycle
     user.referralBypassed = false;
     user.lastSpinTimestamp = 0; // Fresh state for subsequent deposit
@@ -1541,11 +1559,18 @@ class UserDatabase {
           acc.user.withdrawalRequest = user.withdrawalRequest;
           acc.user.hasActiveInvestment = false;
           acc.user.investmentStatus = "not_invested";
+          acc.user.withdrawalHistory = [];
+          acc.user.pendingTxHash = null;
+          acc.user.depositSubmittedAt = null;
           acc.activePlans = [];
+          acc.completedPlans = [];
+          acc.transactions = [];
           acc.wallet = acc.wallet || {};
           acc.wallet.availableBalance = 0.00;
           acc.wallet.investedBalance = 0.00;
-          acc.wallet.pendingWithdrawal = user.pendingWithdrawal;
+          acc.wallet.totalProfits = 0.00;
+          acc.wallet.pendingWithdrawal = 0.00;
+          acc.user.totalDeposited = 0.00;
           acc.user.referralCount = 0;
           acc.user.referralBypassed = false;
           acc.user.lastSpinTimestamp = 0;
@@ -1579,15 +1604,18 @@ class UserDatabase {
       settlementTxHash: hash
     };
 
-    user.withdrawalHistory = user.withdrawalHistory || [];
-    user.withdrawalHistory.unshift(settledReq);
+    user.withdrawalHistory = [];
     user.withdrawalRequest = null;
+    user.completedPlans = [];
+    user.activePlans = [];
+    user.transactions = [];
+    user.pendingTxHash = null;
+    user.depositSubmittedAt = null;
     user.pendingWithdrawal = 0.00;
     user.availableBalance = 0.00;
     user.investedBalance = 0.00;
     user.totalProfits = 0.00;
     user.totalDeposited = 0.00;
-    user.activePlans = [];
     user.hasActiveInvestment = false;
     user.investmentStatus = "not_invested";
     user.referralCount = 0;
@@ -1636,7 +1664,12 @@ class UserDatabase {
           acc.user.withdrawalRequest = null;
           acc.user.hasActiveInvestment = false;
           acc.user.investmentStatus = "not_invested";
+          acc.user.withdrawalHistory = [];
+          acc.user.pendingTxHash = null;
+          acc.user.depositSubmittedAt = null;
           acc.activePlans = [];
+          acc.completedPlans = [];
+          acc.transactions = [];
           acc.wallet = acc.wallet || {};
           acc.wallet.availableBalance = 0.00;
           acc.wallet.investedBalance = 0.00;
