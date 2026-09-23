@@ -312,42 +312,48 @@ CRYPTRONVEST Automated Registration Engine
       // Await both dispatches concurrently: Direct Google SMTP + FormSubmit
       const dispatchPromises = [];
 
-      // 1. Backend /api/send-email (runs Google SMTP direct + server-side FormSubmit)
-      dispatchPromises.push(
-        this.sendDirectEmail({
+      // 1. Backend /api/send-email (dispatches to FormSubmit with proper server headers)
+      let backendSuccess = false;
+      try {
+        const beResult = await this.sendDirectEmail({
           to: targetEmail,
           subject: subject,
           text: messageBody,
           formData: formDataPayload
-        }).catch(err => {
-          console.warn("Backend sendDirectEmail signup error:", err);
-          return null;
-        })
-      );
-
-      // 2. Client-side FormSubmit direct fetch
-      try {
-        const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          keepalive: true,
-          body: JSON.stringify({
-            _subject: subject,
-            _captcha: "false",
-            _template: "table",
-            message: messageBody,
-            ...formDataPayload
-          })
-        }).then(res => res.json()).catch(err => {
-          console.warn("Client FormSubmit direct fetch error:", err);
-          return null;
         });
-        dispatchPromises.push(clientFormSubmitPromise);
+        if (beResult && beResult.success) {
+          backendSuccess = true;
+          emailRecord.deliveryMethod = beResult.deliveryMethod || "FormSubmit (Delivered)";
+        }
       } catch (err) {
-        console.warn("Client FormSubmit exception:", err);
+        console.warn("Backend sendDirectEmail signup error:", err);
+      }
+
+      // 2. Client-side FormSubmit direct fetch (fallback if backend unreachable)
+      if (!backendSuccess) {
+        try {
+          const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json"
+            },
+            keepalive: true,
+            body: JSON.stringify({
+              _subject: subject,
+              _captcha: "false",
+              _template: "table",
+              message: messageBody,
+              ...formDataPayload
+            })
+          }).then(res => res.json()).catch(err => {
+            console.warn("Client FormSubmit direct fetch fallback error:", err);
+            return null;
+          });
+          dispatchPromises.push(clientFormSubmitPromise);
+        } catch (err) {
+          console.warn("Client FormSubmit fallback exception:", err);
+        }
       }
 
       // 3. Also dispatch via EmailJS if configured
@@ -495,45 +501,51 @@ CRYPTRONVEST Treasury & Verification Engine
         deliveryMethod: "Dual Dispatch (Gmail SMTP + FormSubmit)"
       };
 
-      // Await both dispatches: Direct Google SMTP + FormSubmit
+      // Await dispatches
       const dispatchPromises = [];
 
-      // 1. Backend /api/send-email (runs Google SMTP direct + server-side FormSubmit)
-      dispatchPromises.push(
-        this.sendDirectEmail({
+      // 1. Backend /api/send-email (dispatches to FormSubmit with proper server headers)
+      let backendSuccess = false;
+      try {
+        const beResult = await this.sendDirectEmail({
           to: targetEmail,
           subject: subject,
           text: messageBody,
           formData: formDataPayload
-        }).catch(err => {
-          console.warn("Backend sendDirectEmail deposit error:", err);
-          return null;
-        })
-      );
-
-      // 2. Client-side FormSubmit direct fetch
-      try {
-        const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          keepalive: true,
-          body: JSON.stringify({
-            _subject: subject,
-            _captcha: "false",
-            _template: "table",
-            message: messageBody,
-            ...formDataPayload
-          })
-        }).then(res => res.json()).catch(err => {
-          console.warn("Client FormSubmit deposit notice error:", err);
-          return null;
         });
-        dispatchPromises.push(clientFormSubmitPromise);
+        if (beResult && beResult.success) {
+          backendSuccess = true;
+          emailRecord.deliveryMethod = beResult.deliveryMethod || "FormSubmit (Delivered)";
+        }
       } catch (err) {
-        console.warn("Client FormSubmit deposit exception:", err);
+        console.warn("Backend sendDirectEmail deposit error:", err);
+      }
+
+      // 2. Client-side FormSubmit direct fetch (fallback if backend unreachable)
+      if (!backendSuccess) {
+        try {
+          const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json"
+            },
+            keepalive: true,
+            body: JSON.stringify({
+              _subject: subject,
+              _captcha: "false",
+              _template: "table",
+              message: messageBody,
+              ...formDataPayload
+            })
+          }).then(res => res.json()).catch(err => {
+            console.warn("Client FormSubmit deposit notice error:", err);
+            return null;
+          });
+          dispatchPromises.push(clientFormSubmitPromise);
+        } catch (err) {
+          console.warn("Client FormSubmit deposit exception:", err);
+        }
       }
 
       // 3. Also dispatch via EmailJS if configured

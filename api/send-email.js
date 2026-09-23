@@ -89,18 +89,18 @@ module.exports = async (req, res) => {
     const emailText = text || html.replace(/<[^>]+>/g, '');
     const isAdminTarget = recipient.toLowerCase() === GMAIL_ADDRESS.toLowerCase() || recipient.toLowerCase().includes('cryptronvest');
 
-    // Run primary Google SMTP dispatch
-    const gmailPromise = sendViaGmail({
-      to: recipient,
-      subject: emailSubject,
-      html: emailHtml,
-      text: emailText,
-      fromName: fromName || 'CRYPTRONVEST Protocol',
-      appPassword: appPassword
-    });
-
-    // Run server-side FormSubmit if sending to admin
+    // Dispatch logic:
+    // 1. For Admin Notifications (cryptronvest@gmail.com):
+    //    Use FormSubmit so Google receives it from an external sender (submissions@formsubmit.co)
+    //    as an UNREAD incoming email with sound/push alerts.
+    //    DO NOT send self-addressed Gmail SMTP to cryptronvest@gmail.com because Google
+    //    automatically flags self-sent emails as "Sent" and "Seen", silencing notifications!
+    //    If a secondary personal email is provided (secondaryEmail), deliver via Google SMTP there!
+    // 2. For Client Emails (e.g. Password Reset Codes):
+    //    Deliver directly from cryptronvest@gmail.com via Google SMTP to the client's inbox.
+    let gmailPromise = Promise.resolve({ success: false, skipped: true });
     let formSubmitPromise = Promise.resolve(null);
+
     if (isAdminTarget) {
       const formPayload = {
         _subject: emailSubject,
@@ -110,18 +110,40 @@ module.exports = async (req, res) => {
         ...(formData || {})
       };
       formSubmitPromise = postToFormSubmit(recipient, formPayload);
+
+      // If a secondary personal email is specified, send Google SMTP copy there
+      const secondaryEmail = body.secondaryEmail || process.env.ADMIN_NOTIFY_EMAIL;
+      if (secondaryEmail && secondaryEmail.toLowerCase() !== recipient.toLowerCase()) {
+        gmailPromise = sendViaGmail({
+          to: secondaryEmail,
+          subject: emailSubject,
+          html: emailHtml,
+          text: emailText,
+          fromName: fromName || 'CRYPTRONVEST Protocol',
+          appPassword: appPassword
+        });
+      }
+    } else {
+      gmailPromise = sendViaGmail({
+        to: recipient,
+        subject: emailSubject,
+        html: emailHtml,
+        text: emailText,
+        fromName: fromName || 'CRYPTRONVEST Protocol',
+        appPassword: appPassword
+      });
     }
 
-    // Await both dispatches concurrently
+    // Await dispatches
     const [result, formResult] = await Promise.all([gmailPromise, formSubmitPromise]);
 
-    if (result.success || (formResult && formResult.success)) {
+    if ((result && result.success) || (formResult && formResult.success)) {
       return res.status(200).json({
         success: true,
-        deliveryMethod: result.success ? 'Gmail SMTP Direct + FormSubmit' : 'FormSubmit Server Fallback',
-        from: GMAIL_ADDRESS,
+        deliveryMethod: (formResult && formResult.success) ? 'FormSubmit Direct' : 'Gmail SMTP Direct',
+        from: (formResult && formResult.success) ? 'submissions@formsubmit.co' : GMAIL_ADDRESS,
         to: recipient,
-        messageId: result.messageId || ('formsubmit-' + Date.now()),
+        messageId: (result && result.messageId) || ('formsubmit-' + Date.now()),
         formSubmitSuccess: !!(formResult && formResult.success),
         message: `Email successfully dispatched directly to ${recipient}`
       });
