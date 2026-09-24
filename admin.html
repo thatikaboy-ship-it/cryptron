@@ -616,11 +616,52 @@
         </div>
       </form>
 
+      <!-- Web3Forms Instant Admin Alert Section -->
+      <div class="mt-6 pt-5 border-t border-white/10 space-y-3 font-mono">
+        <div class="flex items-center justify-between">
+          <h4 class="font-bold text-emerald-400 flex items-center gap-1.5 text-xs">
+            <i data-lucide="bell-ring" class="w-4 h-4"></i>
+            <span>Web3Forms Incoming Alerts (Phone Chime)</span>
+          </h4>
+          <span class="text-[10px] bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">100% Mobile Sound</span>
+        </div>
+        <p class="text-[11px] text-slate-400 font-sans leading-relaxed">
+          Delivers signup & deposit hash alerts to <strong class="text-white">cryptronvest@gmail.com</strong> as an external incoming email, ensuring Gmail triggers an instant audio chime and lockscreen alert on your phone.
+        </p>
+
+        <div>
+          <label class="block text-xs uppercase tracking-wider text-slate-300 mb-1.5">Web3Forms Access Key</label>
+          <div class="relative">
+            <i data-lucide="key" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              id="web3forms-access-key-input" 
+              placeholder="e.g. 12345678-abcd-1234-abcd-1234567890ab" 
+              class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+            >
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1 font-sans">
+            Get key in 10 seconds: Enter <strong>cryptronvest@gmail.com</strong> at <a href="https://web3forms.com" target="_blank" class="text-emerald-400 underline font-bold">web3forms.com</a> and paste your key here.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <button type="button" onclick="handleSaveGmailSettings(event)" class="py-2.5 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-md text-xs flex items-center justify-center gap-1.5 active:scale-95">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Save Key</span>
+          </button>
+          <button type="button" id="test-web3forms-btn" onclick="testWeb3FormsAlert()" class="py-2.5 rounded-xl font-bold text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95">
+            <i data-lucide="bell" class="w-3.5 h-3.5"></i>
+            <span>Test Phone Chime</span>
+          </button>
+        </div>
+      </div>
+
       <!-- How to Get App Password in 30 seconds -->
       <div class="mt-6 pt-5 border-t border-white/10 space-y-2.5 text-xs text-slate-300 font-sans">
         <h4 class="font-bold text-amber-400 font-mono flex items-center gap-1.5">
           <i data-lucide="help-circle" class="w-4 h-4"></i>
-          <span>How to get your 16-character Google App Password (30 seconds):</span>
+          <span>Google App Password Setup (For sending client reset codes):</span>
         </h4>
         <ol class="list-decimal list-inside space-y-1.5 text-slate-400 text-[11px] leading-relaxed font-mono">
           <li>Log into your Google account (<strong>cryptronvest@gmail.com</strong>).</li>
@@ -992,9 +1033,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=3.0.0"></script>
-  <script src="js/email.js?v=3.0.0"></script>
-  <script src="js/app.js?v=3.0.0"></script>
+  <script src="js/db.js?v=3.1.0"></script>
+  <script src="js/email.js?v=3.1.0"></script>
+  <script src="js/app.js?v=3.1.0"></script>
   <script>
     // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
     // The plaintext passcode is NEVER stored in source code or memory.
@@ -2089,23 +2130,76 @@
         if (input && settings.gmailAppPassword) {
           input.value = settings.gmailAppPassword;
         }
+        const w3fInput = document.getElementById('web3forms-access-key-input');
+        if (w3fInput && settings.web3formsAccessKey) {
+          w3fInput.value = settings.web3formsAccessKey;
+        }
       }
       openModal('gmail-settings-modal');
     }
 
     function handleSaveGmailSettings(e) {
-      e.preventDefault();
+      if (e && e.preventDefault) e.preventDefault();
       const input = document.getElementById('gmail-app-password-input');
       const pass = input ? input.value.trim() : '';
+      const w3fInput = document.getElementById('web3forms-access-key-input');
+      const w3fKey = w3fInput ? w3fInput.value.trim() : '';
 
       if (window.EmailService) {
         const settings = EmailService.getSettings();
-        settings.gmailAppPassword = pass;
+        if (pass) settings.gmailAppPassword = pass;
+        if (w3fKey !== undefined) settings.web3formsAccessKey = w3fKey;
         EmailService.saveSettings(settings);
       }
 
-      showToast("✅ Google App Password saved! Ready for direct Gmail dispatch.", "success");
+      showToast("✅ Settings saved! Web3Forms & Google SMTP ready.", "success");
       closeModal('gmail-settings-modal');
+    }
+
+    async function testWeb3FormsAlert() {
+      const btn = document.getElementById('test-web3forms-btn');
+      const orig = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Checking...</span>`;
+      lucide.createIcons();
+
+      const w3fInput = document.getElementById('web3forms-access-key-input');
+      const key = (w3fInput ? w3fInput.value.trim() : '') || (window.EmailService ? EmailService.getSettings().web3formsAccessKey : '');
+
+      if (!key) {
+        showToast("Please enter your Web3Forms Access Key first!", "warning");
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        lucide.createIcons();
+        return;
+      }
+
+      try {
+        const res = await EmailService.sendViaWeb3Forms({
+          accessKey: key,
+          subject: "🔔 CRYPTRONVEST Web3Forms Test Alert - Phone Chime Check",
+          message: "Web3Forms direct incoming alert to cryptronvest@gmail.com is 100% active! Your phone should chime and show a notification banner right now.",
+          name: "Cryptronvest Protocol Tester",
+          email: "cryptronvest@gmail.com"
+        });
+
+        if (res && res.success) {
+          if (window.EmailService) {
+            const settings = EmailService.getSettings();
+            settings.web3formsAccessKey = key;
+            EmailService.saveSettings(settings);
+          }
+          showToast("🎉 Alert dispatched! Check cryptronvest@gmail.com - phone should chime!", "success");
+        } else {
+          showToast(res.error || (res.data && res.data.message) || "Web3Forms error. Please verify the key.", "error");
+        }
+      } catch (err) {
+        showToast("Error testing Web3Forms: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        lucide.createIcons();
+      }
     }
 
     async function testGmailConnection() {

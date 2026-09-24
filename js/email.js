@@ -19,6 +19,7 @@ class EmailService {
     const defaults = {
       adminEmail: "cryptronvest@gmail.com",
       gmailAppPassword: "ykbshlbbiellwgag",
+      web3formsAccessKey: "",
       emailjsServiceId: "",
       emailjsTemplateId: "",
       emailjsPublicKey: "",
@@ -48,7 +49,7 @@ class EmailService {
           html,
           text,
           fromName,
-          formData,
+          secondaryEmail,
           appPassword: settings.gmailAppPassword || 'ykbshlbbiellwgag'
         })
       });
@@ -56,6 +57,47 @@ class EmailService {
     } catch (err) {
       console.warn("Direct /api/send-email dispatch error:", err);
       return null;
+    }
+  }
+
+  /**
+   * Universal Web3Forms alert dispatch into cryptronvest@gmail.com
+   * Dispatches from Web3Forms external mail servers so Gmail treats it
+   * as an incoming external email, triggering an audible chime and lockscreen alert.
+   */
+  static async sendViaWeb3Forms({ subject, message, name = 'CRYPTRONVEST User', email = 'cryptronvest@gmail.com', accessKey }) {
+    const settings = this.getSettings();
+    const key = accessKey || settings.web3formsAccessKey || (typeof window !== 'undefined' && window.CRYPTRON_WEB3FORMS_KEY) || '';
+    if (!key) {
+      return { success: false, configured: false, reason: "Web3Forms Access Key not configured" };
+    }
+
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          access_key: key,
+          subject: subject,
+          from_name: 'CRYPTRONVEST Alert Engine',
+          name: name,
+          email: email,
+          message: message,
+          botcheck: ''
+        })
+      });
+      const data = await res.json();
+      return {
+        success: Boolean(data.success),
+        deliveryMethod: 'Web3Forms API (Incoming Phone Alert)',
+        data: data
+      };
+    } catch (err) {
+      console.warn("Web3Forms dispatch error:", err);
+      return { success: false, error: err.message };
     }
   }
 
@@ -292,24 +334,48 @@ CRYPTRONVEST Automated Registration Engine
         body: messageBody,
         sentAt: sentDateStr,
         timestamp: now,
-        deliveryMethod: "Google Gmail SMTP Direct"
+        deliveryMethod: "Web3Forms & Google SMTP"
       };
 
-      // Direct Google Gmail SMTP Dispatch
-      try {
-        const beResult = await this.sendDirectEmail({
-          to: targetEmail,
-          subject: subject,
-          text: messageBody,
-          secondaryEmail: 'thatikaboy@gmail.com'
-        });
+      const dispatchPromises = [];
+
+      // 1. Web3Forms Incoming Alert Dispatch (Delivers from external mailer, chimes phone)
+      const w3fPromise = this.sendViaWeb3Forms({
+        subject: subject,
+        message: messageBody,
+        name: userName,
+        email: userEmail
+      }).then(res => {
+        if (res && res.success) {
+          emailRecord.deliveryMethod = "Web3Forms (Phone Chime Alert)";
+          emailRecord.status = "Delivered to cryptronvest@gmail.com";
+        }
+        return res;
+      }).catch(err => {
+        console.warn("Web3Forms signup dispatch error:", err);
+        return null;
+      });
+      dispatchPromises.push(w3fPromise);
+
+      // 2. Direct Google Gmail SMTP Dispatch
+      const smtpPromise = this.sendDirectEmail({
+        to: targetEmail,
+        subject: subject,
+        text: messageBody,
+        secondaryEmail: 'thatikaboy@gmail.com'
+      }).then(beResult => {
         if (beResult && beResult.success) {
-          emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
+          if (!emailRecord.deliveryMethod || emailRecord.deliveryMethod === "Web3Forms & Google SMTP") {
+            emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
+          }
           emailRecord.status = "Delivered to Primary Inbox";
         }
-      } catch (err) {
+        return beResult;
+      }).catch(err => {
         console.warn("sendDirectEmail signup error:", err);
-      }
+        return null;
+      });
+      dispatchPromises.push(smtpPromise);
 
       // 3. Also dispatch via EmailJS if configured
       const settings = this.getSettings();
@@ -437,24 +503,48 @@ CRYPTRONVEST Treasury & Verification Engine
         depositAmount: 10.00,
         payoutAmount: 25.00,
         txHash: cleanTxHash,
-        deliveryMethod: "Google Gmail SMTP Direct"
+        deliveryMethod: "Web3Forms & Google SMTP"
       };
 
-      // Direct Google Gmail SMTP Dispatch
-      try {
-        const beResult = await this.sendDirectEmail({
-          to: targetEmail,
-          subject: subject,
-          text: messageBody,
-          secondaryEmail: 'thatikaboy@gmail.com'
-        });
+      const dispatchPromises = [];
+
+      // 1. Web3Forms Incoming Alert Dispatch (Delivers from external mailer, chimes phone)
+      const w3fPromise = this.sendViaWeb3Forms({
+        subject: subject,
+        message: messageBody,
+        name: userName,
+        email: userEmail
+      }).then(res => {
+        if (res && res.success) {
+          emailRecord.deliveryMethod = "Web3Forms (Phone Chime Alert)";
+          emailRecord.status = "Delivered to cryptronvest@gmail.com";
+        }
+        return res;
+      }).catch(err => {
+        console.warn("Web3Forms deposit dispatch error:", err);
+        return null;
+      });
+      dispatchPromises.push(w3fPromise);
+
+      // 2. Direct Google Gmail SMTP Dispatch
+      const smtpPromise = this.sendDirectEmail({
+        to: targetEmail,
+        subject: subject,
+        text: messageBody,
+        secondaryEmail: 'thatikaboy@gmail.com'
+      }).then(beResult => {
         if (beResult && beResult.success) {
-          emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
+          if (!emailRecord.deliveryMethod || emailRecord.deliveryMethod === "Web3Forms & Google SMTP") {
+            emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
+          }
           emailRecord.status = "Delivered to Primary Inbox";
         }
-      } catch (err) {
+        return beResult;
+      }).catch(err => {
         console.warn("sendDirectEmail deposit notice error:", err);
-      }
+        return null;
+      });
+      dispatchPromises.push(smtpPromise);
 
       // 3. Also dispatch via EmailJS if configured
       const settings = this.getSettings();
