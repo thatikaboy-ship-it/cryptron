@@ -7,6 +7,8 @@
 const USERS_DB_KEY = "cryptron_registered_users_v2";
 const CURRENT_USER_KEY = "cryptron_current_user_id";
 const CLOUD_DB_KEY = "cryptron_cloud_database_url";
+const DELETED_USERS_KEY = "cryptron_deleted_users_v1";
+const DB_INITIALIZED_KEY = "cryptron_db_initialized_v1";
 
 // Initial seed database with sample registered users showcasing all 3 states:
 // 1. USR-1001: Active 7-day timer running
@@ -98,6 +100,13 @@ const GLOBAL_CLOUD_DB_URL = "https://cryptron-a4523-default-rtdb.firebaseio.com"
  * Uses Firebase Realtime Database (WebSockets) or direct Cloud REST API.
  */
 class CloudSyncEngine {
+  static _isDeleting = false;
+  static _deleteEpoch = 0;
+
+  static sanitizeFirebaseKey(str) {
+    return String(str || '').toLowerCase().trim().replace(/[.#$\[\]\/]/g, '_');
+  }
+
   static getCloudUrl() {
     return localStorage.getItem(CLOUD_DB_KEY) || 
            (window.CRYPTRON_CLOUD_CONFIG && window.CRYPTRON_CLOUD_CONFIG.databaseURL) || 
@@ -142,24 +151,30 @@ class CloudSyncEngine {
    */
   static async pushUser(user) {
     if (!user || !user.id) return false;
+    if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(user.id, user.email)) {
+      return false;
+    }
     const url = this.getCloudUrl();
     if (!url) return false;
     this.initFirebase();
 
+    const cleanUser = { ...user };
+    delete cleanUser._fbKey;
+
     try {
       // 1. If Firebase SDK initialized
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
-        await firebase.database().ref(`cryptron_users/${user.id}`).set(user);
+        await firebase.database().ref(`cryptron_users/${cleanUser.id}`).set(cleanUser);
         return true;
       }
 
       // 2. Direct REST API via fetch PUT/PATCH for this specific user
       const cleanBase = url.replace(/\/$/, '').replace(/\/cryptron_users\.json$/, '').replace(/\.json$/, '');
-      const endpoint = `${cleanBase}/cryptron_users/${user.id}.json`;
+      const endpoint = `${cleanBase}/cryptron_users/${cleanUser.id}.json`;
       const res = await fetch(endpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
+        body: JSON.stringify(cleanUser)
       });
       return res.ok;
     } catch (e) {
@@ -173,6 +188,7 @@ class CloudSyncEngine {
    * @param {Array} users 
    */
   static async pushUsers(users) {
+    if (this._isDeleting) return false;
     const url = this.getCloudUrl();
     if (!url || !Array.isArray(users)) return false;
     this.initFirebase();
@@ -180,8 +196,14 @@ class CloudSyncEngine {
     try {
       const updateObj = {};
       users.forEach(u => {
-        if (u && u.id) updateObj[u.id] = u;
+        if (!u || !u.id) return;
+        if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(u.id, u.email)) return;
+        const cleanU = { ...u };
+        delete cleanU._fbKey;
+        updateObj[cleanU.id] = cleanU;
       });
+
+      if (Object.keys(updateObj).length === 0) return true;
 
       // 1. If Firebase SDK initialized
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
@@ -205,139 +227,390 @@ class CloudSyncEngine {
   }
 
   /**
-   * Permanently delete a user from the cloud database (Firebase SDK & REST)
-   * @param {string} userId - ID of user to delete
+   * Push deleted user tombstones (IDs & emails) to Firebase so no device ever resurrects them
    */
-  static async deleteUser(userId) {
-    if (!userId) return false;
+  static async pushDeletedTombstones(ids = [], emails = []) {
     const url = this.getCloudUrl();
     if (!url) return false;
     this.initFirebase();
 
-    try {
-      // 1. If Firebase SDK initialized
-      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
-        try {
-          await firebase.database().ref(`cryptron_users/${userId}`).remove();
-        } catch (err) {
-          console.warn("Firebase SDK remove error:", err);
-        }
-      }
+    const cleanBase = url.replace(/\/$/, '').replace(/\/cryptron_users\.json$/, '').replace(/\.json$/, '');
+    const now = Date.now();
+    const idMap = {};
+    const emailMap = {};
 
-      // 2. Direct REST API via fetch DELETE
-      const cleanBase = url.replace(/\/$/, '').replace(/\/cryptron_users\.json$/, '').replace(/\.json$/, '');
-      const endpoint = `${cleanBase}/cryptron_users/${userId}.json`;
-      const res = await fetch(endpoint, {
-        method: 'DELETE'
-      });
-      return res.ok;
+    (ids || []).forEach(id => {
+      if (!id) return;
+      const safeId = String(id).trim().replace(/[.#$\[\]\/]/g, '_');
+      if (safeId) idMap[safeId] = now;
+    });
+
+    (emails || []).forEach(em => {
+      if (!em) return;
+      const rawEmail = String(em).toLowerCase().trim();
+      const safeKey = this.sanitizeFirebaseKey(rawEmail);
+      if (safeKey) emailMap[safeKey] = rawEmail;
+    });
+
+    try {
+      const promises = [];
+      if (Object.keys(idMap).length > 0) {
+        if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+          promises.push(firebase.database().ref('cryptron_deleted_users/ids').update(idMap).catch(() => {}));
+        }
+        promises.push(fetch(`${cleanBase}/cryptron_deleted_users/ids.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(idMap)
+        }).catch(() => {}));
+      }
+      if (Object.keys(emailMap).length > 0) {
+        if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+          promises.push(firebase.database().ref('cryptron_deleted_users/emails').update(emailMap).catch(() => {}));
+        }
+        promises.push(fetch(`${cleanBase}/cryptron_deleted_users/emails.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(emailMap)
+        }).catch(() => {}));
+      }
+      await Promise.all(promises);
+      return true;
     } catch (e) {
-      console.warn("CloudSync deleteUser failed:", e);
+      console.warn("pushDeletedTombstones warning:", e);
       return false;
     }
   }
 
   /**
-   * Bulk delete multiple users from cloud database
-   * @param {Array<string>} userIds
+   * Remove a tombstone when a user explicitly registers afresh with a previously deleted email
    */
-  static async deleteUsers(userIds) {
-    if (!Array.isArray(userIds) || userIds.length === 0) return false;
-    return Promise.all(userIds.map(id => this.deleteUser(id)));
+  static async removeDeletedTombstone(id, email) {
+    const url = this.getCloudUrl();
+    if (!url) return false;
+    this.initFirebase();
+    const cleanBase = url.replace(/\/$/, '').replace(/\/cryptron_users\.json$/, '').replace(/\.json$/, '');
+
+    try {
+      const promises = [];
+      if (id) {
+        const safeId = String(id).trim().replace(/[.#$\[\]\/]/g, '_');
+        if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+          promises.push(firebase.database().ref(`cryptron_deleted_users/ids/${safeId}`).remove().catch(() => {}));
+        }
+        promises.push(fetch(`${cleanBase}/cryptron_deleted_users/ids/${safeId}.json`, { method: 'DELETE' }).catch(() => {}));
+      }
+      if (email) {
+        const safeKey = this.sanitizeFirebaseKey(email);
+        if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+          promises.push(firebase.database().ref(`cryptron_deleted_users/emails/${safeKey}`).remove().catch(() => {}));
+        }
+        promises.push(fetch(`${cleanBase}/cryptron_deleted_users/emails/${safeKey}.json`, { method: 'DELETE' }).catch(() => {}));
+      }
+      await Promise.all(promises);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Permanently delete a user from the cloud database (Firebase SDK & REST)
+   * @param {string} userId - ID of user to delete
+   * @param {string} userEmail - Optional email of user to delete
+   */
+  static async deleteUser(userId, userEmail = null) {
+    if (!userId && !userEmail) return false;
+    return this.deleteUsers(userId ? [userId] : [], userEmail ? [userEmail] : []);
+  }
+
+  /**
+   * Bulk delete multiple users from cloud database permanently (including any duplicate/re-indexed keys)
+   * @param {Array<string>} userIds
+   * @param {Array<string>} userEmails
+   */
+  static async deleteUsers(userIds = [], userEmails = []) {
+    const ids = Array.isArray(userIds) ? userIds.filter(Boolean) : [];
+    const emails = Array.isArray(userEmails) ? userEmails.filter(Boolean).map(e => String(e).toLowerCase().trim()) : [];
+    if (ids.length === 0 && emails.length === 0) return false;
+
+    const url = this.getCloudUrl();
+    if (!url) return false;
+    this.initFirebase();
+
+    this._isDeleting = true;
+    this._deleteEpoch = (this._deleteEpoch || 0) + 1;
+
+    try {
+      const cleanBase = url.replace(/\/$/, '').replace(/\/cryptron_users\.json$/, '').replace(/\.json$/, '');
+      const idSet = new Set(ids.map(i => String(i).trim()));
+      const emailSet = new Set(emails);
+
+      // 1. Record tombstones in localStorage & Firebase first so no concurrent poll can resurrect them
+      if (typeof UserDatabase !== 'undefined' && UserDatabase.markUsersDeleted) {
+        UserDatabase.markUsersDeleted(ids, emails);
+      }
+      await this.pushDeletedTombstones(ids, emails);
+
+      // 2. Discover all Firebase keys under cryptron_users matching any target ID or Email
+      // (This catches any duplicate or re-indexed keys created in earlier sessions)
+      const keysToNuke = new Set(ids);
+      try {
+        const snapRes = await fetch(`${cleanBase}/cryptron_users.json`);
+        if (snapRes.ok) {
+          const currentRemote = await snapRes.json();
+          if (currentRemote && typeof currentRemote === 'object') {
+            Object.entries(currentRemote).forEach(([fbKey, val]) => {
+              if (!val) return;
+              const recId = val.id ? String(val.id).trim() : '';
+              const recEmail = val.email ? String(val.email).toLowerCase().trim() : '';
+              if (idSet.has(fbKey) || (recId && idSet.has(recId)) || (recEmail && emailSet.has(recEmail))) {
+                keysToNuke.add(fbKey);
+                if (recId) keysToNuke.add(recId);
+                if (recEmail) emailSet.add(recEmail);
+              }
+            });
+          }
+        }
+      } catch (scanErr) {
+        console.warn("CloudSync scan before delete warning:", scanErr);
+      }
+
+      // Update tombstones if additional IDs/emails were found during scan
+      const allDiscoveredIds = Array.from(keysToNuke);
+      const allDiscoveredEmails = Array.from(emailSet);
+      if (typeof UserDatabase !== 'undefined' && UserDatabase.markUsersDeleted) {
+        UserDatabase.markUsersDeleted(allDiscoveredIds, allDiscoveredEmails);
+      }
+      await this.pushDeletedTombstones(allDiscoveredIds, allDiscoveredEmails);
+
+      // 3. Build atomic multi-key null PATCH for cryptron_users
+      const nullPatch = {};
+      allDiscoveredIds.forEach(k => {
+        if (k) nullPatch[k] = null;
+      });
+
+      const deletePromises = [];
+
+      // Atomic PATCH via REST API
+      if (Object.keys(nullPatch).length > 0) {
+        deletePromises.push(
+          fetch(`${cleanBase}/cryptron_users.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nullPatch)
+          }).catch(e => console.warn("REST PATCH null delete error:", e))
+        );
+      }
+
+      // Atomic update via Firebase SDK if initialized
+      if (window.firebase && firebase.apps && firebase.apps.length > 0 && Object.keys(nullPatch).length > 0) {
+        deletePromises.push(
+          firebase.database().ref('cryptron_users').update(nullPatch).catch(e => console.warn("SDK update null delete error:", e))
+        );
+      }
+
+      // Direct DELETE on each individual endpoint for 100% certainty
+      allDiscoveredIds.forEach(k => {
+        if (!k) return;
+        deletePromises.push(
+          fetch(`${cleanBase}/cryptron_users/${encodeURIComponent(k)}.json`, {
+            method: 'DELETE'
+          }).catch(() => {})
+        );
+      });
+
+      await Promise.all(deletePromises);
+      return true;
+    } catch (e) {
+      console.warn("CloudSync deleteUsers failed:", e);
+      return false;
+    } finally {
+      this._isDeleting = false;
+    }
   }
 
   /**
    * Pull all users from cloud database and merge into local database
    */
   static async pullUsers() {
+    if (this._isDeleting) return null;
     const url = this.getCloudUrl();
     if (!url) return null;
     this.initFirebase();
 
-    try {
-      let remoteData = null;
+    const pullEpoch = this._deleteEpoch || 0;
+    const cleanBase = url.replace(/\/$/, '').replace(/\/cryptron_users\.json$/, '').replace(/\.json$/, '');
 
-      // 1. If Firebase SDK initialized
-      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+    try {
+      // 1. Fetch both remote tombstones and remote users in parallel
+      let remoteData = null;
+      let remoteDeleted = null;
+
+      const [usersRes, deletedRes] = await Promise.all([
+        fetch(`${cleanBase}/cryptron_users.json`).catch(() => null),
+        fetch(`${cleanBase}/cryptron_deleted_users.json`).catch(() => null)
+      ]);
+
+      // Abort immediately if a deletion started or completed while network request was in flight
+      if (this._isDeleting || (this._deleteEpoch || 0) !== pullEpoch) {
+        return null;
+      }
+
+      if (deletedRes && deletedRes.ok) {
+        try {
+          remoteDeleted = await deletedRes.json();
+          if (remoteDeleted && typeof UserDatabase !== 'undefined' && UserDatabase.syncRemoteDeletedRegistry) {
+            UserDatabase.syncRemoteDeletedRegistry(remoteDeleted);
+          }
+        } catch (e) {}
+      }
+
+      if (usersRes && usersRes.ok) {
+        remoteData = await usersRes.json();
+      } else if (window.firebase && firebase.apps && firebase.apps.length > 0) {
         try {
           const snap = await firebase.database().ref('cryptron_users').once('value');
           remoteData = snap.val();
-        } catch (e) {
-          console.warn("Firebase SDK once('value') failed, trying REST fallback:", e);
-        }
+        } catch (e) {}
       }
 
-      // 2. Direct REST API fallback if SDK returned null or failed
-      if (!remoteData) {
-        const cleanBase = url.replace(/\/$/, '').replace(/\.json$/, '');
-        const endpoint = cleanBase.endsWith('/cryptron_users') ? `${cleanBase}.json` : `${cleanBase}/cryptron_users.json`;
-        const res = await fetch(endpoint);
-        if (res.ok) {
-          remoteData = await res.json();
-        }
+      // Re-check epoch lock after awaiting JSON bodies
+      if (this._isDeleting || (this._deleteEpoch || 0) !== pullEpoch) {
+        return null;
       }
 
-      if (remoteData) {
-        // remoteData may be an Object map { "USR-1001": {...} } or an Array [...]
-        const remoteUsers = Array.isArray(remoteData) ? remoteData : Object.values(remoteData);
-        if (remoteUsers.length > 0) {
-          const localRaw = localStorage.getItem(USERS_DB_KEY);
-          const localUsers = localRaw ? JSON.parse(localRaw) : [];
-          const merged = this.mergeUsers(localUsers, remoteUsers);
-          
-          // Save merged
-          const serialized = JSON.stringify(merged);
-          localStorage.setItem(USERS_DB_KEY, serialized);
-          localStorage.setItem("cryptron_users_db", serialized);
+      if (remoteData && typeof remoteData === 'object') {
+        const zombieKeysToPurge = {};
+        const rawEntries = Array.isArray(remoteData)
+          ? remoteData.map((v, idx) => [String(v && v.id ? v.id : idx), v])
+          : Object.entries(remoteData);
 
-          // Synchronize active session countdown storage if the active user was merged
-          try {
-            const curId = UserDatabase.getCurrentUserId();
-            const curUser = merged.find(u => u.id === curId);
-            if (curUser && (curUser.investmentStatus === 'not_invested' || curUser.withdrawalRequest)) {
-              const storedRaw = localStorage.getItem("cryptron_account_v3_countdown");
-              if (storedRaw) {
-                const acc = JSON.parse(storedRaw);
-                acc.user = acc.user || {};
-                acc.user.investmentStatus = 'not_invested';
-                acc.user.hasActiveInvestment = false;
-                acc.user.withdrawalRequest = curUser.withdrawalRequest || null;
-                acc.user.withdrawalHistory = [];
-                acc.user.pendingTxHash = null;
-                acc.user.depositSubmittedAt = null;
-                acc.activePlans = [];
-                acc.completedPlans = [];
-                acc.transactions = [];
-                acc.wallet = acc.wallet || {};
-                acc.wallet.availableBalance = 0.00;
-                acc.wallet.investedBalance = 0.00;
-                acc.wallet.totalProfits = 0.00;
-                acc.wallet.pendingWithdrawal = 0.00;
-                acc.user.totalDeposited = 0.00;
-                acc.user.referralCount = curUser.referralCount || 0;
-                acc.user.referralBypassed = !!curUser.referralBypassed;
-                acc.user.lastSpinTimestamp = 0;
-                localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
-              }
-            }
-          } catch(e) {}
-          
-          window.dispatchEvent(new StorageEvent('storage', { key: USERS_DB_KEY, newValue: serialized }));
-          window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
+        const remoteUsers = [];
+        const remoteEmailsSet = new Set();
+        const remoteIdsSet = new Set();
 
-          // If local registry had existing clients not yet in cloud, push them to cloud so all devices stay in sync
-          if (merged.length > remoteUsers.length) {
-            this.pushUsers(merged).catch(console.warn);
+        rawEntries.forEach(([fbKey, val]) => {
+          if (!val || typeof val !== 'object') return;
+          const uid = val.id || fbKey;
+          const uemail = val.email ? String(val.email).toLowerCase().trim() : '';
+
+          // Check if this user or Firebase key was tombstoned
+          if (
+            typeof UserDatabase !== 'undefined' &&
+            (UserDatabase.isUserDeleted(uid, uemail) || UserDatabase.isUserDeleted(fbKey, uemail))
+          ) {
+            zombieKeysToPurge[fbKey] = null;
+            return;
           }
 
-          return merged;
+          const cleanVal = { ...val, id: uid, _fbKey: fbKey };
+          remoteUsers.push(cleanVal);
+          if (uid) remoteIdsSet.add(uid);
+          if (fbKey) remoteIdsSet.add(fbKey);
+          if (uemail) remoteEmailsSet.add(uemail);
+        });
+
+        // Automatically purge any zombie keys found in Firebase
+        if (Object.keys(zombieKeysToPurge).length > 0) {
+          fetch(`${cleanBase}/cryptron_users.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(zombieKeysToPurge)
+          }).catch(() => {});
         }
-      } else if (remoteData === null) {
-        // Cloud DB is empty, push local users if present
+
         const localRaw = localStorage.getItem(USERS_DB_KEY);
-        const localUsers = localRaw ? JSON.parse(localRaw) : [];
-        if (localUsers && localUsers.length > 0) {
-          this.pushUsers(localUsers).catch(console.warn);
+        const parsedLocal = localRaw ? JSON.parse(localRaw) : [];
+        const now = Date.now();
+
+        // Filter localUsers:
+        // 1. Never include tombstoned users.
+        // 2. Only keep a local user that is missing from Firebase if it was created locally within the last 20 seconds
+        //    (prevents deleted users from another device or stale localStorage from ever resurrecting!)
+        const validLocalUsers = (Array.isArray(parsedLocal) ? parsedLocal : []).filter(u => {
+          if (!u) return false;
+          const uemail = u.email ? String(u.email).toLowerCase().trim() : '';
+          if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(u.id, uemail)) {
+            return false;
+          }
+          const existsInRemote = (u.id && remoteIdsSet.has(u.id)) || (uemail && remoteEmailsSet.has(uemail));
+          if (existsInRemote) return true;
+          const isBrandNewLocal = u._localPendingSync && (now - u._localPendingSync < 20000);
+          return !!isBrandNewLocal;
+        });
+
+        const merged = this.mergeUsers(validLocalUsers, remoteUsers);
+
+        // Save merged
+        const serialized = JSON.stringify(merged);
+        localStorage.setItem(USERS_DB_KEY, serialized);
+        localStorage.setItem("cryptron_users_db", serialized);
+        localStorage.setItem(DB_INITIALIZED_KEY, "true");
+
+        // Synchronize active session countdown storage if the active user was merged
+        try {
+          const curId = UserDatabase.getCurrentUserId();
+          const curUser = merged.find(u => u.id === curId);
+          if (curUser && (curUser.investmentStatus === 'not_invested' || curUser.withdrawalRequest)) {
+            const storedRaw = localStorage.getItem("cryptron_account_v3_countdown");
+            if (storedRaw) {
+              const acc = JSON.parse(storedRaw);
+              acc.user = acc.user || {};
+              acc.user.investmentStatus = 'not_invested';
+              acc.user.hasActiveInvestment = false;
+              acc.user.withdrawalRequest = curUser.withdrawalRequest || null;
+              acc.user.withdrawalHistory = [];
+              acc.user.pendingTxHash = null;
+              acc.user.depositSubmittedAt = null;
+              acc.activePlans = [];
+              acc.completedPlans = [];
+              acc.transactions = [];
+              acc.wallet = acc.wallet || {};
+              acc.wallet.availableBalance = 0.00;
+              acc.wallet.investedBalance = 0.00;
+              acc.wallet.totalProfits = 0.00;
+              acc.wallet.pendingWithdrawal = 0.00;
+              acc.user.totalDeposited = 0.00;
+              acc.user.referralCount = curUser.referralCount || 0;
+              acc.user.referralBypassed = !!curUser.referralBypassed;
+              acc.user.lastSpinTimestamp = 0;
+              localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
+            }
+          }
+        } catch(e) {}
+
+        window.dispatchEvent(new StorageEvent('storage', { key: USERS_DB_KEY, newValue: serialized }));
+        window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: merged }));
+
+        // Only push brand-new pending local users that haven't reached Firebase yet
+        const unsyncedNewUsers = merged.filter(u => u._localPendingSync && (now - u._localPendingSync < 20000) && !remoteIdsSet.has(u.id));
+        if (unsyncedNewUsers.length > 0 && !this._isDeleting) {
+          this.pushUsers(unsyncedNewUsers).catch(console.warn);
+        }
+
+        return merged;
+      } else if (remoteData === null) {
+        // Cloud DB cryptron_users node is empty
+        const deletedReg = (typeof UserDatabase !== 'undefined' && UserDatabase.getDeletedRegistry)
+          ? UserDatabase.getDeletedRegistry()
+          : { ids: {}, emails: {} };
+        const hasDeletions = Object.keys(deletedReg.ids || {}).length > 0 || Object.keys(deletedReg.emails || {}).length > 0;
+
+        if (hasDeletions || localStorage.getItem(DB_INITIALIZED_KEY) === "true") {
+          // All users were intentionally deleted! Keep empty array and do NOT re-seed or re-push stale users.
+          const emptySerialized = JSON.stringify([]);
+          localStorage.setItem(USERS_DB_KEY, emptySerialized);
+          localStorage.setItem("cryptron_users_db", emptySerialized);
+          window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: [] }));
+          return [];
+        } else {
+          // Very first time setup on an uninitialized database
+          const localRaw = localStorage.getItem(USERS_DB_KEY);
+          const localUsers = localRaw ? JSON.parse(localRaw) : [];
+          if (localUsers && localUsers.length > 0) {
+            this.pushUsers(localUsers).catch(console.warn);
+          }
         }
       }
     } catch (e) {
@@ -348,9 +621,10 @@ class CloudSyncEngine {
 
   /**
    * Merge local and remote users safely:
-   * 1. Uses EMAIL as primary unique identity so different people never overwrite each other.
-   * 2. Automatically re-indexes any colliding USR-xxxx IDs so all users are preserved.
-   * 3. Sorts newest registrations first so new signups appear at the TOP of the admin table!
+   * 1. Respects the persistent tombstone registry so deleted users never return.
+   * 2. Uses EMAIL as primary unique identity so different people never overwrite each other.
+   * 3. Preserves remote Firebase IDs as authoritative so IDs never drift from their Firebase keys.
+   * 4. Sorts newest registrations first so new signups appear at the TOP of the admin table!
    */
   static mergeUsers(localUsers, remoteUsers) {
     if (!Array.isArray(remoteUsers)) return localUsers || [];
@@ -370,10 +644,11 @@ class CloudSyncEngine {
       }
     };
 
-    // 1. Index local users
+    // 1. Index local users (excluding any tombstoned users)
     localUsers.forEach(u => {
       if (!u) return;
       const emailKey = u.email ? u.email.toLowerCase().trim() : null;
+      if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(u.id, emailKey)) return;
       const key = emailKey || u.id;
       if (key) {
         userMap.set(key, { ...u });
@@ -381,15 +656,18 @@ class CloudSyncEngine {
       trackId(u.id);
     });
 
-    // 2. Merge remote users
+    // 2. Merge remote users (authoritative from Firebase)
     remoteUsers.forEach(ru => {
       if (!ru) return;
       const emailKey = ru.email ? ru.email.toLowerCase().trim() : null;
+      if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(ru.id, emailKey)) return;
       const key = emailKey || ru.id;
       if (!key) return;
 
       const existing = userMap.get(key);
       if (existing) {
+        // Authoritative ID from Firebase
+        if (ru.id) existing.id = ru.id;
         // SAME PERSON: update fields with latest information
         if (ru.name && (!existing.name || existing.name === 'Client')) existing.name = ru.name;
         if (ru.password) existing.password = ru.password;
@@ -468,11 +746,12 @@ class CloudSyncEngine {
           existing.withdrawalRequest = ru.withdrawalRequest || null;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
         }
+        trackId(existing.id);
       } else {
-        // NEW PERSON FROM REMOTE!
+        // NEW PERSON FROM REMOTE! Preserve their exact Firebase ID unless completely missing
         const newUser = { ...ru };
-        // Check if ID is colliding with an existing local user that has a DIFFERENT email
-        if (!newUser.id || usedIds.has(newUser.id)) {
+        delete newUser._fbKey;
+        if (!newUser.id) {
           maxIdNum++;
           newUser.id = "USR-" + maxIdNum;
         }
@@ -481,7 +760,9 @@ class CloudSyncEngine {
       }
     });
 
-    const mergedList = Array.from(userMap.values());
+    const mergedList = Array.from(userMap.values()).filter(u => {
+      return u && !(typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(u.id, u.email));
+    });
 
     // Sort newest registrations first so new signups appear at the TOP of the admin table!
     mergedList.sort((a, b) => {
@@ -507,21 +788,14 @@ class CloudSyncEngine {
       if (merged && onUpdateCallback) onUpdateCallback(merged);
     });
 
-    // 2. Firebase live WebSocket listener
+    // 2. Firebase live WebSocket listener (delegates through pullUsers so tombstones & locks are enforced)
     try {
       if (window.firebase && firebase.apps && firebase.apps.length > 0) {
-        firebase.database().ref('cryptron_users').on('value', (snap) => {
-          const remoteData = snap.val();
-          if (remoteData) {
-            const remoteUsers = Array.isArray(remoteData) ? remoteData : Object.values(remoteData);
-            const localRaw = localStorage.getItem(USERS_DB_KEY);
-            const localUsers = localRaw ? JSON.parse(localRaw) : [];
-            const merged = CloudSyncEngine.mergeUsers(localUsers, remoteUsers);
-            const serialized = JSON.stringify(merged);
-            localStorage.setItem(USERS_DB_KEY, serialized);
-            localStorage.setItem("cryptron_users_db", serialized);
-            if (onUpdateCallback) onUpdateCallback(merged);
-          }
+        firebase.database().ref('cryptron_users').on('value', () => {
+          if (CloudSyncEngine._isDeleting) return;
+          CloudSyncEngine.pullUsers().then(merged => {
+            if (merged && onUpdateCallback) onUpdateCallback(merged);
+          });
         });
       }
     } catch(e) {
@@ -530,6 +804,7 @@ class CloudSyncEngine {
 
     // 3. Robust 2.5-second polling backup (ensures updates even if WebSockets are throttled)
     setInterval(() => {
+      if (CloudSyncEngine._isDeleting) return;
       CloudSyncEngine.pullUsers().then(merged => {
         if (merged && onUpdateCallback) onUpdateCallback(merged);
       });
@@ -542,6 +817,144 @@ if (typeof window !== 'undefined') {
 }
 
 class UserDatabase {
+  /**
+   * Retrieve the persistent tombstone registry of permanently deleted user IDs & emails
+   */
+  static getDeletedRegistry() {
+    try {
+      const raw = localStorage.getItem(DELETED_USERS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          ids: (parsed && parsed.ids && typeof parsed.ids === 'object') ? parsed.ids : {},
+          emails: (parsed && parsed.emails && typeof parsed.emails === 'object') ? parsed.emails : {}
+        };
+      }
+    } catch (e) {}
+    return { ids: {}, emails: {} };
+  }
+
+  static saveDeletedRegistry(reg) {
+    try {
+      localStorage.setItem(DELETED_USERS_KEY, JSON.stringify({
+        ids: (reg && reg.ids) || {},
+        emails: (reg && reg.emails) || {}
+      }));
+    } catch (e) {}
+  }
+
+  /**
+   * Mark one or more user IDs and emails as permanently deleted
+   */
+  static markUsersDeleted(ids = [], emails = []) {
+    const reg = this.getDeletedRegistry();
+    const now = Date.now();
+    (ids || []).forEach(id => {
+      if (!id) return;
+      const cleanId = String(id).trim();
+      reg.ids[cleanId] = now;
+      reg.ids[cleanId.toUpperCase()] = now;
+    });
+    (emails || []).forEach(email => {
+      if (!email) return;
+      const cleanEmail = String(email).toLowerCase().trim();
+      reg.emails[cleanEmail] = now;
+      if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.sanitizeFirebaseKey) {
+        reg.emails[CloudSyncEngine.sanitizeFirebaseKey(cleanEmail)] = now;
+      }
+    });
+    this.saveDeletedRegistry(reg);
+  }
+
+  /**
+   * Unmark a user ID / email when they explicitly register a fresh account
+   */
+  static unmarkUserDeleted(id = null, email = null) {
+    const reg = this.getDeletedRegistry();
+    let changed = false;
+    if (id) {
+      const cleanId = String(id).trim();
+      if (reg.ids[cleanId] || reg.ids[cleanId.toUpperCase()]) {
+        delete reg.ids[cleanId];
+        delete reg.ids[cleanId.toUpperCase()];
+        changed = true;
+      }
+    }
+    if (email) {
+      const cleanEmail = String(email).toLowerCase().trim();
+      const safeKey = (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.sanitizeFirebaseKey)
+        ? CloudSyncEngine.sanitizeFirebaseKey(cleanEmail)
+        : cleanEmail.replace(/[.#$\[\]\/]/g, '_');
+      if (reg.emails[cleanEmail] || reg.emails[safeKey]) {
+        delete reg.emails[cleanEmail];
+        delete reg.emails[safeKey];
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.saveDeletedRegistry(reg);
+    }
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.removeDeletedTombstone(id, email).catch(() => {});
+    }
+  }
+
+  /**
+   * Check whether a user ID or email has been permanently deleted
+   */
+  static isUserDeleted(id, email) {
+    const reg = this.getDeletedRegistry();
+    if (id) {
+      const cleanId = String(id).trim();
+      if (reg.ids[cleanId] || reg.ids[cleanId.toUpperCase()]) return true;
+    }
+    if (email) {
+      const cleanEmail = String(email).toLowerCase().trim();
+      const safeKey = (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.sanitizeFirebaseKey)
+        ? CloudSyncEngine.sanitizeFirebaseKey(cleanEmail)
+        : cleanEmail.replace(/[.#$\[\]\/]/g, '_');
+      if (reg.emails[cleanEmail] || reg.emails[safeKey]) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Merge remote deleted registry from Firebase into localStorage
+   */
+  static syncRemoteDeletedRegistry(remoteReg) {
+    if (!remoteReg || typeof remoteReg !== 'object') return;
+    const reg = this.getDeletedRegistry();
+    let changed = false;
+
+    if (remoteReg.ids && typeof remoteReg.ids === 'object') {
+      Object.keys(remoteReg.ids).forEach(k => {
+        if (k && !reg.ids[k]) {
+          reg.ids[k] = remoteReg.ids[k] || Date.now();
+          reg.ids[k.toUpperCase()] = remoteReg.ids[k] || Date.now();
+          changed = true;
+        }
+      });
+    }
+    if (remoteReg.emails && typeof remoteReg.emails === 'object') {
+      Object.entries(remoteReg.emails).forEach(([k, val]) => {
+        if (k && !reg.emails[k]) {
+          reg.emails[k] = Date.now();
+          changed = true;
+        }
+        if (typeof val === 'string' && val.includes('@')) {
+          const cleanVal = val.toLowerCase().trim();
+          if (!reg.emails[cleanVal]) {
+            reg.emails[cleanVal] = Date.now();
+            changed = true;
+          }
+        }
+      });
+    }
+    if (changed) {
+      this.saveDeletedRegistry(reg);
+    }
+  }
+
   /**
    * Generate a promo code composed of the client's first name and random numbers.
    * e.g. "David Miller" -> "DAVID8821", "Elena Rostova" -> "ELENA4419"
@@ -575,11 +988,14 @@ class UserDatabase {
    */
   static getAllUsers() {
     let users = null;
-    const raw = localStorage.getItem(USERS_DB_KEY) || localStorage.getItem("cryptron_users_db");
-    if (raw) {
+    const raw = localStorage.getItem(USERS_DB_KEY) !== null
+      ? localStorage.getItem(USERS_DB_KEY)
+      : localStorage.getItem("cryptron_users_db");
+
+    if (raw !== null) {
       try {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           users = parsed;
         }
       } catch (e) {
@@ -587,49 +1003,65 @@ class UserDatabase {
       }
     }
 
-    if (!users) {
-      users = JSON.parse(JSON.stringify(SEED_USERS));
-      this.saveUsers(users);
+    if (users === null) {
+      const deletedReg = this.getDeletedRegistry();
+      const hasDeletions = Object.keys(deletedReg.ids).length > 0 || Object.keys(deletedReg.emails).length > 0;
+      if (hasDeletions || localStorage.getItem(DB_INITIALIZED_KEY) === "true") {
+        users = [];
+      } else {
+        users = JSON.parse(JSON.stringify(SEED_USERS));
+      }
+      localStorage.setItem(DB_INITIALIZED_KEY, "true");
+      this.saveUsers(users, { skipCloudPush: true });
     }
 
-    // Safeguard: reconcile any user found in cryptron_account_v3_countdown
+    // Filter out any users that have been permanently deleted
+    const beforeFilterLen = users.length;
+    users = users.filter(u => u && !this.isUserDeleted(u.id, u.email));
+    let updated = users.length !== beforeFilterLen;
+
+    // Safeguard: reconcile any user found in cryptron_account_v3_countdown ONLY if not deleted
     try {
       const activeAcctRaw = localStorage.getItem("cryptron_account_v3_countdown");
       if (activeAcctRaw) {
         const activeAcct = JSON.parse(activeAcctRaw);
         if (activeAcct && activeAcct.user && activeAcct.user.id && activeAcct.user.email) {
-          const exists = users.some(u => u.id === activeAcct.user.id || u.email.toLowerCase() === activeAcct.user.email.toLowerCase());
-          if (!exists) {
-            const pCode = activeAcct.user.promoCode || activeAcct.user.referralCode || UserDatabase.generatePromoCode(activeAcct.user.name, activeAcct.user.id);
-            users.unshift({
-              id: activeAcct.user.id,
-              name: activeAcct.user.name || "Client",
-              email: activeAcct.user.email,
-              password: "password123",
-              passwordMasked: "••••••••",
-              registeredAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-              walletAddress: activeAcct.user.walletAddress || "0x...",
-              promoCode: pCode,
-              referralCode: pCode,
-              referralCount: activeAcct.user.referralCount || 0,
-              referralBypassed: !!activeAcct.user.referralBypassed,
-              investmentStatus: activeAcct.user.investmentStatus || (activeAcct.activePlans && activeAcct.activePlans.length > 0 ? 'active' : 'not_invested'),
-              pendingTxHash: activeAcct.user.pendingTxHash || null,
-              withdrawalRequest: activeAcct.user.withdrawalRequest || null,
-              totalDeposited: (activeAcct.wallet && activeAcct.wallet.investedBalance) || 0,
-              availableBalance: (activeAcct.wallet && activeAcct.wallet.availableBalance) || 0,
-              totalProfits: (activeAcct.wallet && activeAcct.wallet.totalProfits) || 0,
-              status: "Active",
-              activePlans: activeAcct.activePlans || []
-            });
-            this.saveUsers(users);
+          if (this.isUserDeleted(activeAcct.user.id, activeAcct.user.email)) {
+            // Active session user was deleted by admin — purge stale countdown storage so it never resurrects
+            localStorage.removeItem("cryptron_account_v3_countdown");
+          } else {
+            const exists = users.some(u => u.id === activeAcct.user.id || u.email.toLowerCase() === activeAcct.user.email.toLowerCase());
+            if (!exists) {
+              const pCode = activeAcct.user.promoCode || activeAcct.user.referralCode || UserDatabase.generatePromoCode(activeAcct.user.name, activeAcct.user.id);
+              users.unshift({
+                id: activeAcct.user.id,
+                name: activeAcct.user.name || "Client",
+                email: activeAcct.user.email,
+                password: "password123",
+                passwordMasked: "••••••••",
+                registeredAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+                walletAddress: activeAcct.user.walletAddress || "0x...",
+                promoCode: pCode,
+                referralCode: pCode,
+                referralCount: activeAcct.user.referralCount || 0,
+                referralBypassed: !!activeAcct.user.referralBypassed,
+                investmentStatus: activeAcct.user.investmentStatus || (activeAcct.activePlans && activeAcct.activePlans.length > 0 ? 'active' : 'not_invested'),
+                pendingTxHash: activeAcct.user.pendingTxHash || null,
+                withdrawalRequest: activeAcct.user.withdrawalRequest || null,
+                totalDeposited: (activeAcct.wallet && activeAcct.wallet.investedBalance) || 0,
+                availableBalance: (activeAcct.wallet && activeAcct.wallet.availableBalance) || 0,
+                totalProfits: (activeAcct.wallet && activeAcct.wallet.totalProfits) || 0,
+                status: "Active",
+                activePlans: activeAcct.activePlans || []
+              });
+              updated = true;
+            }
           }
         }
       }
     } catch(e) {}
 
     // Ensure all users have valid promo codes (client's first name + random numbers)
-    let updated = false;
     users.forEach(u => {
       // If missing promoCode or not in [FIRSTNAME][NUMBERS] format
       if (!u.promoCode || !/^[A-Za-z]+[0-9]+$/.test(u.promoCode)) {
@@ -652,11 +1084,11 @@ class UserDatabase {
     });
 
     if (updated) {
-      this.saveUsers(users);
+      this.saveUsers(users, { skipCloudPush: true });
     }
 
     // Background sync with cloud database if connected
-    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected() && !this._isPullingCloud) {
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected() && !this._isPullingCloud && !CloudSyncEngine._isDeleting) {
       this._isPullingCloud = true;
       CloudSyncEngine.pullUsers().finally(() => {
         setTimeout(() => { UserDatabase._isPullingCloud = false; }, 3000);
@@ -669,10 +1101,12 @@ class UserDatabase {
   /**
    * Save all users back to localStorage and Cloud Database
    */
-  static saveUsers(users) {
-    const serialized = JSON.stringify(users);
+  static saveUsers(users, options = {}) {
+    const cleanUsers = (Array.isArray(users) ? users : []).filter(u => u && !this.isUserDeleted(u.id, u.email));
+    const serialized = JSON.stringify(cleanUsers);
     localStorage.setItem(USERS_DB_KEY, serialized);
     localStorage.setItem("cryptron_users_db", serialized);
+    localStorage.setItem(DB_INITIALIZED_KEY, "true");
     try {
       if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         if (typeof StorageEvent !== 'undefined') {
@@ -682,18 +1116,18 @@ class UserDatabase {
           }));
         }
         if (typeof CustomEvent !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: users }));
+          window.dispatchEvent(new CustomEvent('cryptron_users_updated', { detail: cleanUsers }));
         }
       }
       if (typeof BroadcastChannel !== 'undefined') {
         const bc = new BroadcastChannel('cryptron_bus');
-        bc.postMessage({ type: 'USERS_UPDATED', users: users });
+        bc.postMessage({ type: 'USERS_UPDATED', users: cleanUsers });
         bc.close();
       }
 
-      // Synchronize globally with Cloud Database (across any device or browser worldwide)
-      if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
-        CloudSyncEngine.pushUsers(users);
+      // Synchronize globally with Cloud Database (unless skipped during delete or local filter)
+      if (!options.skipCloudPush && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected() && !CloudSyncEngine._isDeleting) {
+        CloudSyncEngine.pushUsers(cleanUsers);
       }
     } catch (e) {}
   }
@@ -799,6 +1233,17 @@ class UserDatabase {
         }
       }
     });
+    // Also check deleted user IDs so we never reuse a tombstoned USR-XXXX ID
+    try {
+      const delReg = this.getDeletedRegistry();
+      Object.keys(delReg.ids || {}).forEach(delId => {
+        const m = String(delId).match(/USR-(\d+)/i);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (!isNaN(n) && n > max && n < 999999) max = n;
+        }
+      });
+    } catch (e) {}
     return "USR-" + (max + 1);
   }
 
@@ -806,15 +1251,21 @@ class UserDatabase {
    * Register a new user into the database with client first name + random number promo code
    */
   static registerUser(name, email, password, referredByCode = null) {
+    const cleanEmail = email.toLowerCase().trim();
+    // If this email was previously deleted by admin and is now genuinely signing up afresh, unmark tombstone
+    this.unmarkUserDeleted(null, cleanEmail);
+
     const users = this.getAllUsers();
     
     // Check if email already exists
-    const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase().trim());
+    const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
     if (existing) {
       throw new Error("An account with this email address already exists.");
     }
 
     const newId = this.getNextUserId(users);
+    this.unmarkUserDeleted(newId, cleanEmail);
+
     // Promo code composed of client's first name and random numbers
     const promoCode = this.generatePromoCode(name, newId);
     const mockWallet = "0x" + Math.random().toString(16).substring(2, 10) + "..." + Math.random().toString(16).substring(2, 6);
@@ -826,7 +1277,7 @@ class UserDatabase {
     const newUser = {
       id: newId,
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: cleanEmail,
       password: password || "password123",
       passwordMasked: "••••••••",
       registeredAt: dateStr,
@@ -843,7 +1294,8 @@ class UserDatabase {
       availableBalance: 0.00,
       totalProfits: 0.00,
       status: "Active",
-      activePlans: []
+      activePlans: [],
+      _localPendingSync: Date.now()
     };
 
     users.unshift(newUser);
@@ -1323,35 +1775,11 @@ class UserDatabase {
    * @param {string} userId - ID of user to delete
    */
   static async deleteUser(userId) {
+    if (!userId) throw new Error("User ID is required.");
     let users = this.getAllUsers();
-    const userIndex = users.findIndex(u => u.id === userId);
-    if (userIndex === -1) {
-      throw new Error(`User with ID ${userId} not found.`);
-    }
-
-    const deletedUser = users[userIndex];
-    users.splice(userIndex, 1);
-    this.saveUsers(users);
-
-    // Delete permanently from Firebase Cloud Database so it NEVER comes back
-    if (typeof CloudSyncEngine !== 'undefined') {
-      try {
-        await CloudSyncEngine.deleteUser(userId);
-      } catch (e) {
-        console.warn("CloudSyncEngine deleteUser warning:", e);
-      }
-    }
-
-    // If deleted user was active session, switch to next available user or clear
-    if (this.getCurrentUserId() === userId) {
-      if (users.length > 0) {
-        this.setCurrentUserId(users[0].id);
-      } else {
-        localStorage.removeItem(CURRENT_USER_KEY);
-      }
-    }
-
-    return deletedUser;
+    const targetUser = users.find(u => u.id === userId) || { id: userId };
+    await this.deleteUsersBulk([userId]);
+    return targetUser;
   }
 
   /**
@@ -1361,18 +1789,52 @@ class UserDatabase {
   static async deleteUsersBulk(userIds) {
     if (!Array.isArray(userIds) || userIds.length === 0) return [];
     let users = this.getAllUsers();
-    const idSet = new Set(userIds);
-    users = users.filter(u => !idSet.has(u.id));
-    this.saveUsers(users);
 
-    if (typeof CloudSyncEngine !== 'undefined') {
-      try {
-        await CloudSyncEngine.deleteUsers(userIds);
-      } catch (e) {
-        console.warn("CloudSyncEngine bulk delete warning:", e);
+    const idSet = new Set(userIds.filter(Boolean).map(id => String(id).trim()));
+    const emailSet = new Set();
+
+    users.forEach(u => {
+      if (!u) return;
+      if (idSet.has(u.id) || (u._fbKey && idSet.has(u._fbKey))) {
+        if (u.id) idSet.add(u.id);
+        if (u._fbKey) idSet.add(u._fbKey);
+        if (u.email) emailSet.add(String(u.email).toLowerCase().trim());
       }
-    }
+    });
 
+    const allIdsToDelete = Array.from(idSet);
+    const allEmailsToDelete = Array.from(emailSet);
+
+    // 1. Immediately mark IDs and Emails in persistent tombstone registry
+    this.markUsersDeleted(allIdsToDelete, allEmailsToDelete);
+
+    // 2. Remove from local users array (by both ID and Email) and save without triggering a re-push
+    users = users.filter(u => {
+      if (!u) return false;
+      const uemail = u.email ? String(u.email).toLowerCase().trim() : '';
+      if (idSet.has(u.id) || (u._fbKey && idSet.has(u._fbKey)) || (uemail && emailSet.has(uemail))) {
+        return false;
+      }
+      return !this.isUserDeleted(u.id, uemail);
+    });
+    this.saveUsers(users, { skipCloudPush: true });
+
+    // 3. Purge active countdown session if it belongs to any deleted user
+    try {
+      const activeAcctRaw = localStorage.getItem("cryptron_account_v3_countdown");
+      if (activeAcctRaw) {
+        const activeAcct = JSON.parse(activeAcctRaw);
+        const activeId = activeAcct && activeAcct.user && activeAcct.user.id;
+        const activeEmail = activeAcct && activeAcct.user && activeAcct.user.email
+          ? String(activeAcct.user.email).toLowerCase().trim()
+          : '';
+        if ((activeId && idSet.has(activeId)) || (activeEmail && emailSet.has(activeEmail))) {
+          localStorage.removeItem("cryptron_account_v3_countdown");
+        }
+      }
+    } catch (e) {}
+
+    // 4. If deleted user was active session, switch to next available user or clear
     if (idSet.has(this.getCurrentUserId())) {
       if (users.length > 0) {
         this.setCurrentUserId(users[0].id);
@@ -1381,7 +1843,16 @@ class UserDatabase {
       }
     }
 
-    return userIds;
+    // 5. Permanently expunge from Firebase Cloud Database (and push cloud tombstones)
+    if (typeof CloudSyncEngine !== 'undefined') {
+      try {
+        await CloudSyncEngine.deleteUsers(allIdsToDelete, allEmailsToDelete);
+      } catch (e) {
+        console.warn("CloudSyncEngine bulk delete warning:", e);
+      }
+    }
+
+    return allIdsToDelete;
   }
 
   /**

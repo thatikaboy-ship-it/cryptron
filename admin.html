@@ -294,32 +294,58 @@
         </div>
       </div>
 
+      <!-- Always-Visible Multi-Select & Quick Bulk Delete Toolbar -->
+      <div id="admin-selection-toolbar" class="mb-4 p-3.5 rounded-2xl bg-slate-900/95 border border-white/15 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-lg">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <label class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-white/10 cursor-pointer select-none transition-all">
+            <input type="checkbox" id="toolbar-select-all-cb" onchange="handleSelectAllToggle(this.checked)" class="rounded bg-slate-900 border-white/30 text-emerald-400 accent-emerald-400 focus:ring-0 w-4 h-4 cursor-pointer">
+            <span id="toolbar-select-all-label" class="text-xs font-mono font-bold text-white">Select All Visible</span>
+          </label>
+
+          <button type="button" onclick="selectAllInactiveUsers()" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/10 text-xs font-mono font-semibold flex items-center gap-1.5 transition-all cursor-pointer" title="Select all users with no active investment plan">
+            <i data-lucide="check-square" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span>Select No-Plan Users</span>
+          </button>
+
+          <button type="button" id="toolbar-clear-selection-btn" onclick="deselectAllUsers()" class="hidden px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-white/10 text-xs font-mono transition-all cursor-pointer">
+            Clear (<span id="toolbar-clear-count">0</span>)
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" id="quick-bulk-delete-btn" onclick="bulkDeleteSelected()" class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 font-mono font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span id="quick-bulk-delete-label">Delete Selected (0)</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Bulk Actions Bar (Revealed when 1 or more users selected) -->
-      <div id="admin-bulk-actions-bar" class="hidden mb-4 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-cyan-950/80 border border-emerald-500/40 shadow-xl flex items-center justify-between flex-wrap gap-3">
+      <div id="admin-bulk-actions-bar" class="hidden mb-4 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/90 via-slate-900 to-rose-950/80 border-2 border-emerald-500/50 shadow-2xl flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-3">
           <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
           <span class="text-xs sm:text-sm font-bold font-mono text-white">
-            <span id="bulk-selected-count" class="text-emerald-400 font-black">0</span> Clients Selected
+            <span id="bulk-selected-count" class="text-emerald-400 font-black text-base">0</span> Clients Selected
           </span>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <button onclick="bulkApproveSelected()" class="btn-shimmer px-3 py-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs font-mono flex items-center gap-1 shadow-md shadow-emerald-500/20 cursor-pointer">
+          <button onclick="bulkApproveSelected()" class="btn-shimmer px-3 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs font-mono flex items-center gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer">
             <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
             <span>Approve & Start ($10)</span>
           </button>
-          <button onclick="bulkMatureSelected()" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs flex items-center gap-1 cursor-pointer">
+          <button onclick="bulkMatureSelected()" class="px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs flex items-center gap-1.5 cursor-pointer">
             <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
             <span>Mature Now</span>
           </button>
-          <button onclick="bulkResetSelected()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 border border-white/10 text-slate-300 font-mono text-xs flex items-center gap-1 cursor-pointer">
-            <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+          <button onclick="bulkResetSelected()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 border border-white/10 text-slate-300 font-mono text-xs flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
             <span>Reset ($0)</span>
           </button>
-          <button onclick="bulkDeleteSelected()" class="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-mono font-bold text-xs flex items-center gap-1 cursor-pointer">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            <span>Delete Selected (Cloud & Local)</span>
+          <button id="bulk-bar-delete-btn" onclick="bulkDeleteSelected()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white border border-rose-400/50 font-mono font-black text-xs flex items-center gap-1.5 shadow-lg shadow-rose-600/30 cursor-pointer">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>Delete Selected Permanently</span>
           </button>
-          <button onclick="deselectAllUsers()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 font-mono text-xs cursor-pointer">
+          <button onclick="deselectAllUsers()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs cursor-pointer">
             Cancel
           </button>
         </div>
@@ -330,8 +356,8 @@
         <table class="w-full text-left text-xs sm:text-sm min-w-[780px]">
           <thead>
             <tr class="border-b border-white/10 text-slate-400 font-mono text-[11px] uppercase tracking-wider">
-              <th class="pb-3 w-8 text-center">
-                <input type="checkbox" id="select-all-users-cb" onchange="handleSelectAllToggle(this.checked)" class="rounded bg-slate-900 border-white/20 text-emerald-400 focus:ring-0 w-4 h-4 cursor-pointer" title="Select / Deselect All Users">
+              <th class="pb-3 w-10 text-center">
+                <input type="checkbox" id="select-all-users-cb" onchange="handleSelectAllToggle(this.checked)" class="rounded bg-slate-900 border-white/30 text-emerald-400 accent-emerald-400 focus:ring-0 w-5 h-5 cursor-pointer" title="Select / Deselect All Users">
               </th>
               <th class="pb-3 font-semibold">User Details</th>
               <th class="pb-3 font-semibold">Registered Email</th>
@@ -349,12 +375,12 @@
       <!-- MOBILE Users Card View (visible on mobile < md) -->
       <div class="md:hidden space-y-3">
         <!-- Mobile Select All Bar -->
-        <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-xs font-mono text-slate-400">
-          <label class="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" id="select-all-mobile-cb" onchange="handleSelectAllToggle(this.checked)" class="rounded bg-slate-900 border-white/20 text-emerald-400 focus:ring-0 w-4 h-4 cursor-pointer">
+        <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-white/15 text-xs font-mono text-slate-400">
+          <label class="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" id="select-all-mobile-cb" onchange="handleSelectAllToggle(this.checked)" class="rounded bg-slate-900 border-white/30 text-emerald-400 accent-emerald-400 focus:ring-0 w-5 h-5 cursor-pointer">
             <span class="text-white font-bold">Select All Clients</span>
           </label>
-          <span class="text-[11px] text-slate-500">Tap cards to manage</span>
+          <span class="text-[11px] text-emerald-400 font-semibold">Check boxes to bulk delete</span>
         </div>
         <div id="users-mobile-list" class="space-y-3.5">
           <!-- Populated dynamically for mobile -->
@@ -1034,9 +1060,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=3.6.0"></script>
-  <script src="js/email.js?v=3.6.0"></script>
-  <script src="js/app.js?v=3.6.0"></script>
+  <script src="js/db.js?v=3.7.0"></script>
+  <script src="js/email.js?v=3.7.0"></script>
+  <script src="js/app.js?v=3.7.0"></script>
   <script>
     // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
     // The plaintext passcode is NEVER stored in source code or memory.
@@ -1326,8 +1352,18 @@
       renderUsers();
     }
 
+    const selectedUserIds = new Set();
+    window.selectedUserIds = selectedUserIds;
+    let currentFilteredIds = [];
+
     function renderUsers() {
       const allUsers = UserDatabase.getAllUsers();
+
+      // Keep selectedUserIds pruned to existing users only
+      const existingIdsSet = new Set(allUsers.map(u => u.id));
+      Array.from(selectedUserIds).forEach(id => {
+        if (!existingIdsSet.has(id)) selectedUserIds.delete(id);
+      });
       
       // Live notification banner when new registration arrives from any device
       if (typeof window._lastAdminUserCount === 'number' && allUsers.length > window._lastAdminUserCount) {
@@ -1452,6 +1488,8 @@
         filtered = filtered.filter(u => !u.withdrawalRequest && u.investmentStatus !== 'pending_approval' && u.investmentStatus !== 'active' && (!u.activePlans || u.activePlans.length === 0));
       }
 
+      currentFilteredIds = filtered.map(u => u.id);
+
       const tbody = document.getElementById('users-tbody');
       const mobileList = document.getElementById('users-mobile-list');
       const noFound = document.getElementById('no-users-found');
@@ -1460,6 +1498,7 @@
         if (tbody) tbody.innerHTML = '';
         if (mobileList) mobileList.innerHTML = '';
         noFound.classList.remove('hidden');
+        syncSelectionUI();
         return;
       }
 
@@ -1472,6 +1511,7 @@
           const isPending = user.investmentStatus === 'pending_approval';
           const isActive = user.investmentStatus === 'active' || hasPlans;
           const hasWreq = !!user.withdrawalRequest;
+          const isSelected = selectedUserIds.has(user.id);
 
           // Investment & Timer Status Column HTML
           let statusHtml = '';
@@ -1629,9 +1669,9 @@
           const safeRegAt = escapeHtml(user.registeredAt || '');
 
           return `
-            <tr class="hover:bg-white/[0.03] transition-colors">
-              <td class="py-4 w-8 text-center">
-                <input type="checkbox" value="${user.id}" onchange="handleUserCheckboxChange('${user.id}', this.checked)" class="user-select-cb rounded bg-slate-900 border-white/20 text-emerald-400 focus:ring-0 w-4 h-4 cursor-pointer">
+            <tr data-user-row="${user.id}" class="${isSelected ? 'bg-emerald-500/15 hover:bg-emerald-500/20' : 'hover:bg-white/[0.03]'} transition-colors">
+              <td class="py-4 w-10 text-center">
+                <input type="checkbox" value="${user.id}" ${isSelected ? 'checked' : ''} onchange="handleUserCheckboxChange('${user.id}', this.checked)" class="user-select-cb rounded bg-slate-900 border-white/30 text-emerald-400 accent-emerald-400 focus:ring-0 w-5 h-5 cursor-pointer">
               </td>
               <td class="py-4">
                 <div class="flex items-center gap-2.5">
@@ -1661,6 +1701,7 @@
           const isActive = user.investmentStatus === 'active' || hasPlans;
           const hasWreq = !!user.withdrawalRequest;
           const isBypassed = !!user.referralBypassed;
+          const isSelected = selectedUserIds.has(user.id);
 
           let isMatured = false;
           let cd = { days: 0, hours: 0, minutes: 0, seconds: 0 };
@@ -1798,11 +1839,11 @@
           const safeRegAt = escapeHtml(user.registeredAt || '');
 
           return `
-            <div class="p-4 rounded-2xl bg-gradient-to-br from-[#0c1222] to-[#060a14] border border-white/10 hover:border-emerald-500/30 transition-all space-y-3.5 shadow-xl">
+            <div data-user-card="${user.id}" class="p-4 rounded-2xl bg-gradient-to-br ${isSelected ? 'from-emerald-950/50 to-[#060a14] border-emerald-400 ring-1 ring-emerald-400/50' : 'from-[#0c1222] to-[#060a14] border-white/10 hover:border-emerald-500/30'} border transition-all space-y-3.5 shadow-xl">
               <!-- Header: Avatar, Name, ID, Checkbox -->
               <div class="flex items-start justify-between gap-3">
                 <div class="flex items-center gap-2.5 min-w-0">
-                  <input type="checkbox" value="${user.id}" onchange="handleUserCheckboxChange('${user.id}', this.checked)" class="user-select-cb rounded bg-slate-900 border-white/20 text-emerald-400 focus:ring-0 w-4 h-4 cursor-pointer mt-0.5 flex-shrink-0">
+                  <input type="checkbox" value="${user.id}" ${isSelected ? 'checked' : ''} onchange="handleUserCheckboxChange('${user.id}', this.checked)" class="user-select-cb rounded bg-slate-900 border-white/30 text-emerald-400 accent-emerald-400 focus:ring-0 w-5 h-5 cursor-pointer mt-0.5 flex-shrink-0">
                   <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-xs font-bold text-emerald-400 flex-shrink-0">
                     ${initials}
                   </div>
@@ -1867,7 +1908,7 @@
       }
 
       lucide.createIcons();
-      handleUserCheckboxChange();
+      syncSelectionUI();
     }
 
     async function refreshAdminUsers() {
@@ -2285,43 +2326,69 @@
       recordAdminAction(`Deleted user account: ${name} (${userId})`);
 
       try {
+        selectedUserIds.delete(userId);
         await UserDatabase.deleteUser(userId);
-        showToast(`User ${name} was permanently deleted from local and cloud database.`, 'info');
         renderUsers();
+        showToast(`🗑️ User ${name} (${userId}) was permanently deleted from local and cloud database.`, 'success');
       } catch (err) {
         showToast(err.message, 'error');
       }
     }
 
     /**
-     * BULK ACTIONS LOGIC
+     * PERSISTENT MULTI-SELECT & BULK ACTIONS LOGIC
      */
     function getSelectedUserIds() {
-      const cbs = document.querySelectorAll('.user-select-cb:checked');
-      return Array.from(new Set(Array.from(cbs).map(cb => cb.value)));
+      return Array.from(selectedUserIds);
     }
 
-    function handleUserCheckboxChange(userId, isChecked) {
-      if (userId !== undefined && isChecked !== undefined) {
-        document.querySelectorAll(`.user-select-cb[value="${userId}"]`).forEach(cb => {
-          cb.checked = isChecked;
-        });
-      }
-      const selected = getSelectedUserIds();
-      const allUniqueIds = Array.from(new Set(Array.from(document.querySelectorAll('.user-select-cb')).map(cb => cb.value)));
-      
+    function syncSelectionUI() {
+      const selectedCount = selectedUserIds.size;
+      const visibleIds = Array.isArray(currentFilteredIds) ? currentFilteredIds : [];
+      const isAllVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedUserIds.has(id));
+
       const selectAllDesktop = document.getElementById('select-all-users-cb');
       const selectAllMobile = document.getElementById('select-all-mobile-cb');
-      const isAllSelected = allUniqueIds.length > 0 && selected.length === allUniqueIds.length;
-      
-      if (selectAllDesktop) selectAllDesktop.checked = isAllSelected;
-      if (selectAllMobile) selectAllMobile.checked = isAllSelected;
+      const selectAllToolbar = document.getElementById('toolbar-select-all-cb');
+      const selectAllToolbarLabel = document.getElementById('toolbar-select-all-label');
+
+      if (selectAllDesktop) selectAllDesktop.checked = isAllVisibleSelected;
+      if (selectAllMobile) selectAllMobile.checked = isAllVisibleSelected;
+      if (selectAllToolbar) selectAllToolbar.checked = isAllVisibleSelected;
+      if (selectAllToolbarLabel) {
+        selectAllToolbarLabel.textContent = isAllVisibleSelected && visibleIds.length > 0
+          ? `All Visible Selected (${visibleIds.length})`
+          : `Select All Visible (${visibleIds.length})`;
+      }
+
+      const clearBtn = document.getElementById('toolbar-clear-selection-btn');
+      const clearCount = document.getElementById('toolbar-clear-count');
+      if (clearCount) clearCount.textContent = selectedCount;
+      if (clearBtn) {
+        if (selectedCount > 0) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+      }
+
+      const quickDeleteBtn = document.getElementById('quick-bulk-delete-btn');
+      const quickDeleteLabel = document.getElementById('quick-bulk-delete-label');
+      if (quickDeleteLabel) {
+        quickDeleteLabel.textContent = selectedCount > 0
+          ? `Delete Selected (${selectedCount} User${selectedCount === 1 ? '' : 's'})`
+          : `Delete Selected (0)`;
+      }
+      if (quickDeleteBtn) {
+        if (selectedCount > 0) {
+          quickDeleteBtn.className = "w-full sm:w-auto px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white border border-rose-400/60 font-mono font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-rose-600/30";
+        } else {
+          quickDeleteBtn.className = "w-full sm:w-auto px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-mono font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer opacity-75";
+        }
+      }
 
       const bulkBar = document.getElementById('admin-bulk-actions-bar');
       const countEl = document.getElementById('bulk-selected-count');
       if (bulkBar && countEl) {
-        countEl.textContent = selected.length;
-        if (selected.length > 0) {
+        countEl.textContent = selectedCount;
+        if (selectedCount > 0) {
           bulkBar.classList.remove('hidden');
         } else {
           bulkBar.classList.add('hidden');
@@ -2329,34 +2396,85 @@
       }
     }
 
+    function handleUserCheckboxChange(userId, isChecked) {
+      if (userId !== undefined && isChecked !== undefined) {
+        if (isChecked) {
+          selectedUserIds.add(userId);
+        } else {
+          selectedUserIds.delete(userId);
+        }
+        document.querySelectorAll(`.user-select-cb[value="${userId}"]`).forEach(cb => {
+          cb.checked = isChecked;
+        });
+        const row = document.querySelector(`tr[data-user-row="${userId}"]`);
+        if (row) {
+          row.className = `${isChecked ? 'bg-emerald-500/15 hover:bg-emerald-500/20' : 'hover:bg-white/[0.03]'} transition-colors`;
+        }
+        const card = document.querySelector(`div[data-user-card="${userId}"]`);
+        if (card) {
+          card.className = `p-4 rounded-2xl bg-gradient-to-br ${isChecked ? 'from-emerald-950/50 to-[#060a14] border-emerald-400 ring-1 ring-emerald-400/50' : 'from-[#0c1222] to-[#060a14] border-white/10 hover:border-emerald-500/30'} border transition-all space-y-3.5 shadow-xl`;
+        }
+      }
+      syncSelectionUI();
+    }
+
     function handleSelectAllToggle(checked) {
-      const allCbs = document.querySelectorAll('.user-select-cb');
-      allCbs.forEach(cb => cb.checked = checked);
-      const selectAllDesktop = document.getElementById('select-all-users-cb');
-      const selectAllMobile = document.getElementById('select-all-mobile-cb');
-      if (selectAllDesktop) selectAllDesktop.checked = checked;
-      if (selectAllMobile) selectAllMobile.checked = checked;
-      handleUserCheckboxChange();
+      const targetIds = (Array.isArray(currentFilteredIds) && currentFilteredIds.length > 0)
+        ? currentFilteredIds
+        : Array.from(new Set(Array.from(document.querySelectorAll('.user-select-cb')).map(cb => cb.value)));
+
+      targetIds.forEach(id => {
+        if (checked) selectedUserIds.add(id);
+        else selectedUserIds.delete(id);
+      });
+
+      renderUsers();
+    }
+
+    function selectAllInactiveUsers() {
+      const allUsers = UserDatabase.getAllUsers();
+      const inactive = allUsers.filter(u => !u.withdrawalRequest && u.investmentStatus !== 'pending_approval' && u.investmentStatus !== 'active' && (!u.activePlans || u.activePlans.length === 0));
+      if (inactive.length === 0) {
+        showToast("No uninvested (No-Plan) users found to select.", "info");
+        return;
+      }
+      inactive.forEach(u => selectedUserIds.add(u.id));
+      renderUsers();
+      showToast(`✅ Selected ${inactive.length} No-Plan user${inactive.length === 1 ? '' : 's'}. Click "Delete Selected" to remove them all at once.`, 'info');
     }
 
     function deselectAllUsers() {
-      handleSelectAllToggle(false);
+      selectedUserIds.clear();
+      renderUsers();
     }
 
     async function bulkDeleteSelected() {
       const ids = getSelectedUserIds();
-      if (ids.length === 0) return;
-      if (!confirm(`⚠️ PERMANENT BULK ACTION:\n\nAre you sure you want to delete ${ids.length} selected users from the database and Firebase Cloud?\n\nThis cannot be undone.`)) {
+      if (ids.length === 0) {
+        showToast("Check the box next to one or more users (or click 'Select All Visible') first!", "warning");
+        return;
+      }
+      if (!confirm(`⚠️ PERMANENT BULK DELETE:\n\nAre you sure you want to permanently delete ${ids.length} selected user${ids.length === 1 ? '' : 's'}?\n\nThey will be permanently wiped from both this device and the Firebase Cloud Database and will never return.`)) {
         return;
       }
       recordAdminAction(`Bulk deleted ${ids.length} users`);
+
+      const quickBtn = document.getElementById('quick-bulk-delete-btn');
+      const barBtn = document.getElementById('bulk-bar-delete-btn');
+      if (quickBtn) quickBtn.disabled = true;
+      if (barBtn) barBtn.disabled = true;
+
       try {
+        ids.forEach(id => selectedUserIds.delete(id));
         await UserDatabase.deleteUsersBulk(ids);
-        deselectAllUsers();
+        selectedUserIds.clear();
         renderUsers();
-        showToast(`🗑️ ${ids.length} users permanently deleted from platform and cloud database!`, 'success');
+        showToast(`🗑️ ${ids.length} user${ids.length === 1 ? '' : 's'} permanently deleted from platform and Firebase Cloud!`, 'success');
       } catch (err) {
         showToast(err.message, 'error');
+      } finally {
+        if (quickBtn) quickBtn.disabled = false;
+        if (barBtn) barBtn.disabled = false;
       }
     }
 
@@ -2975,6 +3093,7 @@
     setInterval(() => {
       const isAuthed = sessionStorage.getItem('cryptron_admin_authenticated') === 'true';
       if (isAuthed) {
+        if (window.CloudSyncEngine && CloudSyncEngine._isDeleting) return;
         if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
           CloudSyncEngine.pullUsers().then(merged => {
             if (merged) renderUsers();
