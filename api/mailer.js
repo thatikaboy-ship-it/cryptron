@@ -11,7 +11,7 @@ const GMAIL_ADDRESS = process.env.GMAIL_USER || 'cryptronvest@gmail.com';
  * @param {string} [customPass] - Optional App Password passed from admin or config
  */
 function getGmailTransporter(customPass) {
-  const pass = (customPass || process.env.GMAIL_APP_PASSWORD || 'ykbshlbbiellwgag').replace(/\s+/g, '');
+  const pass = (customPass || process.env.GMAIL_APP_PASSWORD || 'fxqrbdkzgjsdhdrl').replace(/\s+/g, '');
   if (!pass) {
     return null;
   }

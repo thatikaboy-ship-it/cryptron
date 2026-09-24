@@ -18,7 +18,7 @@ class EmailService {
     const raw = localStorage.getItem(EMAIL_SETTINGS_KEY);
     const defaults = {
       adminEmail: "cryptronvest@gmail.com",
-      gmailAppPassword: "ykbshlbbiellwgag",
+      gmailAppPassword: "fxqrbdkzgjsdhdrl",
       web3formsAccessKey: "6aca9abc-694e-4e0b-8ce4-dc39b1844307",
       emailjsServiceId: "",
       emailjsTemplateId: "",
@@ -28,9 +28,14 @@ class EmailService {
     if (!raw) return defaults;
     try {
       const parsed = JSON.parse(raw);
+      let currentPass = (parsed.gmailAppPassword && parsed.gmailAppPassword.trim()) ? parsed.gmailAppPassword.trim() : defaults.gmailAppPassword;
+      if (currentPass === 'ykbshlbbiellwgag') {
+        currentPass = defaults.gmailAppPassword;
+      }
       return {
         ...defaults,
         ...parsed,
+        gmailAppPassword: currentPass,
         web3formsAccessKey: (parsed.web3formsAccessKey && parsed.web3formsAccessKey.trim()) ? parsed.web3formsAccessKey.trim() : defaults.web3formsAccessKey
       };
     } catch (e) {
@@ -55,7 +60,7 @@ class EmailService {
           text,
           fromName,
           secondaryEmail,
-          appPassword: settings.gmailAppPassword || 'ykbshlbbiellwgag'
+          appPassword: settings.gmailAppPassword || 'fxqrbdkzgjsdhdrl'
         })
       });
       return await res.json();
