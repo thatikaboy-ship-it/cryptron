@@ -717,9 +717,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=3.9.0"></script>
-  <script src="js/email.js?v=3.9.0"></script>
-  <script src="js/app.js?v=3.9.0"></script>
+  <script src="js/db.js?v=4.0.0"></script>
+  <script src="js/email.js?v=4.0.0"></script>
+  <script src="js/app.js?v=4.0.0"></script>
   <script>
     let countdownInterval = null;
 
@@ -1809,7 +1809,8 @@
     /**
      * Protocol Messages & Alerts for Client Dashboard
      */
-    let isTopBannerDismissed = false;
+    let lastDismissedBannerMsgId = null;
+    let lastNotifiedMsgId = null;
 
     function checkClientAdminMessages() {
       if (!window.UserDatabase) return;
@@ -1833,21 +1834,34 @@
       // Top admin announcement banner
       const banner = document.getElementById('admin-alert-banner');
       if (banner) {
-        if (unreadMsgs.length > 0 && !isTopBannerDismissed) {
+        if (unreadMsgs.length > 0 && unreadMsgs[0].id !== lastDismissedBannerMsgId) {
           const firstUnread = unreadMsgs[0];
           const subjEl = document.getElementById('admin-banner-subject');
           const bodyEl = document.getElementById('admin-banner-body');
           if (subjEl) subjEl.textContent = firstUnread.subject;
           if (bodyEl) bodyEl.textContent = firstUnread.body;
           banner.classList.remove('hidden');
+          if (lastNotifiedMsgId && lastNotifiedMsgId !== firstUnread.id && typeof showToast === 'function') {
+            showToast(`📩 ${firstUnread.subject}`, 'success');
+          }
+          lastNotifiedMsgId = firstUnread.id;
         } else {
           banner.classList.add('hidden');
+          if (unreadMsgs.length > 0 && !lastNotifiedMsgId) {
+            lastNotifiedMsgId = unreadMsgs[0].id;
+          }
         }
       }
     }
 
     function dismissTopAdminBanner() {
-      isTopBannerDismissed = true;
+      const account = getAccountData();
+      if (account && account.user && window.UserDatabase) {
+        const unreadMsgs = UserDatabase.getMessagesForUser(account.user.id).filter(m => !m.isRead);
+        if (unreadMsgs.length > 0) {
+          lastDismissedBannerMsgId = unreadMsgs[0].id;
+        }
+      }
       const banner = document.getElementById('admin-alert-banner');
       if (banner) banner.classList.add('hidden');
     }

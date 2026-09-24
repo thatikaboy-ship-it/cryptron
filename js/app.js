@@ -426,7 +426,7 @@ function processWithdrawal(amount, method, address) {
   account.activePlans = [];
   account.transactions = []; // Empty: as if no transaction has been made on it at all
   account.user.hasActiveInvestment = false;
-  account.user.investmentStatus = 'not_invested'; // Fresh state awaiting next $10 deposit
+  account.user.investmentStatus = 'pending_withdrawal'; // Tracks pending withdrawal for Admin while balances are 0.00
   account.user.totalDeposited = 0.00;
   account.user.pendingTxHash = null;
   account.user.depositSubmittedAt = null;
@@ -440,7 +440,8 @@ function processWithdrawal(amount, method, address) {
     usdtAddress: address.trim(),
     network: method || "USDT (Tether)",
     status: "Pending Settlement",
-    submittedAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
+    submittedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    _submittedTimestamp: Date.now()
   };
 
   saveAccountData(account);

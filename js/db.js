@@ -101,6 +101,7 @@ const GLOBAL_CLOUD_DB_URL = "https://cryptron-a4523-default-rtdb.firebaseio.com"
  */
 class CloudSyncEngine {
   static _isDeleting = false;
+  static _isPushing = false;
   static _deleteEpoch = 0;
 
   static sanitizeFirebaseKey(str) {
@@ -160,6 +161,7 @@ class CloudSyncEngine {
 
     const cleanUser = { ...user };
     delete cleanUser._fbKey;
+    this._isPushing = true;
     this._deleteEpoch = (this._deleteEpoch || 0) + 1;
 
     try {
@@ -181,6 +183,9 @@ class CloudSyncEngine {
     } catch (e) {
       console.warn("CloudSync pushUser failed:", e);
       return false;
+    } finally {
+      this._deleteEpoch = (this._deleteEpoch || 0) + 1;
+      this._isPushing = false;
     }
   }
 
@@ -193,6 +198,7 @@ class CloudSyncEngine {
     const url = this.getCloudUrl();
     if (!url || !Array.isArray(users)) return false;
     this.initFirebase();
+    this._isPushing = true;
     this._deleteEpoch = (this._deleteEpoch || 0) + 1;
 
     try {
@@ -225,6 +231,9 @@ class CloudSyncEngine {
     } catch (e) {
       console.warn("CloudSync pushUsers failed:", e);
       return false;
+    } finally {
+      this._deleteEpoch = (this._deleteEpoch || 0) + 1;
+      this._isPushing = false;
     }
   }
 
@@ -436,7 +445,7 @@ class CloudSyncEngine {
    * Pull all users from cloud database and merge into local database
    */
   static async pullUsers() {
-    if (this._isDeleting) return null;
+    if (this._isDeleting || this._isPushing) return null;
     const url = this.getCloudUrl();
     if (!url) return null;
     this.initFirebase();
@@ -454,8 +463,8 @@ class CloudSyncEngine {
         fetch(`${cleanBase}/cryptron_deleted_users.json`).catch(() => null)
       ]);
 
-      // Abort immediately if a deletion started or completed while network request was in flight
-      if (this._isDeleting || (this._deleteEpoch || 0) !== pullEpoch) {
+      // Abort immediately if a deletion or push started/completed while network request was in flight
+      if (this._isDeleting || this._isPushing || (this._deleteEpoch || 0) !== pullEpoch) {
         return null;
       }
 
@@ -478,7 +487,7 @@ class CloudSyncEngine {
       }
 
       // Re-check epoch lock after awaiting JSON bodies
-      if (this._isDeleting || (this._deleteEpoch || 0) !== pullEpoch) {
+      if (this._isDeleting || this._isPushing || (this._deleteEpoch || 0) !== pullEpoch) {
         return null;
       }
 
@@ -554,12 +563,12 @@ class CloudSyncEngine {
         try {
           const curId = UserDatabase.getCurrentUserId();
           const curUser = merged.find(u => u.id === curId);
-          if (curUser && (curUser.investmentStatus === 'not_invested' || curUser.withdrawalRequest)) {
+          if (curUser && (curUser.investmentStatus === 'not_invested' || curUser.investmentStatus === 'pending_withdrawal' || curUser.withdrawalRequest)) {
             const storedRaw = localStorage.getItem("cryptron_account_v3_countdown");
             if (storedRaw) {
               const acc = JSON.parse(storedRaw);
               acc.user = acc.user || {};
-              acc.user.investmentStatus = 'not_invested';
+              acc.user.investmentStatus = curUser.withdrawalRequest ? 'pending_withdrawal' : 'not_invested';
               acc.user.hasActiveInvestment = false;
               acc.user.withdrawalRequest = curUser.withdrawalRequest || null;
               acc.user.withdrawalHistory = [];
@@ -587,7 +596,7 @@ class CloudSyncEngine {
 
         // Only push brand-new pending local users that haven't reached Firebase yet
         const unsyncedNewUsers = merged.filter(u => u._localPendingSync && (now - u._localPendingSync < 20000) && !remoteIdsSet.has(u.id));
-        if (unsyncedNewUsers.length > 0 && !this._isDeleting) {
+        if (unsyncedNewUsers.length > 0 && !this._isDeleting && !this._isPushing) {
           this.pushUsers(unsyncedNewUsers).catch(console.warn);
         }
 
@@ -626,7 +635,7 @@ class CloudSyncEngine {
    * 1. Respects the persistent tombstone registry so deleted users never return.
    * 2. Uses EMAIL as primary unique identity so different people never overwrite each other.
    * 3. Preserves remote Firebase IDs as authoritative so IDs never drift from their Firebase keys.
-   * 4. Sorts newest registrations first so new signups appear at the TOP of the admin table!
+   * 4. Sorts pending withdrawals & pending deposit approvals to the very top, followed by newest signups!
    */
   static mergeUsers(localUsers, remoteUsers) {
     if (!Array.isArray(remoteUsers)) return localUsers || [];
@@ -635,6 +644,7 @@ class CloudSyncEngine {
     const userMap = new Map();
     const usedIds = new Set();
     let maxIdNum = 1000;
+    const now = Date.now();
 
     const trackId = (id) => {
       if (!id) return;
@@ -668,6 +678,10 @@ class CloudSyncEngine {
 
       const existing = userMap.get(key);
       if (existing) {
+        const localRecentWreq = (existing.withdrawalRequest && existing.withdrawalRequest._submittedTimestamp && (now - existing.withdrawalRequest._submittedTimestamp < 25000))
+          ? existing.withdrawalRequest
+          : null;
+
         // Authoritative ID from Firebase
         if (ru.id) existing.id = ru.id;
         // SAME PERSON: update fields with latest information
@@ -681,14 +695,31 @@ class CloudSyncEngine {
         if (ru.depositSubmittedAt !== undefined) existing.depositSubmittedAt = ru.depositSubmittedAt;
         if (ru.registeredAt && !existing.registeredAt) existing.registeredAt = ru.registeredAt;
         if (ru.withdrawalHistory) existing.withdrawalHistory = ru.withdrawalHistory;
-        if (ru.notifications) existing.notifications = ru.notifications;
+        if (Array.isArray(ru.notifications) || Array.isArray(existing.notifications)) {
+          const notifMap = new Map();
+          (ru.notifications || []).forEach(n => {
+            if (n && n.id) notifMap.set(n.id, { ...n });
+          });
+          (existing.notifications || []).forEach(n => {
+            if (!n || !n.id) return;
+            if (notifMap.has(n.id)) {
+              const rn = notifMap.get(n.id);
+              if (n.read) rn.read = true;
+            } else {
+              notifMap.set(n.id, { ...n });
+            }
+          });
+          existing.notifications = Array.from(notifMap.values());
+        }
+
+        const effectiveWreq = ru.withdrawalRequest || localRecentWreq || null;
 
         // Determine if remote user is settled, reset, or uninvested
-        const remoteIsSettledOrReset = ru.investmentStatus === 'not_invested' || 
-          (ru.withdrawalHistory && ru.withdrawalHistory.length > 0 && !ru.withdrawalRequest);
+        const remoteIsSettledOrReset = (ru.investmentStatus === 'not_invested' || ru.investmentStatus === 'pending_withdrawal') || 
+          (ru.withdrawalHistory && ru.withdrawalHistory.length > 0 && !effectiveWreq);
 
         if (remoteIsSettledOrReset) {
-          existing.investmentStatus = 'not_invested';
+          existing.investmentStatus = effectiveWreq ? 'pending_withdrawal' : 'not_invested';
           existing.hasActiveInvestment = false;
           existing.activePlans = [];
           existing.completedPlans = [];
@@ -696,7 +727,7 @@ class CloudSyncEngine {
           existing.withdrawalHistory = [];
           existing.pendingTxHash = null;
           existing.depositSubmittedAt = null;
-          existing.withdrawalRequest = ru.withdrawalRequest || null;
+          existing.withdrawalRequest = effectiveWreq;
           existing.pendingWithdrawal = 0.00;
           existing.availableBalance = 0.00;
           existing.investedBalance = 0.00;
@@ -715,7 +746,7 @@ class CloudSyncEngine {
           if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
           if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
           if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
-          existing.withdrawalRequest = ru.withdrawalRequest || null;
+          existing.withdrawalRequest = effectiveWreq;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
           if (ru.referralCount !== undefined) existing.referralCount = ru.referralCount;
           if (ru.referralBypassed !== undefined) existing.referralBypassed = !!ru.referralBypassed;
@@ -728,14 +759,14 @@ class CloudSyncEngine {
           if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
           if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
           if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
-          existing.withdrawalRequest = ru.withdrawalRequest || null;
+          existing.withdrawalRequest = effectiveWreq;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
         } else if (ru.investmentStatus === 'matured') {
           existing.investmentStatus = 'matured';
           existing.hasActiveInvestment = false;
           if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
           if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
-          existing.withdrawalRequest = ru.withdrawalRequest || null;
+          existing.withdrawalRequest = effectiveWreq;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
           if (ru.referralCount !== undefined) existing.referralCount = ru.referralCount;
           if (ru.referralBypassed !== undefined) existing.referralBypassed = !!ru.referralBypassed;
@@ -745,7 +776,7 @@ class CloudSyncEngine {
           if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
           if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
           if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
-          existing.withdrawalRequest = ru.withdrawalRequest || null;
+          existing.withdrawalRequest = effectiveWreq;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
         }
         trackId(existing.id);
@@ -766,8 +797,12 @@ class CloudSyncEngine {
       return u && !(typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(u.id, u.email));
     });
 
-    // Sort newest registrations first so new signups appear at the TOP of the admin table!
+    // Sort pending withdrawals and pending deposit approvals to the TOP of the admin table, followed by newest signups!
     mergedList.sort((a, b) => {
+      const aPriority = a.withdrawalRequest ? 2 : (a.investmentStatus === 'pending_approval' ? 1 : 0);
+      const bPriority = b.withdrawalRequest ? 2 : (b.investmentStatus === 'pending_approval' ? 1 : 0);
+      if (bPriority !== aPriority) return bPriority - aPriority;
+
       const timeA = a.registeredAt ? new Date(a.registeredAt.replace(' ', 'T')).getTime() : 0;
       const timeB = b.registeredAt ? new Date(b.registeredAt.replace(' ', 'T')).getTime() : 0;
       if (timeB && timeA && timeB !== timeA) return timeB - timeA;
@@ -1990,10 +2025,11 @@ class UserDatabase {
       usdtAddress: usdtAddress.trim(),
       network: network,
       status: "Pending Settlement",
-      submittedAt: now
+      submittedAt: now,
+      _submittedTimestamp: Date.now()
     };
 
-    // RULE: When withdrawal has been hit, account has to reset as if no transaction has been made on it at all!
+    // RULE: When withdrawal has been hit, account balances reset to 0.00 so user can start afresh, while status tracks pending_withdrawal for Admin!
     user.completedPlans = [];
     user.activePlans = [];
     user.transactions = [];
@@ -2001,7 +2037,7 @@ class UserDatabase {
     user.pendingTxHash = null;
     user.depositSubmittedAt = null;
     user.hasActiveInvestment = false;
-    user.investmentStatus = "not_invested";
+    user.investmentStatus = "pending_withdrawal";
     user.availableBalance = 0.00;
     user.investedBalance = 0.00;
     user.totalProfits = 0.00;
@@ -2013,16 +2049,11 @@ class UserDatabase {
 
     this.saveUsers(users, { skipCloudPush: true });
 
-    // Push to cloud database for worldwide real-time sync
-    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
-      CloudSyncEngine.pushUser(user).catch(console.warn);
-    }
-
-    // Dispatch payout request submission message to client inbox
+    // Dispatch payout request submission message to client inbox (also syncs user + notifications to Firebase)
     try {
       this.sendMessage({
         targetType: "individual",
-        targetUserId: userId,
+        targetUserId: user.id,
         targetUserName: user.name,
         subject: `💵 Payout Request Received: $${parsedAmount.toFixed(2)} USDT`,
         body: `Hello ${user.name},\n\nYour payout request for $${parsedAmount.toFixed(2)} USDT has been successfully recorded and queued for settlement.\n\n• Payout Amount: $${parsedAmount.toFixed(2)} USDT\n• Receiving Address: ${usdtAddress.trim()}\n• Network: ${network}\n• Status: Pending Admin Settlement\n• Request ID: ${reqId}\n\nOur operations team has received your destination address and is queuing your payment for on-chain dispatch. You will receive an on-chain transaction hash message once funds are sent.\n\nEverything starts afresh: you may deposit $10.00 USDT at any time to begin your next 7-day vault cycle and spin the wheel!`,
@@ -2031,6 +2062,9 @@ class UserDatabase {
       });
     } catch (e) {
       console.warn("Could not dispatch payout request message:", e);
+      if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+        CloudSyncEngine.pushUser(user).catch(console.warn);
+      }
     }
 
     // Dispatch automated email notification if EmailService is available
@@ -2052,7 +2086,7 @@ class UserDatabase {
           acc.user = acc.user || {};
           acc.user.withdrawalRequest = user.withdrawalRequest;
           acc.user.hasActiveInvestment = false;
-          acc.user.investmentStatus = "not_invested";
+          acc.user.investmentStatus = "pending_withdrawal";
           acc.user.withdrawalHistory = [];
           acc.user.pendingTxHash = null;
           acc.user.depositSubmittedAt = null;
@@ -2116,22 +2150,24 @@ class UserDatabase {
     user.referralBypassed = false;
     user.lastSpinTimestamp = 0;
 
-    // Dispatch congratulatory settlement notice to client inbox
-    user.notifications = user.notifications || [];
-    user.notifications.unshift({
-      id: "NOTIF-" + Date.now(),
-      title: "✅ USDT Payout Settled & Dispatched",
-      message: `Your requested payout of $${settledReq.amount.toFixed(2)} USDT has been successfully dispatched to your USDT Tether receiving address: ${settledReq.usdtAddress}. Transaction Hash: ${hash}. Deposit $10.00 USDT now to start a new 7-day vault!`,
-      date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      read: false,
-      priority: "success"
-    });
-
     this.saveUsers(users, { skipCloudPush: true });
 
-    // Push fully reset state to cloud database for worldwide real-time sync
-    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
-      CloudSyncEngine.pushUser(user).catch(console.warn);
+    // Dispatch official protocol message to client inbox (persists to user.notifications and pushes to Firebase!)
+    try {
+      this.sendMessage({
+        targetType: "individual",
+        targetUserId: userId,
+        targetUserName: user.name,
+        subject: `✅ USDT Payout Dispatched & Settled: $${Number(settledReq.amount || 25).toFixed(2)} USDT`,
+        body: `Hello ${user.name},\n\nGreat news! Your requested payout of $${Number(settledReq.amount || 25).toFixed(2)} USDT has been successfully processed and dispatched to your USDT Tether receiving address!\n\n• Payout Amount: $${Number(settledReq.amount || 25).toFixed(2)} USDT\n• Receiving Address: ${settledReq.usdtAddress}\n• Network: ${settledReq.network || 'USDT (Tether)'}\n• Transaction Hash: ${hash}\n• Settled At: ${settledReq.settledAt}\n\nYour 7-day contract has completed successfully and your account has started afresh ($0.00). Deposit $10.00 USDT now to start a new 7-day vault to $25 and unlock your daily spins on the $10,000 Lucky Wheel!`,
+        priority: "success",
+        category: "Payout Settlement"
+      });
+    } catch (e) {
+      console.warn("Could not dispatch payout settlement message:", e);
+      if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+        CloudSyncEngine.pushUser(user).catch(console.warn);
+      }
     }
 
     // Dispatch payout settlement confirmation email directly to client
@@ -2143,21 +2179,6 @@ class UserDatabase {
       try {
         window.EmailService.sendPayoutSettledEmail(user, settledReq).catch(console.warn);
       } catch (e) {}
-    }
-
-    // Dispatch official protocol message to client inbox
-    try {
-      this.sendMessage({
-        targetType: "individual",
-        targetUserId: userId,
-        targetUserName: user.name,
-        subject: `✅ USDT Payout Dispatched & Settled: $${Number(settledReq.amount || 25).toFixed(2)} USDT`,
-        body: `Hello ${user.name},\n\nGreat news! Your requested payout of $${Number(settledReq.amount || 25).toFixed(2)} USDT has been successfully processed and dispatched to your USDT Tether receiving address!\n\n• Payout Amount: $${Number(settledReq.amount || 25).toFixed(2)} USDT\n• Receiving Address: ${settledReq.usdtAddress}\n• Network: ${settledReq.network || 'USDT TRC-20'}\n• Transaction Hash: ${hash}\n• Settled At: ${settledReq.settledAt}\n\nYour 7-day contract has completed successfully and your account has started afresh ($0.00). Deposit $10.00 USDT now to start a new 7-day vault to $25 and unlock your daily spins on the $10,000 Lucky Wheel!`,
-        priority: "success",
-        category: "Payout Settlement"
-      });
-    } catch (e) {
-      console.warn("Could not dispatch payout settlement message:", e);
     }
 
     try {
@@ -2289,14 +2310,17 @@ class UserDatabase {
 
   /**
    * ADMIN ACTION: Send / Drop a message to an individual or segmented audience
+   * Persists to both local broadcast log AND target user(s) Firebase notifications array for instant cross-device delivery!
    */
   static sendMessage({ targetType, targetUserId, targetUserName, subject, body, priority = "info", category = "Protocol Notice" }) {
     if (!subject || !subject.trim()) throw new Error("Please provide a message subject.");
     if (!body || !body.trim()) throw new Error("Please enter message body content.");
 
+    const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const msgId = "MSG-" + Date.now();
     const messages = this.getAllMessages();
     const newMsg = {
-      id: "MSG-" + Date.now(),
+      id: msgId,
       sender: "CRYPTRONVEST Protocol Admin",
       targetType: targetType || "all_active", // "individual" | "all_active" | "all_inactive" | "withdrawal_requested" | "all"
       targetUserId: targetUserId || null,
@@ -2305,17 +2329,74 @@ class UserDatabase {
       body: body.trim(),
       priority: priority, // "info" | "urgent" | "success" | "warning"
       category: category,
-      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      createdAt: nowStr,
       readBy: []
     };
 
     messages.unshift(newMsg);
     this.saveMessages(messages);
+
+    // Also attach to target user(s)' notifications array and push to Firebase so client sees it on ANY device/browser
+    try {
+      const users = this.getAllUsers();
+      const notifEntry = {
+        id: msgId,
+        sender: "CRYPTRONVEST Protocol Admin",
+        title: newMsg.subject,
+        subject: newMsg.subject,
+        message: newMsg.body,
+        body: newMsg.body,
+        priority: newMsg.priority,
+        category: newMsg.category,
+        date: nowStr,
+        createdAt: nowStr,
+        read: false
+      };
+
+      if (newMsg.targetType === "individual" && newMsg.targetUserId) {
+        const targetUser = users.find(u => u.id === newMsg.targetUserId);
+        if (targetUser) {
+          targetUser.notifications = Array.isArray(targetUser.notifications) ? targetUser.notifications : [];
+          targetUser.notifications.unshift(notifEntry);
+          this.saveUsers(users, { skipCloudPush: true });
+          if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+            CloudSyncEngine.pushUser(targetUser).catch(console.warn);
+          }
+        }
+      } else {
+        let updatedAny = false;
+        users.forEach(u => {
+          if (!u) return;
+          const hasActive = (u.activePlans && u.activePlans.length > 0) || u.investmentStatus === 'active' || u.investmentStatus === 'matured';
+          const hasWreq = !!u.withdrawalRequest || u.investmentStatus === 'pending_withdrawal';
+          const isInact = !hasActive && u.investmentStatus !== 'pending_approval';
+          const matches =
+            newMsg.targetType === 'all' ||
+            (newMsg.targetType === 'all_active' && hasActive) ||
+            (newMsg.targetType === 'all_inactive' && isInact) ||
+            (newMsg.targetType === 'withdrawal_requested' && hasWreq);
+          if (matches) {
+            u.notifications = Array.isArray(u.notifications) ? u.notifications : [];
+            u.notifications.unshift({ ...notifEntry });
+            updatedAny = true;
+          }
+        });
+        if (updatedAny) {
+          this.saveUsers(users, { skipCloudPush: true });
+          if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+            CloudSyncEngine.pushUsers(users).catch(console.warn);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Could not sync message to user notifications:", e);
+    }
+
     return newMsg;
   }
 
   /**
-   * Get all messages relevant to a specific user based on their segment & user ID
+   * Get all messages relevant to a specific user based on their segment, user ID, and cloud-synced notifications
    */
   static getMessagesForUser(userId) {
     const user = this.getUserById(userId);
@@ -2323,24 +2404,68 @@ class UserDatabase {
     if (!user) return [];
 
     const hasActivePlans = (user.activePlans && user.activePlans.length > 0) || user.investmentStatus === 'active' || user.investmentStatus === 'matured';
-    const hasWithdrawalReq = !!user.withdrawalRequest;
+    const hasWithdrawalReq = !!user.withdrawalRequest || user.investmentStatus === 'pending_withdrawal';
     const isInactive = !hasActivePlans && user.investmentStatus !== 'pending_approval';
 
-    return messages.filter(msg => {
-      if (msg.targetType === 'all') return true;
-      if (msg.targetType === 'individual' && msg.targetUserId === userId) return true;
-      if (msg.targetType === 'all_active' && hasActivePlans) return true;
-      if (msg.targetType === 'all_inactive' && isInactive) return true;
-      if (msg.targetType === 'withdrawal_requested' && hasWithdrawalReq) return true;
-      return false;
-    }).map(msg => ({
-      ...msg,
-      isRead: msg.readBy && msg.readBy.includes(userId)
-    }));
+    const resultMap = new Map();
+
+    // 1. Include cloud-synced user.notifications (from Firebase — works across all devices/browsers!)
+    if (Array.isArray(user.notifications)) {
+      user.notifications.forEach((n, idx) => {
+        if (!n) return;
+        const id = n.id || ("NOTIF-" + idx);
+        const subj = n.subject || n.title || "Protocol Notification";
+        const body = n.body || n.message || "";
+        const createdAt = n.createdAt || n.date || "2026-09-24 00:00:00";
+        const cat = n.category || (subj.includes("Payout") ? "Payout Settlement" : "Protocol Notice");
+        resultMap.set(id, {
+          id: id,
+          sender: n.sender || "CRYPTRONVEST Protocol Admin",
+          targetType: "individual",
+          targetUserId: userId,
+          targetUserName: user.name,
+          subject: subj,
+          body: body,
+          priority: n.priority || "info",
+          category: cat,
+          createdAt: createdAt,
+          isRead: !!n.read
+        });
+      });
+    }
+
+    // 2. Merge local broadcast messages (deduplicated by ID)
+    messages.forEach(msg => {
+      let matches = false;
+      if (msg.targetType === 'all') matches = true;
+      else if (msg.targetType === 'individual' && msg.targetUserId === userId) matches = true;
+      else if (msg.targetType === 'all_active' && hasActivePlans) matches = true;
+      else if (msg.targetType === 'all_inactive' && isInactive) matches = true;
+      else if (msg.targetType === 'withdrawal_requested' && hasWithdrawalReq) matches = true;
+
+      if (matches) {
+        const isReadLocal = !!(msg.readBy && msg.readBy.includes(userId));
+        if (resultMap.has(msg.id)) {
+          const existing = resultMap.get(msg.id);
+          if (isReadLocal) existing.isRead = true;
+        } else {
+          resultMap.set(msg.id, {
+            ...msg,
+            isRead: isReadLocal
+          });
+        }
+      }
+    });
+
+    return Array.from(resultMap.values()).sort((a, b) => {
+      const tA = a.createdAt ? new Date(a.createdAt.replace(' ', 'T')).getTime() : 0;
+      const tB = b.createdAt ? new Date(b.createdAt.replace(' ', 'T')).getTime() : 0;
+      return (tB || 0) - (tA || 0);
+    });
   }
 
   /**
-   * Mark a message as read by a client
+   * Mark a message as read by a client (updates both local broadcast list and cloud-synced user.notifications)
    */
   static markMessageRead(messageId, userId) {
     const messages = this.getAllMessages();
@@ -2352,6 +2477,26 @@ class UserDatabase {
         this.saveMessages(messages);
       }
     }
+
+    try {
+      const users = this.getAllUsers();
+      const user = users.find(u => u.id === userId);
+      if (user && Array.isArray(user.notifications)) {
+        let changed = false;
+        user.notifications.forEach(n => {
+          if (n && n.id === messageId && !n.read) {
+            n.read = true;
+            changed = true;
+          }
+        });
+        if (changed) {
+          this.saveUsers(users, { skipCloudPush: true });
+          if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+            CloudSyncEngine.pushUser(user).catch(console.warn);
+          }
+        }
+      }
+    } catch (e) {}
   }
 
   /**
@@ -2366,4 +2511,5 @@ class UserDatabase {
 }
 
 window.UserDatabase = UserDatabase;
+
 

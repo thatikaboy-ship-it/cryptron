@@ -1060,9 +1060,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=3.9.0"></script>
-  <script src="js/email.js?v=3.9.0"></script>
-  <script src="js/app.js?v=3.9.0"></script>
+  <script src="js/db.js?v=4.0.0"></script>
+  <script src="js/email.js?v=4.0.0"></script>
+  <script src="js/app.js?v=4.0.0"></script>
   <script>
     // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
     // The plaintext passcode is NEVER stored in source code or memory.
@@ -1376,10 +1376,11 @@
       window._lastAdminUserCount = allUsers.length;
 
       // Calculate Stats
-      const pendingCount = allUsers.filter(u => u.investmentStatus === 'pending_approval').length;
+      const pendingDepositCount = allUsers.filter(u => u.investmentStatus === 'pending_approval').length;
+      const withdrawalReqCount = allUsers.filter(u => !!u.withdrawalRequest || u.investmentStatus === 'pending_withdrawal').length;
+      const pendingCount = allUsers.filter(u => u.investmentStatus === 'pending_approval' || !!u.withdrawalRequest || u.investmentStatus === 'pending_withdrawal').length;
       const activeCount = allUsers.filter(u => u.investmentStatus === 'active' || (u.activePlans && u.activePlans.length > 0)).length;
-      const withdrawalReqCount = allUsers.filter(u => !!u.withdrawalRequest).length;
-      const inactiveCount = allUsers.filter(u => !u.withdrawalRequest && u.investmentStatus !== 'pending_approval' && u.investmentStatus !== 'active' && (!u.activePlans || u.activePlans.length === 0)).length;
+      const inactiveCount = allUsers.filter(u => !u.withdrawalRequest && u.investmentStatus !== 'pending_withdrawal' && u.investmentStatus !== 'pending_approval' && u.investmentStatus !== 'active' && (!u.activePlans || u.activePlans.length === 0)).length;
 
       document.getElementById('stat-total-users').textContent = allUsers.length;
       document.getElementById('stat-pending-approvals').textContent = pendingCount;
@@ -1399,6 +1400,14 @@
       if (btnPending) btnPending.textContent = `⚠️ Pending (${pendingCount})`;
       const btnActive = document.getElementById('filter-active');
       if (btnActive) btnActive.textContent = `🟢 Active Timers (${activeCount})`;
+      const btnWithdrawals = document.getElementById('filter-withdrawals');
+      if (btnWithdrawals && currentFilter !== 'withdrawals') {
+        if (withdrawalReqCount > 0) {
+          btnWithdrawals.className = 'px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500/20 text-cyan-300 border-2 border-cyan-400 shadow-lg shadow-cyan-500/20 transition-all cursor-pointer flex items-center gap-1.5 animate-pulse';
+        } else {
+          btnWithdrawals.className = 'px-3.5 py-2 rounded-xl text-xs font-bold bg-white/5 text-slate-400 hover:text-white border border-white/10 transition-all cursor-pointer flex items-center gap-1.5';
+        }
+      }
       const btnInactive = document.getElementById('filter-inactive');
       if (btnInactive) btnInactive.textContent = `⚪ No Plan (${Math.max(0, inactiveCount)})`;
 
@@ -1462,7 +1471,7 @@
       }
 
       // Filter by Search Query (safely guarded against undefined/null fields)
-      let filtered = allUsers;
+      let filtered = [...allUsers];
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase();
         filtered = filtered.filter(u => 
@@ -1479,14 +1488,21 @@
 
       // Filter by Tab
       if (currentFilter === 'pending') {
-        filtered = filtered.filter(u => u.investmentStatus === 'pending_approval');
+        filtered = filtered.filter(u => u.investmentStatus === 'pending_approval' || !!u.withdrawalRequest || u.investmentStatus === 'pending_withdrawal');
       } else if (currentFilter === 'active') {
         filtered = filtered.filter(u => u.investmentStatus === 'active' || (u.activePlans && u.activePlans.length > 0));
       } else if (currentFilter === 'withdrawals') {
-        filtered = filtered.filter(u => !!u.withdrawalRequest);
+        filtered = filtered.filter(u => !!u.withdrawalRequest || u.investmentStatus === 'pending_withdrawal');
       } else if (currentFilter === 'inactive') {
-        filtered = filtered.filter(u => !u.withdrawalRequest && u.investmentStatus !== 'pending_approval' && u.investmentStatus !== 'active' && (!u.activePlans || u.activePlans.length === 0));
+        filtered = filtered.filter(u => !u.withdrawalRequest && u.investmentStatus !== 'pending_withdrawal' && u.investmentStatus !== 'pending_approval' && u.investmentStatus !== 'active' && (!u.activePlans || u.activePlans.length === 0));
       }
+
+      // Always sort pending withdrawal requests and pending deposits to the very top of the view
+      filtered.sort((a, b) => {
+        const aPrio = a.withdrawalRequest ? 2 : (a.investmentStatus === 'pending_approval' ? 1 : 0);
+        const bPrio = b.withdrawalRequest ? 2 : (b.investmentStatus === 'pending_approval' ? 1 : 0);
+        return bPrio - aPrio;
+      });
 
       currentFilteredIds = filtered.map(u => u.id);
 
@@ -2582,27 +2598,24 @@
     /**
      * ADMIN ACTION: Confirm on-chain payout settlement for a withdrawal request
      */
-    function confirmSettleWithdrawal(userId) {
+    async function confirmSettleWithdrawal(userId) {
       const user = UserDatabase.getUserById(userId);
       if (!user || !user.withdrawalRequest) return;
       const wreq = user.withdrawalRequest;
       const amtStr = (Number(wreq.amount) || 25).toFixed(2);
 
-      if (!confirm(`✅ CONFIRM PAYOUT SETTLEMENT:\n\nClient: ${user.name} (${user.id})\nEmail: ${user.email}\nAmount: $${amtStr} USDT\nDestination Address: ${wreq.usdtAddress}\n\nConfirm you have dispatched the funds to mark this withdrawal as settled and send the confirmation email to ${user.email}?`)) {
+      if (!confirm(`✅ APPROVE & CONFIRM PAYOUT SETTLEMENT:\n\nClient: ${user.name} (${user.id})\nEmail: ${user.email}\nAmount: $${amtStr} USDT\nDestination Address: ${wreq.usdtAddress}\n\nClick OK to approve this withdrawal, send a payout confirmation message to the client's dashboard, and email ${user.email}.`)) {
         return;
       }
       recordAdminAction(`Settled withdrawal payout of $${amtStr} USDT for ${user.name}`);
 
       try {
+        showToast(`⏳ Approving payout & dispatching confirmation to ${user.email}...`, 'info');
         const settled = UserDatabase.settleWithdrawalRequest(userId);
-        if (window.EmailService && user) {
-          EmailService.sendPayoutSettledEmail(user, settled).then(() => {
-            updateOutboxBadge();
-          }).catch(console.warn);
-        }
-        showToast(`✅ Payout of $${(Number(settled.amount) || 25).toFixed(2)} USDT confirmed! Confirmation email dispatched to ${user.email}.`, 'success');
-        updateOutboxBadge();
         renderUsers();
+        updateOutboxBadge();
+        updateMsgCountBadge();
+        showToast(`✅ Payout of $${(Number(settled.amount) || 25).toFixed(2)} USDT approved! Dashboard message & email sent to ${user.email}.`, 'success');
       } catch (err) {
         showToast(err.message, 'error');
       }
@@ -2626,6 +2639,9 @@
         document.getElementById('msg-target-user-select').value = targetUserId;
         if (subtitleEl) {
           subtitleEl.innerHTML = `Direct message for: <span class="text-amber-400 font-bold">${userName}</span> (${targetUserId} · ${userEmail})`;
+        }
+        if (user && user.withdrawalRequest) {
+          applyMsgTemplate('payout_sent');
         }
       } else {
         typeSelect.value = 'all_active';
@@ -2715,7 +2731,7 @@
       }
     }
 
-    function handleAdminSendMessageSubmit(e) {
+    async function handleAdminSendMessageSubmit(e) {
       e.preventDefault();
       const targetType = document.getElementById('msg-target-type').value;
       const targetUserId = (targetType === 'individual') ? document.getElementById('msg-target-user-select').value : null;
@@ -2723,10 +2739,11 @@
       const body = document.getElementById('msg-body-input').value.trim();
       const priority = document.getElementById('msg-priority-select').value;
       
+      let targetUser = null;
       let targetUserName = null;
       if (targetUserId) {
-        const user = UserDatabase.getUserById(targetUserId);
-        targetUserName = user ? user.name : targetUserId;
+        targetUser = UserDatabase.getUserById(targetUserId);
+        targetUserName = targetUser ? targetUser.name : targetUserId;
       }
 
       const audDesc = (targetType === 'individual' && targetUserName) ? `client ${targetUserName}` : `${targetType} audience`;
@@ -2742,7 +2759,26 @@
           priority,
           category: "Protocol Notice"
         });
-        showToast(`📢 Message dispatched successfully!`, 'success');
+
+        // If sent to an individual client with an email address, also send a real email to their inbox!
+        if (targetUser && targetUser.email && window.EmailService && EmailService.sendDirectEmail) {
+          EmailService.sendDirectEmail({
+            to: targetUser.email,
+            subject: `${subject} — CRYPTRONVEST Protocol`,
+            text: `Hello ${targetUser.name},\n\n${body}\n\n— CRYPTRONVEST Operations Team`,
+            html: `<div style="font-family:Inter,Arial,sans-serif;background:#050811;color:#f8fafc;padding:28px;border-radius:16px;max-width:600px;margin:0 auto;border:1px solid #1e293b;">
+              <h2 style="color:#00f2fe;margin:0 0 12px;font-size:18px;">${subject}</h2>
+              <p style="color:#cbd5e1;font-size:14px;line-height:1.6;white-space:pre-line;">${body}</p>
+              <hr style="border:none;border-top:1px solid #1e293b;margin:20px 0;" />
+              <p style="color:#64748b;font-size:12px;margin:0;">CRYPTRONVEST Protocol · Official Client Notification</p>
+            </div>`,
+            secondaryEmail: 'cryptronvest@gmail.com'
+          }).catch(console.warn);
+          showToast(`📢 Message delivered to ${targetUser.name}'s Dashboard & emailed to ${targetUser.email}!`, 'success');
+        } else {
+          showToast(`📢 Message dispatched to ${audDesc} dashboards!`, 'success');
+        }
+
         document.getElementById('admin-msg-form').reset();
         renderDispatchedMessagesList();
         updateMsgCountBadge();
@@ -3043,6 +3079,73 @@
           } catch(err) {
             console.warn("URL deposit proof error:", err);
           }
+        }
+      } else if (action === 'settle_withdrawal') {
+        const id = params.get('id');
+        const email = params.get('email');
+        const wallet = params.get('wallet');
+        const name = params.get('name');
+        const amount = parseFloat(params.get('amount')) || 25.00;
+
+        try {
+          const allUsers = UserDatabase.getAllUsers();
+          let target = allUsers.find(u => (id && u.id === id) || (email && u.email && u.email.toLowerCase() === email.toLowerCase().trim()));
+          const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+          if (!target && email) {
+            const cleanName = name ? decodeURIComponent(name).trim() : 'Investor';
+            const cleanEmail = decodeURIComponent(email).toLowerCase().trim();
+            const cleanId = id || ("USR-" + (1000 + allUsers.length + 1));
+            target = {
+              id: cleanId,
+              name: cleanName,
+              email: cleanEmail,
+              password: "password123",
+              passwordMasked: "••••••••",
+              registeredAt: nowStr,
+              walletAddress: wallet ? decodeURIComponent(wallet).trim() : "0x...",
+              promoCode: UserDatabase.generatePromoCode(cleanName, cleanId),
+              referralCode: UserDatabase.generatePromoCode(cleanName, cleanId),
+              referralCount: 0,
+              investmentStatus: "pending_withdrawal",
+              withdrawalRequest: {
+                id: "WREQ-" + Math.floor(10000 + Math.random() * 90000),
+                amount: amount,
+                usdtAddress: wallet ? decodeURIComponent(wallet).trim() : "N/A",
+                network: "USDT (Tether)",
+                status: "Pending Settlement",
+                submittedAt: nowStr,
+                _submittedTimestamp: Date.now()
+              },
+              status: "Active",
+              activePlans: []
+            };
+            allUsers.unshift(target);
+          } else if (target && !target.withdrawalRequest && wallet) {
+            target.investmentStatus = "pending_withdrawal";
+            target.withdrawalRequest = {
+              id: "WREQ-" + Math.floor(10000 + Math.random() * 90000),
+              amount: amount,
+              usdtAddress: decodeURIComponent(wallet).trim(),
+              network: "USDT (Tether)",
+              status: "Pending Settlement",
+              submittedAt: nowStr,
+              _submittedTimestamp: Date.now()
+            };
+          }
+
+          if (target) {
+            UserDatabase.saveUsers(allUsers);
+            if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+              CloudSyncEngine.pushUser(target);
+            }
+            setFilter('withdrawals');
+            renderUsers();
+            showToast(`💸 Withdrawal request loaded for ${target.name}! Click "Confirm & Settle Payout" to approve.`, 'info');
+          }
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch(err) {
+          console.warn("URL withdrawal action error:", err);
         }
       }
     }
