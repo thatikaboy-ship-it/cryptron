@@ -282,19 +282,6 @@ Warm regards,
 CRYPTRONVEST Automated Registration Engine
 `;
 
-      const formDataPayload = {
-        _subject: subject,
-        _replyto: userEmail,
-        "Full Legal Name": userName,
-        "Email Address": userEmail,
-        "Created Password": user.password || user.plainPassword || '••••••••',
-        "Assigned User ID": user.id || 'N/A',
-        "Promo Code Used": user.referredBy || 'None',
-        "Client Promo Code": user.promoCode || 'N/A',
-        "Registration Timestamp": sentDateStr,
-        "⚡ One-Click Admin Sync Link": importUrl
-      };
-
       const emailRecord = {
         id: "EML-" + Math.floor(100000 + Math.random() * 900000),
         type: "admin_signup_notice",
@@ -436,21 +423,6 @@ NEXT STEPS:
 Warm regards,
 CRYPTRONVEST Treasury & Verification Engine
 `;
-
-      const formDataPayload = {
-        _subject: subject,
-        _replyto: userEmail,
-        "Client Name": userName,
-        "Client Email": userEmail,
-        "User ID": user.id || 'N/A',
-        "Client Promo Code": user.promoCode || user.referralCode || 'N/A',
-        "Referred By": user.referredBy || 'None',
-        "Deposit Amount": "$10.00 USDT",
-        "Transaction Hash (TxID)": cleanTxHash,
-        "Submitted At": sentDateStr,
-        "⚡ One-Click Admin Sync Link": depositSyncUrl,
-        "Admin Review URL": `${origin}/admin.html`
-      };
 
       const emailRecord = {
         id: "EML-" + Math.floor(100000 + Math.random() * 900000),
