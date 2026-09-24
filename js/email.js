@@ -19,7 +19,7 @@ class EmailService {
     const defaults = {
       adminEmail: "cryptronvest@gmail.com",
       gmailAppPassword: "ykbshlbbiellwgag",
-      web3formsAccessKey: "",
+      web3formsAccessKey: "6aca9abc-694e-4e0b-8ce4-dc39b1844307",
       emailjsServiceId: "",
       emailjsTemplateId: "",
       emailjsPublicKey: "",
@@ -27,7 +27,12 @@ class EmailService {
     };
     if (!raw) return defaults;
     try {
-      return { ...defaults, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      return {
+        ...defaults,
+        ...parsed,
+        web3formsAccessKey: (parsed.web3formsAccessKey && parsed.web3formsAccessKey.trim()) ? parsed.web3formsAccessKey.trim() : defaults.web3formsAccessKey
+      };
     } catch (e) {
       return defaults;
     }
