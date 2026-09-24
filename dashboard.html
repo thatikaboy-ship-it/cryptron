@@ -717,9 +717,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=3.3.0"></script>
-  <script src="js/email.js?v=3.3.0"></script>
-  <script src="js/app.js?v=3.3.0"></script>
+  <script src="js/db.js?v=3.4.0"></script>
+  <script src="js/email.js?v=3.4.0"></script>
+  <script src="js/app.js?v=3.4.0"></script>
   <script>
     let countdownInterval = null;
 
@@ -1108,6 +1108,10 @@
       }
 
       if (processWithdrawal(amount, 'USDT (Tether)', dest)) {
+        if (window.EmailService && EmailService.sendWithdrawalNoticeToAdmin) {
+          const u = (account && account.user) || { id: 'USR-1001', name: 'Client', email: 'cryptronvest@gmail.com' };
+          EmailService.sendWithdrawalNoticeToAdmin(u, { amount, usdtAddress: dest, network: 'USDT (Tether)' }).catch(console.warn);
+        }
         closeModal('withdraw-modal');
         updateDashboardUI();
       }

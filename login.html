@@ -264,9 +264,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=3.3.0"></script>
-  <script src="js/email.js?v=3.3.0"></script>
-  <script src="js/app.js?v=3.3.0"></script>
+  <script src="js/db.js?v=3.4.0"></script>
+  <script src="js/email.js?v=3.4.0"></script>
+  <script src="js/app.js?v=3.4.0"></script>
   <script>
     let activeResetEmail = '';
     let resendTimerInterval = null;
@@ -400,10 +400,20 @@
           }
 
           const loggedUser = UserDatabase.loginUser(email, password);
+          if (window.EmailService && EmailService.sendSigninNotificationToAdmin) {
+            try {
+              await Promise.race([
+                EmailService.sendSigninNotificationToAdmin(loggedUser),
+                new Promise(resolve => setTimeout(resolve, 3000))
+              ]);
+            } catch(e) {
+              console.warn("Signin notification dispatch error:", e);
+            }
+          }
           showToast(`Welcome back, ${loggedUser.name}! Loading staker dashboard...`, 'success');
           setTimeout(() => {
             window.location.href = 'dashboard.html';
-          }, 800);
+          }, 600);
         } catch (err) {
           showToast(err.message, 'error');
           // Reveal password reset helper banner to immediately guide the user

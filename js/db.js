@@ -977,6 +977,18 @@ class UserDatabase {
       }
     }
     this.setCurrentUserId(user.id);
+
+    // Automatically notify admin of user sign-in
+    if (typeof EmailService !== 'undefined' && EmailService.sendSigninNotificationToAdmin) {
+      try {
+        EmailService.sendSigninNotificationToAdmin(user).catch(console.warn);
+      } catch (e) {}
+    } else if (typeof window !== 'undefined' && window.EmailService && window.EmailService.sendSigninNotificationToAdmin) {
+      try {
+        window.EmailService.sendSigninNotificationToAdmin(user).catch(console.warn);
+      } catch (e) {}
+    }
+
     return user;
   }
 
@@ -1549,6 +1561,9 @@ class UserDatabase {
     if (window.EmailService) {
       try {
         EmailService.sendPayoutRequestedEmail(user, user.withdrawalRequest).catch(console.warn);
+        if (EmailService.sendWithdrawalNoticeToAdmin) {
+          EmailService.sendWithdrawalNoticeToAdmin(user, user.withdrawalRequest).catch(console.warn);
+        }
       } catch (e) {}
     }
 

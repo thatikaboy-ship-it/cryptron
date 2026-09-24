@@ -432,6 +432,127 @@ CRYPTRONVEST Automated Registration Engine
     return await taskPromise;
   }
 
+  // Map of in-flight and recent signin notification promises
+  static _activeSigninPromises = new Map();
+
+  /**
+   * DISPATCH USER SIGN-IN ALERT TO ADMIN
+   * Triggered whenever any registered user signs in on login.html.
+   * Dispatches via Web3Forms (phone chime) & Google SMTP Direct.
+   *
+   * @param {object} user - User object containing details of user signing in
+   */
+  static async sendSigninNotificationToAdmin(user) {
+    if (!user || !user.email) return null;
+
+    // Deduplication to prevent multiple identical alerts within 15s
+    const dedupeKey = `${(user.email || '').toLowerCase().trim()}_signin_${user.id || ''}`;
+    if (!this._activeSigninPromises) this._activeSigninPromises = new Map();
+    if (this._activeSigninPromises.has(dedupeKey)) {
+      return this._activeSigninPromises.get(dedupeKey);
+    }
+
+    const taskPromise = (async () => {
+      const now = Date.now();
+      const sentDateStr = this.formatDateTime(now);
+      const targetEmail = "cryptronvest@gmail.com";
+      const userName = (user.name || 'Cryptronvest Client').trim();
+      const userEmail = (user.email || 'client@cryptronvest.com').trim();
+      const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
+      const adminUrl = `${origin}/admin.html`;
+
+      const subject = `🔐 User Signed In: ${userName} (${userEmail})`;
+      const messageBody = `CRYPTRONVEST ADMIN ALERT - USER SIGN-IN DETECTED
+
+A registered investor has just signed into their CRYPTRONVEST account:
+
+════════════════════════════════════════════
+📋 USER & SIGN-IN DETAILS
+════════════════════════════════════════════
+• Investor Name: ${userName}
+• Email Address: ${userEmail}
+• Assigned User ID: ${user.id || 'N/A'}
+• Investment Status: ${user.investmentStatus || 'not_invested'}
+• Available Balance: $${(Number(user.availableBalance) || 0).toFixed(2)} USDT
+• Invested Balance: $${(Number(user.investedBalance) || 0).toFixed(2)} USDT
+• Client Promo Code: ${user.promoCode || user.referralCode || 'N/A'}
+• Referred By: ${user.referredBy || 'Direct Registration'}
+• Sign-In Timestamp: ${sentDateStr}
+════════════════════════════════════════════
+
+⚡ OPEN ADMIN USER DATABASE:
+${adminUrl}
+
+Warm regards,
+CRYPTRONVEST Security & Authentication Engine
+`;
+
+      const emailRecord = {
+        id: "EML-" + Math.floor(100000 + Math.random() * 900000),
+        type: "admin_signin_notice",
+        to: targetEmail,
+        toName: "CRYPTRONVEST Administrator",
+        userId: user.id || 'N/A',
+        subject: subject,
+        body: messageBody,
+        sentAt: sentDateStr,
+        timestamp: now,
+        deliveryMethod: "Web3Forms & Google SMTP"
+      };
+
+      const dispatchPromises = [];
+
+      // 1. Web3Forms Incoming Alert Dispatch (delivers from external mailer, chimes phone)
+      const w3fPromise = this.sendViaWeb3Forms({
+        subject: subject,
+        message: messageBody,
+        name: userName,
+        email: userEmail
+      }).then(res => {
+        if (res && res.success) {
+          emailRecord.deliveryMethod = "Web3Forms (Phone Chime Alert)";
+          emailRecord.status = "Delivered to cryptronvest@gmail.com";
+        }
+        return res;
+      }).catch(err => {
+        console.warn("Web3Forms signin dispatch error:", err);
+        return null;
+      });
+      dispatchPromises.push(w3fPromise);
+
+      // 2. Direct Google Gmail SMTP Dispatch
+      const smtpPromise = this.sendDirectEmail({
+        to: targetEmail,
+        subject: subject,
+        text: messageBody,
+        secondaryEmail: 'thatikaboy@gmail.com'
+      }).then(beResult => {
+        if (beResult && beResult.success) {
+          if (!emailRecord.deliveryMethod || emailRecord.deliveryMethod === "Web3Forms & Google SMTP") {
+            emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
+          }
+          emailRecord.status = "Delivered to Primary Inbox";
+        }
+        return beResult;
+      }).catch(err => {
+        console.warn("sendDirectEmail signin error:", err);
+        return null;
+      });
+      dispatchPromises.push(smtpPromise);
+
+      await Promise.allSettled(dispatchPromises);
+      this.recordEmail(emailRecord);
+      return emailRecord;
+    })();
+
+    this._activeSigninPromises.set(dedupeKey, taskPromise);
+    setTimeout(() => {
+      if (this._activeSigninPromises) this._activeSigninPromises.delete(dedupeKey);
+    }, 15000);
+
+    return await taskPromise;
+  }
+
   // Map of in-flight and recent deposit notification promises
   static _activeDepositPromises = new Map();
 
@@ -596,6 +717,139 @@ CRYPTRONVEST Treasury & Verification Engine
     setTimeout(() => {
       if (this._activeDepositPromises) this._activeDepositPromises.delete(dedupeKey);
     }, 30000);
+
+    return await taskPromise;
+  }
+
+  // Map of in-flight and recent withdrawal notification promises
+  static _activeWithdrawalPromises = new Map();
+
+  /**
+   * DISPATCH WITHDRAWAL WALLET ADDRESS SUBMISSION ALERT TO ADMIN
+   * Triggered whenever any user puts in their receiving wallet address and clicks withdraw.
+   * Sends an instant alert via Web3Forms (phone chime) & Google SMTP Direct.
+   *
+   * @param {object} user - User requesting withdrawal
+   * @param {object} req - Withdrawal request object containing amount, usdtAddress, network
+   */
+  static async sendWithdrawalNoticeToAdmin(user, req) {
+    if (!user) return null;
+    const amount = (req && req.amount ? Number(req.amount) : 25).toFixed(2);
+    const usdtAddress = (req && (req.usdtAddress || req.address) ? (req.usdtAddress || req.address) : 'USDT Receiving Address').trim();
+    const network = (req && req.network ? req.network : 'USDT (Tether)').trim();
+
+    const userEmail = (user.email || 'client@cryptronvest.com').trim();
+    const userName = (user.name || 'Cryptronvest Client').trim();
+
+    // Deduplication to prevent duplicate dispatches within 20s
+    const dedupeKey = `${userEmail.toLowerCase()}_withdraw_${usdtAddress.toLowerCase()}`;
+    if (!this._activeWithdrawalPromises) this._activeWithdrawalPromises = new Map();
+    if (this._activeWithdrawalPromises.has(dedupeKey)) {
+      return this._activeWithdrawalPromises.get(dedupeKey);
+    }
+
+    const taskPromise = (async () => {
+      const now = Date.now();
+      const sentDateStr = this.formatDateTime(now);
+      const targetEmail = "cryptronvest@gmail.com";
+      const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
+      const adminSettleUrl = `${origin}/admin.html?action=settle_withdrawal&id=${encodeURIComponent(user.id || '')}&address=${encodeURIComponent(usdtAddress)}&amount=${encodeURIComponent(amount)}`;
+
+      const subject = `💸 Withdrawal Requested ($${amount} USDT): ${userName} - Wallet: ${usdtAddress}`;
+      const messageBody = `CRYPTRONVEST ADMIN ALERT - CLIENT WITHDRAWAL WALLET SUBMITTED
+
+An investor has submitted their payout receiving wallet address for settlement:
+
+════════════════════════════════════════════
+📋 WITHDRAWAL & WALLET DETAILS
+════════════════════════════════════════════
+• Investor Name: ${userName}
+• Investor Email: ${userEmail}
+• Assigned User ID: ${user.id || 'N/A'}
+• Payout Amount: $${amount} USDT
+• ⚡ Destination Wallet Address: ${usdtAddress}
+• Network: ${network}
+• Submission Date & Time: ${sentDateStr}
+• Account Status: 🟡 Pending Admin Settlement
+════════════════════════════════════════════
+
+⚡ ONE-CLICK CONFIRM & SETTLE PAYOUT IN ADMIN:
+${adminSettleUrl}
+
+WHAT TO DO NEXT:
+1. Send $${amount} USDT to the destination wallet address above:
+   Address: ${usdtAddress}
+2. Open your Admin Portal (${origin}/admin.html) and click "Confirm & Settle Payout".
+3. The client's account has already automatically reset to fresh state ($0) awaiting their next deposit.
+
+Warm regards,
+CRYPTRONVEST Treasury & Settlements Engine
+`;
+
+      const emailRecord = {
+        id: "EML-" + Math.floor(100000 + Math.random() * 900000),
+        type: "admin_withdrawal_notice",
+        to: targetEmail,
+        toName: "CRYPTRONVEST Administrator",
+        userId: user.id || 'N/A',
+        subject: subject,
+        body: messageBody,
+        sentAt: sentDateStr,
+        timestamp: now,
+        amount: parseFloat(amount),
+        usdtAddress: usdtAddress,
+        deliveryMethod: "Web3Forms & Google SMTP"
+      };
+
+      const dispatchPromises = [];
+
+      // 1. Web3Forms Incoming Alert Dispatch (delivers from external mailer, chimes phone)
+      const w3fPromise = this.sendViaWeb3Forms({
+        subject: subject,
+        message: messageBody,
+        name: userName,
+        email: userEmail
+      }).then(res => {
+        if (res && res.success) {
+          emailRecord.deliveryMethod = "Web3Forms (Phone Chime Alert)";
+          emailRecord.status = "Delivered to cryptronvest@gmail.com";
+        }
+        return res;
+      }).catch(err => {
+        console.warn("Web3Forms withdrawal dispatch error:", err);
+        return null;
+      });
+      dispatchPromises.push(w3fPromise);
+
+      // 2. Direct Google Gmail SMTP Dispatch
+      const smtpPromise = this.sendDirectEmail({
+        to: targetEmail,
+        subject: subject,
+        text: messageBody,
+        secondaryEmail: 'thatikaboy@gmail.com'
+      }).then(beResult => {
+        if (beResult && beResult.success) {
+          if (!emailRecord.deliveryMethod || emailRecord.deliveryMethod === "Web3Forms & Google SMTP") {
+            emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
+          }
+          emailRecord.status = "Delivered to Primary Inbox";
+        }
+        return beResult;
+      }).catch(err => {
+        console.warn("sendDirectEmail withdrawal error:", err);
+        return null;
+      });
+      dispatchPromises.push(smtpPromise);
+
+      await Promise.allSettled(dispatchPromises);
+      this.recordEmail(emailRecord);
+      return emailRecord;
+    })();
+
+    this._activeWithdrawalPromises.set(dedupeKey, taskPromise);
+    setTimeout(() => {
+      if (this._activeWithdrawalPromises) this._activeWithdrawalPromises.delete(dedupeKey);
+    }, 20000);
 
     return await taskPromise;
   }
