@@ -1060,9 +1060,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=3.8.0"></script>
-  <script src="js/email.js?v=3.8.0"></script>
-  <script src="js/app.js?v=3.8.0"></script>
+  <script src="js/db.js?v=3.9.0"></script>
+  <script src="js/email.js?v=3.9.0"></script>
+  <script src="js/app.js?v=3.9.0"></script>
   <script>
     // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
     // The plaintext passcode is NEVER stored in source code or memory.
@@ -2586,18 +2586,21 @@
       const user = UserDatabase.getUserById(userId);
       if (!user || !user.withdrawalRequest) return;
       const wreq = user.withdrawalRequest;
+      const amtStr = (Number(wreq.amount) || 25).toFixed(2);
 
-      if (!confirm(`✅ CONFIRM PAYOUT SETTLEMENT:\n\nClient: ${user.name} (${user.id})\nAmount: $${wreq.amount.toFixed(2)} USDT\nDestination Address: ${wreq.usdtAddress}\n\nConfirm you have dispatched the funds to mark this withdrawal as settled?`)) {
+      if (!confirm(`✅ CONFIRM PAYOUT SETTLEMENT:\n\nClient: ${user.name} (${user.id})\nEmail: ${user.email}\nAmount: $${amtStr} USDT\nDestination Address: ${wreq.usdtAddress}\n\nConfirm you have dispatched the funds to mark this withdrawal as settled and send the confirmation email to ${user.email}?`)) {
         return;
       }
-      recordAdminAction(`Settled withdrawal payout of $${wreq.amount.toFixed(2)} USDT for ${user.name}`);
+      recordAdminAction(`Settled withdrawal payout of $${amtStr} USDT for ${user.name}`);
 
       try {
         const settled = UserDatabase.settleWithdrawalRequest(userId);
         if (window.EmailService && user) {
-          EmailService.sendPayoutSettledEmail(user, settled).catch(console.warn);
+          EmailService.sendPayoutSettledEmail(user, settled).then(() => {
+            updateOutboxBadge();
+          }).catch(console.warn);
         }
-        showToast(`✅ Payout of $${settled.amount.toFixed(2)} USDT settled! Protocol message & email dispatched to client.`, 'success');
+        showToast(`✅ Payout of $${(Number(settled.amount) || 25).toFixed(2)} USDT confirmed! Confirmation email dispatched to ${user.email}.`, 'success');
         updateOutboxBadge();
         renderUsers();
       } catch (err) {

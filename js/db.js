@@ -2127,11 +2127,22 @@ class UserDatabase {
       priority: "success"
     });
 
-    this.saveUsers(users);
+    this.saveUsers(users, { skipCloudPush: true });
 
     // Push fully reset state to cloud database for worldwide real-time sync
     if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
       CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
+
+    // Dispatch payout settlement confirmation email directly to client
+    if (typeof EmailService !== 'undefined' && EmailService.sendPayoutSettledEmail) {
+      try {
+        EmailService.sendPayoutSettledEmail(user, settledReq).catch(console.warn);
+      } catch (e) {}
+    } else if (typeof window !== 'undefined' && window.EmailService && window.EmailService.sendPayoutSettledEmail) {
+      try {
+        window.EmailService.sendPayoutSettledEmail(user, settledReq).catch(console.warn);
+      } catch (e) {}
     }
 
     // Dispatch official protocol message to client inbox
@@ -2140,8 +2151,8 @@ class UserDatabase {
         targetType: "individual",
         targetUserId: userId,
         targetUserName: user.name,
-        subject: `✅ USDT Payout Dispatched & Settled: $${settledReq.amount.toFixed(2)} USDT`,
-        body: `Hello ${user.name},\n\nGreat news! Your requested payout of $${settledReq.amount.toFixed(2)} USDT has been successfully processed and dispatched to your USDT Tether receiving address!\n\n• Payout Amount: $${settledReq.amount.toFixed(2)} USDT\n• Receiving Address: ${settledReq.usdtAddress}\n• Network: ${settledReq.network || 'USDT TRC-20'}\n• Transaction Hash: ${hash}\n• Settled At: ${settledReq.settledAt}\n\nYour 7-day contract has completed successfully and your account has started afresh ($0.00). Deposit $10.00 USDT now to start a new 7-day vault to $25 and unlock your daily spins on the $10,000 Lucky Wheel!`,
+        subject: `✅ USDT Payout Dispatched & Settled: $${Number(settledReq.amount || 25).toFixed(2)} USDT`,
+        body: `Hello ${user.name},\n\nGreat news! Your requested payout of $${Number(settledReq.amount || 25).toFixed(2)} USDT has been successfully processed and dispatched to your USDT Tether receiving address!\n\n• Payout Amount: $${Number(settledReq.amount || 25).toFixed(2)} USDT\n• Receiving Address: ${settledReq.usdtAddress}\n• Network: ${settledReq.network || 'USDT TRC-20'}\n• Transaction Hash: ${hash}\n• Settled At: ${settledReq.settledAt}\n\nYour 7-day contract has completed successfully and your account has started afresh ($0.00). Deposit $10.00 USDT now to start a new 7-day vault to $25 and unlock your daily spins on the $10,000 Lucky Wheel!`,
         priority: "success",
         category: "Payout Settlement"
       });

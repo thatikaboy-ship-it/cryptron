@@ -47,31 +47,39 @@ class EmailService {
    * Universal direct dispatch from cryptronvest@gmail.com via backend Google SMTP
    */
   static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', replyTo, secondaryEmail = 'thatikaboy@gmail.com' }) {
-    const settings = this.getSettings();
-    const endpoint = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http'))
-      ? '/api/send-email'
-      : 'https://cryptron-omega.vercel.app/api/send-email';
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        keepalive: true,
-        body: JSON.stringify({
-          to,
-          subject,
-          html,
-          text,
-          fromName,
-          replyTo,
-          secondaryEmail,
-          appPassword: 'fxqrbdkzgjsdhdrl'
-        })
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn("Direct /api/send-email dispatch error:", err);
-      return null;
+    const payload = JSON.stringify({
+      to,
+      subject,
+      html,
+      text,
+      fromName,
+      replyTo,
+      secondaryEmail,
+      appPassword: 'fxqrbdkzgjsdhdrl'
+    });
+
+    const isVercelOrLocalApi = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http') && !window.location.hostname.includes('github.io'));
+    const endpoints = isVercelOrLocalApi
+      ? ['/api/send-email', 'https://cryptron-omega.vercel.app/api/send-email']
+      : ['https://cryptron-omega.vercel.app/api/send-email'];
+
+    for (const endpoint of endpoints) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: payload
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success) return data;
+        }
+      } catch (err) {
+        console.warn(`Direct ${endpoint} dispatch error:`, err);
+      }
     }
+    return null;
   }
 
   /**
@@ -1069,11 +1077,13 @@ ${origin}
    * Triggered when a client submits their $25.00 USDT payout request
    */
   static async sendPayoutRequestedEmail(user, req) {
+    if (!user || !user.email) return null;
     const now = Date.now();
     const sentDateStr = this.formatDateTime(now);
-    const amount = (req && req.amount ? req.amount : 25).toFixed(2);
+    const amount = (req && req.amount ? Number(req.amount) : 25).toFixed(2);
     const address = req && req.usdtAddress ? req.usdtAddress : 'USDT Receiving Address';
     const network = req && req.network ? req.network : 'USDT (Tether)';
+    const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
 
     const subject = `💵 Payout Request Received: $${amount} USDT Queued for Settlement`;
     const messageBody = `Hello ${user.name},
@@ -1097,12 +1107,29 @@ WHAT HAPPENS NEXT?
 3. Start Afresh: You can deposit $10.00 USDT at any time to activate your next 7-day vault and unlock your daily spins on the $10,000 Lucky Wheel!
 
 Login to view your status:
-https://cryptron-omega.vercel.app/dashboard.html
+${origin}/dashboard.html
 
 Warm regards,
 The CRYPTRONVEST Settlements Team
-https://cryptron-omega.vercel.app
+${origin}
 `;
+
+    const htmlBody = EmailService.buildAdminAlertHtml({
+      badge: 'Payout Request Queued',
+      title: `💵 $${amount} USDT Payout Request Received`,
+      subtitle: `Investor: ${user.name} (${user.email})`,
+      items: [
+        { label: 'Investor Name', value: `${user.name} (${user.id || 'N/A'})` },
+        { label: 'Requested Payout', value: `$${amount} USDT` },
+        { label: 'Receiving USDT Wallet', value: address, isCode: true },
+        { label: 'Blockchain Network', value: network },
+        { label: 'Submission Time', value: sentDateStr },
+        { label: 'Settlement Status', value: '🟡 Queued for On-Chain Admin Settlement' }
+      ],
+      actionLabel: 'View Account Dashboard',
+      actionUrl: `${origin}/dashboard.html`,
+      notes: 'Our Treasury team has received your destination wallet address. You will receive an instant confirmation email as soon as your payout is settled on-chain.'
+    });
 
     const emailRecord = {
       id: "EML-" + Math.floor(100000 + Math.random() * 900000),
@@ -1112,6 +1139,7 @@ https://cryptron-omega.vercel.app
       userId: user.id,
       subject: subject,
       body: messageBody,
+      html: htmlBody,
       sentAt: sentDateStr,
       timestamp: now,
       amount: amount,
@@ -1120,14 +1148,18 @@ https://cryptron-omega.vercel.app
       deliveryMethod: "Settlements Dispatch Engine (Live Dispatched)"
     };
 
-    // Dispatch payout notification to admin via clean Google SMTP
     try {
-      this.sendDirectEmail({
-        to: "cryptronvest@gmail.com",
-        subject: `💸 Payout Requested: $${amount} USDT - ${user.name || 'Client'} (${user.email || ''})`,
-        text: `ACTION REQUIRED: Payout request received for $${amount} USDT to destination ${address}. Log in to Admin portal to confirm and settle payment.`,
-        secondaryEmail: 'thatikaboy@gmail.com'
-      }).catch(console.warn);
+      const smtpRes = await this.sendDirectEmail({
+        to: user.email,
+        subject: subject,
+        text: messageBody,
+        html: htmlBody,
+        secondaryEmail: 'cryptronvest@gmail.com'
+      });
+      if (smtpRes && smtpRes.success) {
+        emailRecord.deliveryMethod = "Google Gmail SMTP (Delivered)";
+        emailRecord.status = "Delivered to Primary Inbox";
+      }
     } catch(err) {
       console.warn("sendDirectEmail payout request error:", err);
     }
@@ -1136,27 +1168,40 @@ https://cryptron-omega.vercel.app
     return emailRecord;
   }
 
+  static _activePayoutSettledPromises = new Map();
+
   /**
    * DISPATCH PAYOUT SETTLED CONFIRMATION EMAIL TO CLIENT
    * Triggered when admin confirms on-chain dispatch of $25.00 USDT payout
    */
   static async sendPayoutSettledEmail(user, settledReq) {
-    const now = Date.now();
-    const sentDateStr = this.formatDateTime(now);
-    const amount = (settledReq && settledReq.amount ? settledReq.amount : 25).toFixed(2);
-    const address = settledReq && settledReq.usdtAddress ? settledReq.usdtAddress : 'USDT Receiving Address';
-    const txHash = settledReq && settledReq.settlementTxHash ? settledReq.settlementTxHash : ('0x' + Math.random().toString(16).substring(2, 14));
-    const network = settledReq && settledReq.network ? settledReq.network : 'USDT (Tether)';
+    if (!user || !user.email) return null;
+    const amount = (settledReq && settledReq.amount ? Number(settledReq.amount) : 25).toFixed(2);
+    const address = (settledReq && settledReq.usdtAddress ? settledReq.usdtAddress : 'USDT Receiving Address').trim();
+    const dedupeKey = `${String(user.email).toLowerCase().trim()}_settled_${address.toLowerCase()}`;
 
-    const subject = `✅ Payout Dispatched: $${amount} USDT Sent to Your Wallet!`;
-    const messageBody = `Hello ${user.name},
+    if (!this._activePayoutSettledPromises) this._activePayoutSettledPromises = new Map();
+    if (this._activePayoutSettledPromises.has(dedupeKey)) {
+      return this._activePayoutSettledPromises.get(dedupeKey);
+    }
 
-Great news! Your payout of $${amount} USDT has been officially settled and dispatched to your USDT Tether receiving address.
+    const taskPromise = (async () => {
+      const now = Date.now();
+      const sentDateStr = this.formatDateTime(now);
+      const txHash = settledReq && settledReq.settlementTxHash ? settledReq.settlementTxHash : ('0x' + Math.random().toString(16).substring(2, 14));
+      const network = settledReq && settledReq.network ? settledReq.network : 'USDT (Tether)';
+      const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
+
+      const subject = `✅ Payout Dispatched: $${amount} USDT Sent to Your Wallet!`;
+      const messageBody = `Hello ${user.name},
+
+Great news! Your payout of $${amount} USDT has been officially confirmed, settled, and dispatched to your USDT Tether receiving address.
 
 ════════════════════════════════════════════
 💸 SETTLEMENT CONFIRMATION
 ════════════════════════════════════════════
 • Investor: ${user.name} (${user.id})
+• Registered Email: ${user.email}
 • Amount Dispatched: $${amount} USDT
 • Destination Address: ${address}
 • Network: ${network}
@@ -1169,32 +1214,100 @@ YOUR 7-DAY CYCLE IS COMPLETE!
 Thank you for investing with CRYPTRONVEST. Your account cycle has refreshed. You may now deposit $10.00 USDT to start a brand new 7-day vault cycle toward another $25 payout and unlock daily spins on the $10,000 Lucky Wheel!
 
 Login to start a new 7-day vault:
-https://cryptron-omega.vercel.app/dashboard.html
+${origin}/dashboard.html
 
 Warm regards,
 The CRYPTRONVEST Treasury Team
-https://cryptron-omega.vercel.app
+${origin}
 `;
 
-    const emailRecord = {
-      id: "EML-" + Math.floor(100000 + Math.random() * 900000),
-      type: "payout_settled",
-      to: user.email,
-      toName: user.name,
-      userId: user.id,
-      subject: subject,
-      body: messageBody,
-      sentAt: sentDateStr,
-      timestamp: now,
-      amount: amount,
-      usdtAddress: address,
-      txHash: txHash,
-      status: "Delivered",
-      deliveryMethod: "Treasury Dispatch Engine"
-    };
+      const htmlBody = EmailService.buildAdminAlertHtml({
+        badge: 'Official Payout Settlement',
+        title: `✅ $${amount} USDT Payout Sent to Your Wallet!`,
+        subtitle: `Hello ${user.name}, your withdrawal has been confirmed and dispatched by CRYPTRONVEST Treasury.`,
+        items: [
+          { label: 'Investor Name', value: `${user.name} (${user.id || 'N/A'})` },
+          { label: 'Registered Email', value: user.email },
+          { label: 'Amount Dispatched', value: `$${amount} USDT` },
+          { label: 'Destination USDT Wallet', value: address, isCode: true },
+          { label: 'Blockchain Network', value: network },
+          { label: 'Settlement TxID / Hash', value: txHash, isCode: true },
+          { label: 'Dispatched Timestamp', value: sentDateStr },
+          { label: 'Payout Status', value: '🟢 SETTLED & DISPATCHED ON-CHAIN' }
+        ],
+        actionLabel: 'Open Your Dashboard',
+        actionUrl: `${origin}/dashboard.html`,
+        notes: '<strong>Your 7-Day Cycle is Complete!</strong><br>Your account has refreshed to $0.00. You may deposit $10.00 USDT at any time to start a new 7-day vault cycle toward another $25.00 payout and unlock daily spins on the $10,000 Lucky Wheel.'
+      });
 
-    this.recordEmail(emailRecord);
-    return emailRecord;
+      const emailRecord = {
+        id: "EML-" + Math.floor(100000 + Math.random() * 900000),
+        type: "payout_settled",
+        to: user.email,
+        toName: user.name,
+        userId: user.id,
+        subject: subject,
+        body: messageBody,
+        html: htmlBody,
+        sentAt: sentDateStr,
+        timestamp: now,
+        amount: amount,
+        usdtAddress: address,
+        txHash: txHash,
+        status: "Delivered",
+        deliveryMethod: "Google Gmail SMTP Direct"
+      };
+
+      // Direct Google Gmail SMTP Dispatch to client
+      try {
+        const smtpRes = await this.sendDirectEmail({
+          to: user.email,
+          subject: subject,
+          text: messageBody,
+          html: htmlBody,
+          secondaryEmail: 'cryptronvest@gmail.com'
+        });
+        if (smtpRes && smtpRes.success) {
+          emailRecord.deliveryMethod = smtpRes.deliveryMethod || "Google Gmail SMTP (Delivered)";
+          emailRecord.status = "Delivered to Primary Inbox";
+        }
+      } catch (err) {
+        console.warn("Direct payout settled email dispatch error:", err);
+      }
+
+      // Attempt EmailJS delivery if configured
+      const settings = this.getSettings();
+      if (settings && settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey && window.emailjs) {
+        try {
+          await window.emailjs.send(
+            settings.emailjsServiceId,
+            settings.emailjsTemplateId,
+            {
+              to_name: user.name,
+              to_email: user.email,
+              payout_amount: amount,
+              usdt_address: address,
+              tx_hash: txHash,
+              subject: subject,
+              message: messageBody
+            },
+            settings.emailjsPublicKey
+          ).catch(e => console.warn("EmailJS payout settled warning:", e));
+        } catch (err) {
+          console.warn("EmailJS payout settled exception:", err);
+        }
+      }
+
+      this.recordEmail(emailRecord);
+      return emailRecord;
+    })();
+
+    this._activePayoutSettledPromises.set(dedupeKey, taskPromise);
+    setTimeout(() => {
+      if (this._activePayoutSettledPromises) this._activePayoutSettledPromises.delete(dedupeKey);
+    }, 20000);
+
+    return await taskPromise;
   }
 }
 
