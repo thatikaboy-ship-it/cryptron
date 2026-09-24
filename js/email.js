@@ -46,10 +46,13 @@ class EmailService {
   /**
    * Universal direct dispatch from cryptronvest@gmail.com via backend Google SMTP
    */
-  static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', secondaryEmail = 'thatikaboy@gmail.com' }) {
+  static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', replyTo, secondaryEmail = 'thatikaboy@gmail.com' }) {
     const settings = this.getSettings();
+    const endpoint = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http'))
+      ? '/api/send-email'
+      : 'https://cryptron-omega.vercel.app/api/send-email';
     try {
-      const res = await fetch('/api/send-email', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         keepalive: true,
@@ -59,8 +62,9 @@ class EmailService {
           html,
           text,
           fromName,
+          replyTo,
           secondaryEmail,
-          appPassword: settings.gmailAppPassword || 'fxqrbdkzgjsdhdrl'
+          appPassword: 'fxqrbdkzgjsdhdrl'
         })
       });
       return await res.json();
@@ -165,6 +169,69 @@ class EmailService {
   }
 
   /**
+   * Helper to build clean, responsive, brand-aligned HTML admin alert emails
+   */
+  static buildAdminAlertHtml({ badge, title, subtitle, items, actionLabel, actionUrl, notes }) {
+    const itemsHtml = (items || []).map(it => `
+      <tr>
+        <td style="padding: 10px 14px; font-size: 13px; color: #94a3b8; border-bottom: 1px solid #1e293b; width: 38%; vertical-align: top;">${it.label}</td>
+        <td style="padding: 10px 14px; font-size: 13px; color: #f8fafc; font-weight: 600; border-bottom: 1px solid #1e293b; font-family: ${it.isCode ? "'Courier New', Courier, monospace" : 'inherit'}; word-break: break-all; vertical-align: top;">${it.value}</td>
+      </tr>
+    `).join('');
+
+    const actionHtml = actionUrl ? `
+      <div style="text-align: center; margin: 26px 0 16px;">
+        <a href="${actionUrl}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4, #10b981); color: #020617; font-weight: 800; font-size: 14px; text-decoration: none; padding: 13px 28px; border-radius: 10px; box-shadow: 0 4px 14px rgba(6, 182, 212, 0.4); text-transform: uppercase; letter-spacing: 0.5px;">${actionLabel || 'Open Admin Portal'} &rarr;</a>
+      </div>
+      <div style="text-align: center; font-size: 11px; color: #64748b; margin-bottom: 16px; word-break: break-all;">
+        Direct link: <a href="${actionUrl}" style="color: #06b6d4; text-decoration: underline;">${actionUrl}</a>
+      </div>
+    ` : '';
+
+    const notesHtml = notes ? `
+      <div style="background: rgba(15, 23, 42, 0.7); border-left: 3px solid #06b6d4; padding: 12px 16px; margin: 18px 0; border-radius: 6px; font-size: 12px; color: #cbd5e1; line-height: 1.5;">
+        ${notes}
+      </div>
+    ` : '';
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #030712; color: #f8fafc; margin: 0; padding: 20px 10px;">
+  <div style="max-width: 580px; margin: 0 auto; background: #0f172a; border-radius: 16px; border: 1px solid #1e293b; padding: 32px 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+    <div style="text-align: center; border-bottom: 1px solid #1e293b; padding-bottom: 20px; margin-bottom: 20px;">
+      <div style="display: inline-block; font-size: 20px; font-weight: 900; letter-spacing: -0.5px; color: #ffffff; text-decoration: none;">
+        ⚡ CRYPTRON<span style="color: #10b981;">VEST</span> <span style="font-size: 11px; padding: 3px 8px; border-radius: 9999px; background: rgba(6,182,212,0.15); color: #06b6d4; border: 1px solid rgba(6,182,212,0.3); margin-left: 6px; font-weight: 700; text-transform: uppercase;">ADMIN NOTIFICATION</span>
+      </div>
+      <div style="margin-top: 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #06b6d4; font-weight: 700;">${badge || 'Protocol Alert'}</div>
+      <h1 style="font-size: 20px; font-weight: 800; color: #ffffff; margin: 6px 0 4px;">${title}</h1>
+      ${subtitle ? `<p style="font-size: 13px; color: #94a3b8; margin: 0;">${subtitle}</p>` : ''}
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #020617; border-radius: 10px; overflow: hidden; border: 1px solid #1e293b;">
+      <tbody>
+        ${itemsHtml}
+      </tbody>
+    </table>
+
+    ${notesHtml}
+
+    ${actionHtml}
+
+    <div style="border-top: 1px solid #1e293b; margin-top: 24px; padding-top: 16px; font-size: 11px; color: #64748b; text-align: center; line-height: 1.5;">
+      <p style="margin: 0 0 4px;">© 2026 CRYPTRONVEST Protocol · Automated Notification Engine</p>
+      <p style="margin: 0;">Sent directly to <strong>cryptronvest@gmail.com</strong> & <strong>thatikaboy@gmail.com</strong></p>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  /**
    * DISPATCH APPROVAL EMAIL TO CLIENT
    * Triggered when admin approves a deposit & begins 7-day countdown.
    *
@@ -235,6 +302,21 @@ https://cryptron-omega.vercel.app
       deliveryMethod: "Automated Email Engine"
     };
 
+    // Direct Google Gmail SMTP Dispatch to client
+    try {
+      const smtpRes = await this.sendDirectEmail({
+        to: user.email,
+        subject: subject,
+        text: messageBody
+      });
+      if (smtpRes && smtpRes.success) {
+        emailRecord.deliveryMethod = "Google Gmail SMTP (Delivered)";
+        emailRecord.status = "Delivered to Primary Inbox";
+      }
+    } catch (err) {
+      console.warn("Direct approval email dispatch error:", err);
+    }
+
     // Attempt real live delivery via EmailJS if configured
     const settings = this.getSettings();
     if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
@@ -299,7 +381,7 @@ https://cryptron-omega.vercel.app
       const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
       const importUrl = `${origin}/admin.html?action=import_user&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&promo=${encodeURIComponent(user.promoCode || '')}&ref=${encodeURIComponent(user.referredBy || '')}`;
 
-      const subject = `🔔 New User Registration: ${userName} (${userEmail})`;
+      const subject = `🔔 [ADMIN ALERT] New User Registration: ${userName} (${userEmail})`;
       const messageBody = `CRYPTRONVEST ADMIN NOTIFICATION - NEW CLIENT SIGNUP
 
 A new client has completed registration on the CRYPTRONVEST signup page:
@@ -317,11 +399,8 @@ A new client has completed registration on the CRYPTRONVEST signup page:
 • Initial Status: Active (Awaiting $10 Staking Vault)
 ════════════════════════════════════════════
 
-════════════════════════════════════════════
-⚡ ONE-CLICK IMPORT TO ADMIN (ACROSS ANY BROWSER / DEVICE):
-If viewing from a different phone or laptop, tap the link below to instantly add this client to your Admin Database:
+⚡ ONE-CLICK IMPORT TO ADMIN:
 ${importUrl}
-════════════════════════════════════════════
 
 WHAT HAPPENS NEXT:
 1. When this investor deposits $10 USDT and submits proof, verify their payment on the Admin Portal.
@@ -334,6 +413,25 @@ Warm regards,
 CRYPTRONVEST Automated Registration Engine
 `;
 
+      const htmlBody = EmailService.buildAdminAlertHtml({
+        badge: 'New User Registration',
+        title: `👤 ${userName} Registered`,
+        subtitle: `Registered email: ${userEmail}`,
+        items: [
+          { label: 'Full Legal Name', value: userName },
+          { label: 'Email Address', value: userEmail },
+          { label: 'Created Password', value: user.password || '••••••••', isCode: true },
+          { label: 'Assigned User ID', value: user.id || 'N/A', isCode: true },
+          { label: 'Referred By / Promo', value: user.referredBy || 'None (Direct Registration)' },
+          { label: 'Generated Promo Code', value: user.promoCode || 'N/A', isCode: true },
+          { label: 'Registration Time', value: sentDateStr },
+          { label: 'Initial Account Status', value: '🟢 Active (Awaiting $10 Vault Deposit)' }
+        ],
+        actionLabel: 'Open Admin Database',
+        actionUrl: `${origin}/admin.html`,
+        notes: `<strong>One-Click Import across any device:</strong><br><a href="${importUrl}" style="color: #06b6d4; word-break: break-all;">${importUrl}</a>`
+      });
+
       const emailRecord = {
         id: "EML-" + Math.floor(100000 + Math.random() * 900000),
         type: "admin_signup_notice",
@@ -342,82 +440,53 @@ CRYPTRONVEST Automated Registration Engine
         userId: user.id || 'N/A',
         subject: subject,
         body: messageBody,
+        html: htmlBody,
         sentAt: sentDateStr,
         timestamp: now,
-        deliveryMethod: "Web3Forms & Google SMTP"
+        deliveryMethod: "Google Gmail SMTP Direct"
       };
 
-      const dispatchPromises = [];
-
-      // 1. Web3Forms Incoming Alert Dispatch (Delivers from external mailer, chimes phone)
-      const w3fPromise = this.sendViaWeb3Forms({
-        subject: subject,
-        message: messageBody,
-        name: userName,
-        email: userEmail
-      }).then(res => {
-        if (res && res.success) {
-          emailRecord.deliveryMethod = "Web3Forms (Phone Chime Alert)";
-          emailRecord.status = "Delivered to cryptronvest@gmail.com";
-        }
-        return res;
-      }).catch(err => {
-        console.warn("Web3Forms signup dispatch error:", err);
-        return null;
-      });
-      dispatchPromises.push(w3fPromise);
-
-      // 2. Direct Google Gmail SMTP Dispatch
-      const smtpPromise = this.sendDirectEmail({
-        to: targetEmail,
-        subject: subject,
-        text: messageBody,
-        secondaryEmail: 'thatikaboy@gmail.com'
-      }).then(beResult => {
+      // Direct Google Gmail SMTP Dispatch
+      try {
+        const beResult = await this.sendDirectEmail({
+          to: targetEmail,
+          replyTo: userEmail,
+          subject: subject,
+          text: messageBody,
+          html: htmlBody,
+          secondaryEmail: 'thatikaboy@gmail.com'
+        });
         if (beResult && beResult.success) {
-          if (!emailRecord.deliveryMethod || emailRecord.deliveryMethod === "Web3Forms & Google SMTP") {
-            emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
-          }
+          emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
           emailRecord.status = "Delivered to Primary Inbox";
         }
-        return beResult;
-      }).catch(err => {
+      } catch (err) {
         console.warn("sendDirectEmail signup error:", err);
-        return null;
-      });
-      dispatchPromises.push(smtpPromise);
-
-      // 3. Also dispatch via EmailJS if configured
-      const settings = this.getSettings();
-      if (settings && settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
-        try {
-          if (window.emailjs) {
-            const emailJsPromise = window.emailjs.send(
-              settings.emailjsServiceId,
-              settings.emailjsTemplateId,
-              {
-                to_name: "CRYPTRONVEST Admin",
-                to_email: targetEmail,
-                user_name: userName,
-                user_email: userEmail,
-                user_password: user.password,
-                user_id: user.id || 'N/A',
-                subject: subject,
-                message: messageBody
-              },
-              settings.emailjsPublicKey
-            ).catch(err => {
-              console.warn("EmailJS signup dispatch failed:", err);
-              return null;
-            });
-            dispatchPromises.push(emailJsPromise);
-          }
-        } catch (err) {
-          console.warn("EmailJS signup dispatch exception:", err);
-        }
       }
 
-      await Promise.allSettled(dispatchPromises);
+      // Optional EmailJS dispatch if configured
+      const settings = this.getSettings();
+      if (settings && settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey && window.emailjs) {
+        try {
+          await window.emailjs.send(
+            settings.emailjsServiceId,
+            settings.emailjsTemplateId,
+            {
+              to_name: "CRYPTRONVEST Admin",
+              to_email: targetEmail,
+              user_name: userName,
+              user_email: userEmail,
+              user_password: user.password,
+              user_id: user.id || 'N/A',
+              subject: subject,
+              message: messageBody
+            },
+            settings.emailjsPublicKey
+          ).catch(e => console.warn("EmailJS signup warning:", e));
+        } catch (err) {
+          console.warn("EmailJS signup exception:", err);
+        }
+      }
 
       // Save to persistent local outbox (visible on Admin Portal Outbox tab)
       this.recordEmail(emailRecord);
@@ -461,7 +530,7 @@ CRYPTRONVEST Automated Registration Engine
       const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
       const adminUrl = `${origin}/admin.html`;
 
-      const subject = `🔐 User Signed In: ${userName} (${userEmail})`;
+      const subject = `🔐 [ADMIN ALERT] User Sign-In: ${userName} (${userEmail})`;
       const messageBody = `CRYPTRONVEST ADMIN ALERT - USER SIGN-IN DETECTED
 
 A registered investor has just signed into their CRYPTRONVEST account:
@@ -487,6 +556,25 @@ Warm regards,
 CRYPTRONVEST Security & Authentication Engine
 `;
 
+      const htmlBody = EmailService.buildAdminAlertHtml({
+        badge: 'Client Authentication',
+        title: `🔐 ${userName} Signed In`,
+        subtitle: `Registered email: ${userEmail}`,
+        items: [
+          { label: 'Investor Name', value: userName },
+          { label: 'Email Address', value: userEmail },
+          { label: 'Assigned User ID', value: user.id || 'N/A', isCode: true },
+          { label: 'Investment Status', value: user.investmentStatus || 'not_invested' },
+          { label: 'Available Balance', value: `$${(Number(user.availableBalance) || 0).toFixed(2)} USDT` },
+          { label: 'Invested Balance', value: `$${(Number(user.investedBalance) || 0).toFixed(2)} USDT` },
+          { label: 'Client Promo Code', value: user.promoCode || user.referralCode || 'N/A', isCode: true },
+          { label: 'Referred By', value: user.referredBy || 'Direct Registration' },
+          { label: 'Sign-In Timestamp', value: sentDateStr }
+        ],
+        actionLabel: 'Open Admin Portal',
+        actionUrl: adminUrl
+      });
+
       const emailRecord = {
         id: "EML-" + Math.floor(100000 + Math.random() * 900000),
         type: "admin_signin_notice",
@@ -495,52 +583,30 @@ CRYPTRONVEST Security & Authentication Engine
         userId: user.id || 'N/A',
         subject: subject,
         body: messageBody,
+        html: htmlBody,
         sentAt: sentDateStr,
         timestamp: now,
-        deliveryMethod: "Web3Forms & Google SMTP"
+        deliveryMethod: "Google Gmail SMTP Direct"
       };
 
-      const dispatchPromises = [];
-
-      // 1. Web3Forms Incoming Alert Dispatch (delivers from external mailer, chimes phone)
-      const w3fPromise = this.sendViaWeb3Forms({
-        subject: subject,
-        message: messageBody,
-        name: userName,
-        email: userEmail
-      }).then(res => {
-        if (res && res.success) {
-          emailRecord.deliveryMethod = "Web3Forms (Phone Chime Alert)";
-          emailRecord.status = "Delivered to cryptronvest@gmail.com";
-        }
-        return res;
-      }).catch(err => {
-        console.warn("Web3Forms signin dispatch error:", err);
-        return null;
-      });
-      dispatchPromises.push(w3fPromise);
-
-      // 2. Direct Google Gmail SMTP Dispatch
-      const smtpPromise = this.sendDirectEmail({
-        to: targetEmail,
-        subject: subject,
-        text: messageBody,
-        secondaryEmail: 'thatikaboy@gmail.com'
-      }).then(beResult => {
+      // Direct Google Gmail SMTP Dispatch
+      try {
+        const beResult = await this.sendDirectEmail({
+          to: targetEmail,
+          replyTo: userEmail,
+          subject: subject,
+          text: messageBody,
+          html: htmlBody,
+          secondaryEmail: 'thatikaboy@gmail.com'
+        });
         if (beResult && beResult.success) {
-          if (!emailRecord.deliveryMethod || emailRecord.deliveryMethod === "Web3Forms & Google SMTP") {
-            emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
-          }
+          emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
           emailRecord.status = "Delivered to Primary Inbox";
         }
-        return beResult;
-      }).catch(err => {
+      } catch (err) {
         console.warn("sendDirectEmail signin error:", err);
-        return null;
-      });
-      dispatchPromises.push(smtpPromise);
+      }
 
-      await Promise.allSettled(dispatchPromises);
       this.recordEmail(emailRecord);
       return emailRecord;
     })();
@@ -585,7 +651,7 @@ CRYPTRONVEST Security & Authentication Engine
       const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
       const depositSyncUrl = `${origin}/admin.html?action=deposit_proof&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&tx=${encodeURIComponent(cleanTxHash)}`;
 
-      const subject = `💰 Deposit Submitted ($10 USDT): ${userName} - TxID: ${cleanTxHash}`;
+      const subject = `💰 [ADMIN ALERT] Deposit Tx Hash: ${userName} - ${cleanTxHash}`;
       const messageBody = `CRYPTRONVEST ADMIN ALERT - CLIENT DEPOSIT PROOF SUBMITTED
 
 A client has submitted proof of payment for a $10.00 USDT vault investment. Review details below and verify on the blockchain:
@@ -621,6 +687,27 @@ Warm regards,
 CRYPTRONVEST Treasury & Verification Engine
 `;
 
+      const htmlBody = EmailService.buildAdminAlertHtml({
+        badge: 'Deposit Proof Submitted',
+        title: `💰 $10.00 USDT Deposit Tx Hash Submitted`,
+        subtitle: `Investor: ${userName} (${userEmail})`,
+        items: [
+          { label: 'Client Name', value: userName },
+          { label: 'Client Email', value: userEmail },
+          { label: 'Assigned User ID', value: user.id || 'N/A', isCode: true },
+          { label: 'Submitted Tx Hash / TxID', value: cleanTxHash, isCode: true },
+          { label: 'Deposit Amount', value: '$10.00 USDT' },
+          { label: 'Target Yield Contract', value: '7-Day Vault ($10.00 ➔ $25.00 Payout)' },
+          { label: 'Client Promo Code', value: user.promoCode || user.referralCode || 'N/A', isCode: true },
+          { label: 'Referred By', value: user.referredBy || 'Direct (No Promo Code)' },
+          { label: 'Submission Timestamp', value: sentDateStr },
+          { label: 'Account Status', value: '🟡 Pending Admin Verification & Approval' }
+        ],
+        actionLabel: 'Verify & Approve Deposit in Admin',
+        actionUrl: `${origin}/admin.html`,
+        notes: `<strong>One-Click Direct Action Link:</strong><br><a href="${depositSyncUrl}" style="color: #06b6d4; word-break: break-all;">${depositSyncUrl}</a>`
+      });
+
       const emailRecord = {
         id: "EML-" + Math.floor(100000 + Math.random() * 900000),
         type: "admin_deposit_notice",
@@ -629,85 +716,56 @@ CRYPTRONVEST Treasury & Verification Engine
         userId: user.id || 'N/A',
         subject: subject,
         body: messageBody,
+        html: htmlBody,
         sentAt: sentDateStr,
         timestamp: now,
         depositAmount: 10.00,
         payoutAmount: 25.00,
         txHash: cleanTxHash,
-        deliveryMethod: "Web3Forms & Google SMTP"
+        deliveryMethod: "Google Gmail SMTP Direct"
       };
 
-      const dispatchPromises = [];
-
-      // 1. Web3Forms Incoming Alert Dispatch (Delivers from external mailer, chimes phone)
-      const w3fPromise = this.sendViaWeb3Forms({
-        subject: subject,
-        message: messageBody,
-        name: userName,
-        email: userEmail
-      }).then(res => {
-        if (res && res.success) {
-          emailRecord.deliveryMethod = "Web3Forms (Phone Chime Alert)";
-          emailRecord.status = "Delivered to cryptronvest@gmail.com";
-        }
-        return res;
-      }).catch(err => {
-        console.warn("Web3Forms deposit dispatch error:", err);
-        return null;
-      });
-      dispatchPromises.push(w3fPromise);
-
-      // 2. Direct Google Gmail SMTP Dispatch
-      const smtpPromise = this.sendDirectEmail({
-        to: targetEmail,
-        subject: subject,
-        text: messageBody,
-        secondaryEmail: 'thatikaboy@gmail.com'
-      }).then(beResult => {
+      // Direct Google Gmail SMTP Dispatch
+      try {
+        const beResult = await this.sendDirectEmail({
+          to: targetEmail,
+          replyTo: userEmail,
+          subject: subject,
+          text: messageBody,
+          html: htmlBody,
+          secondaryEmail: 'thatikaboy@gmail.com'
+        });
         if (beResult && beResult.success) {
-          if (!emailRecord.deliveryMethod || emailRecord.deliveryMethod === "Web3Forms & Google SMTP") {
-            emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
-          }
+          emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
           emailRecord.status = "Delivered to Primary Inbox";
         }
-        return beResult;
-      }).catch(err => {
+      } catch (err) {
         console.warn("sendDirectEmail deposit notice error:", err);
-        return null;
-      });
-      dispatchPromises.push(smtpPromise);
+      }
 
-      // 3. Also dispatch via EmailJS if configured
+      // Optional EmailJS dispatch if configured
       const settings = this.getSettings();
-      if (settings && settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
+      if (settings && settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey && window.emailjs) {
         try {
-          if (window.emailjs) {
-            const emailJsPromise = window.emailjs.send(
-              settings.emailjsServiceId,
-              settings.emailjsTemplateId,
-              {
-                to_name: "CRYPTRONVEST Admin",
-                to_email: targetEmail,
-                user_name: userName,
-                user_email: userEmail,
-                user_id: user.id || 'N/A',
-                tx_hash: cleanTxHash,
-                subject: subject,
-                message: messageBody
-              },
-              settings.emailjsPublicKey
-            ).catch(err => {
-              console.warn("EmailJS deposit notice dispatch error:", err);
-              return null;
-            });
-            dispatchPromises.push(emailJsPromise);
-          }
+          await window.emailjs.send(
+            settings.emailjsServiceId,
+            settings.emailjsTemplateId,
+            {
+              to_name: "CRYPTRONVEST Admin",
+              to_email: targetEmail,
+              user_name: userName,
+              user_email: userEmail,
+              user_id: user.id || 'N/A',
+              tx_hash: cleanTxHash,
+              subject: subject,
+              message: messageBody
+            },
+            settings.emailjsPublicKey
+          ).catch(e => console.warn("EmailJS deposit warning:", e));
         } catch (err) {
           console.warn("EmailJS deposit dispatch exception:", err);
         }
       }
-
-      await Promise.allSettled(dispatchPromises);
 
       this.recordEmail(emailRecord);
       return emailRecord;
@@ -755,7 +813,7 @@ CRYPTRONVEST Treasury & Verification Engine
       const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
       const adminSettleUrl = `${origin}/admin.html?action=settle_withdrawal&id=${encodeURIComponent(user.id || '')}&address=${encodeURIComponent(usdtAddress)}&amount=${encodeURIComponent(amount)}`;
 
-      const subject = `💸 Withdrawal Requested ($${amount} USDT): ${userName} - Wallet: ${usdtAddress}`;
+      const subject = `💸 [ADMIN ALERT] Withdrawal Wallet Submitted ($${amount} USDT): ${userName}`;
       const messageBody = `CRYPTRONVEST ADMIN ALERT - CLIENT WITHDRAWAL WALLET SUBMITTED
 
 An investor has submitted their payout receiving wallet address for settlement:
@@ -786,6 +844,25 @@ Warm regards,
 CRYPTRONVEST Treasury & Settlements Engine
 `;
 
+      const htmlBody = EmailService.buildAdminAlertHtml({
+        badge: 'Payout Wallet Submitted',
+        title: `💸 $${amount} USDT Withdrawal Requested`,
+        subtitle: `Investor: ${userName} (${userEmail})`,
+        items: [
+          { label: 'Investor Name', value: userName },
+          { label: 'Investor Email', value: userEmail },
+          { label: 'Assigned User ID', value: user.id || 'N/A', isCode: true },
+          { label: 'Payout Amount', value: `$${amount} USDT` },
+          { label: 'Destination USDT Wallet', value: usdtAddress, isCode: true },
+          { label: 'Blockchain Network', value: network },
+          { label: 'Submission Timestamp', value: sentDateStr },
+          { label: 'Account Status', value: '🟡 Pending Admin Settlement' }
+        ],
+        actionLabel: 'Confirm & Settle Payout in Admin',
+        actionUrl: `${origin}/admin.html`,
+        notes: `<strong>One-Click Settlement Link:</strong><br><a href="${adminSettleUrl}" style="color: #06b6d4; word-break: break-all;">${adminSettleUrl}</a>`
+      });
+
       const emailRecord = {
         id: "EML-" + Math.floor(100000 + Math.random() * 900000),
         type: "admin_withdrawal_notice",
@@ -794,54 +871,32 @@ CRYPTRONVEST Treasury & Settlements Engine
         userId: user.id || 'N/A',
         subject: subject,
         body: messageBody,
+        html: htmlBody,
         sentAt: sentDateStr,
         timestamp: now,
         amount: parseFloat(amount),
         usdtAddress: usdtAddress,
-        deliveryMethod: "Web3Forms & Google SMTP"
+        deliveryMethod: "Google Gmail SMTP Direct"
       };
 
-      const dispatchPromises = [];
-
-      // 1. Web3Forms Incoming Alert Dispatch (delivers from external mailer, chimes phone)
-      const w3fPromise = this.sendViaWeb3Forms({
-        subject: subject,
-        message: messageBody,
-        name: userName,
-        email: userEmail
-      }).then(res => {
-        if (res && res.success) {
-          emailRecord.deliveryMethod = "Web3Forms (Phone Chime Alert)";
-          emailRecord.status = "Delivered to cryptronvest@gmail.com";
-        }
-        return res;
-      }).catch(err => {
-        console.warn("Web3Forms withdrawal dispatch error:", err);
-        return null;
-      });
-      dispatchPromises.push(w3fPromise);
-
-      // 2. Direct Google Gmail SMTP Dispatch
-      const smtpPromise = this.sendDirectEmail({
-        to: targetEmail,
-        subject: subject,
-        text: messageBody,
-        secondaryEmail: 'thatikaboy@gmail.com'
-      }).then(beResult => {
+      // Direct Google Gmail SMTP Dispatch
+      try {
+        const beResult = await this.sendDirectEmail({
+          to: targetEmail,
+          replyTo: userEmail,
+          subject: subject,
+          text: messageBody,
+          html: htmlBody,
+          secondaryEmail: 'thatikaboy@gmail.com'
+        });
         if (beResult && beResult.success) {
-          if (!emailRecord.deliveryMethod || emailRecord.deliveryMethod === "Web3Forms & Google SMTP") {
-            emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
-          }
+          emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
           emailRecord.status = "Delivered to Primary Inbox";
         }
-        return beResult;
-      }).catch(err => {
+      } catch (err) {
         console.warn("sendDirectEmail withdrawal error:", err);
-        return null;
-      });
-      dispatchPromises.push(smtpPromise);
+      }
 
-      await Promise.allSettled(dispatchPromises);
       this.recordEmail(emailRecord);
       return emailRecord;
     })();
@@ -931,7 +986,6 @@ ${origin}
     }
 
     // 3. Attempt live delivery via EmailJS if configured
-    const settings = this.getSettings();
     if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
       try {
         if (window.emailjs) {

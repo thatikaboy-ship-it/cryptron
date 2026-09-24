@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    const { to, subject, html, text, fromName, appPassword, secondaryEmail } = body;
+    const { to, subject, html, text, fromName, appPassword, secondaryEmail, replyTo } = body;
 
     if (!to || !subject || (!html && !text)) {
       return res.status(400).json({
@@ -46,6 +46,7 @@ module.exports = async (req, res) => {
       dispatchPromises.push(
         sendViaGmail({
           to: target,
+          replyTo: replyTo,
           subject: emailSubject,
           html: emailHtml,
           text: emailText,

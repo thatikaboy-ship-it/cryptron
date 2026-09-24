@@ -11,14 +11,14 @@ const GMAIL_ADDRESS = process.env.GMAIL_USER || 'cryptronvest@gmail.com';
  * @param {string} [customPass] - Optional App Password passed from admin or config
  */
 function getGmailTransporter(customPass) {
-  let pass = (customPass || '').trim();
-  if (!pass || pass === 'ykbshlbbiellwgag') {
-    pass = (process.env.GMAIL_APP_PASSWORD || '').trim();
+  let pass = (customPass || '').replace(/\s+/g, '');
+  const VERIFIED_PASS = 'fxqrbdkzgjsdhdrl';
+  if (!pass || pass.length !== 16 || pass === 'ykbshlbbiellwgag') {
+    pass = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
   }
-  if (!pass || pass === 'ykbshlbbiellwgag') {
-    pass = 'fxqrbdkzgjsdhdrl';
+  if (!pass || pass.length !== 16 || pass === 'ykbshlbbiellwgag') {
+    pass = VERIFIED_PASS;
   }
-  pass = pass.replace(/\s+/g, '');
   if (!pass) {
     return null;
   }
@@ -44,8 +44,9 @@ function getGmailTransporter(customPass) {
  * @param {string} [options.text] - Plain text fallback
  * @param {string} [options.fromName] - Custom sender name
  * @param {string} [options.appPassword] - Optional override password
+ * @param {string} [options.replyTo] - Custom reply-to address
  */
-async function sendViaGmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', appPassword }) {
+async function sendViaGmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', appPassword, replyTo }) {
   const transporter = getGmailTransporter(appPassword);
   if (!transporter) {
     return {
@@ -58,7 +59,7 @@ async function sendViaGmail({ to, subject, html, text, fromName = 'CRYPTRONVEST 
   const mailOptions = {
     from: `"${fromName}" <${GMAIL_ADDRESS}>`,
     to: to,
-    replyTo: GMAIL_ADDRESS,
+    replyTo: (replyTo && String(replyTo).trim()) ? String(replyTo).trim() : GMAIL_ADDRESS,
     subject: subject,
     text: text || html.replace(/<[^>]+>/g, ''),
     html: html,
