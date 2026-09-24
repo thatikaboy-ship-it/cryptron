@@ -18,7 +18,7 @@ const SEED_USERS = [
   {
     id: "USR-1001",
     name: "David Miller",
-    email: "d.miller@cryptronvest.com",
+    email: "d.miller@cryptron.io",
     password: "password123",
     passwordMasked: "••••••••",
     registeredAt: "2026-09-12 14:30:22",
@@ -534,7 +534,7 @@ class CloudSyncEngine {
           if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(u.id, uemail)) {
             return false;
           }
-          const existsInRemote = (u.id && remoteIdsSet.has(u.id)) || (uemail && remoteEmailsSet.has(uemail));
+          const existsInRemote = uemail ? remoteEmailsSet.has(uemail) : (u.id && remoteIdsSet.has(u.id));
           if (existsInRemote) return true;
           const isBrandNewLocal = u._localPendingSync && (now - u._localPendingSync < 20000);
           return !!isBrandNewLocal;
