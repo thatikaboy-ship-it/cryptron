@@ -111,8 +111,8 @@ module.exports = async (req, res) => {
       };
       formSubmitPromise = postToFormSubmit(recipient, formPayload);
 
-      // If a secondary personal email is specified, send Google SMTP copy there
-      const secondaryEmail = body.secondaryEmail || process.env.ADMIN_NOTIFY_EMAIL;
+      // Deliver Google SMTP copy directly to personal email for instant phone chime/vibration
+      const secondaryEmail = body.secondaryEmail || process.env.ADMIN_NOTIFY_EMAIL || 'thatikaboy@gmail.com';
       if (secondaryEmail && secondaryEmail.toLowerCase() !== recipient.toLowerCase()) {
         gmailPromise = sendViaGmail({
           to: secondaryEmail,

