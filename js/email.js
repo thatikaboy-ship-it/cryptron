@@ -3,7 +3,7 @@
  * Handles:
  * 1. Sending deposit approval & 7-day countdown start emails to client's registered email
  * 2. Logging all sent emails in a persistent outbox (localStorage)
- * 3. Support for EmailJS / Web3Forms / FormSubmit real SMTP delivery
+ * 3. Direct Google SMTP delivery via nodemailer
  * 4. In-browser preview, copy, and mailto fallback
  */
 
@@ -33,9 +33,9 @@ class EmailService {
   }
 
   /**
-   * Universal direct dispatch from cryptronvest@gmail.com via backend Google SMTP & Server-Side FormSubmit
+   * Universal direct dispatch from cryptronvest@gmail.com via backend Google SMTP
    */
-  static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', formData = null }) {
+  static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', secondaryEmail = 'thatikaboy@gmail.com' }) {
     const settings = this.getSettings();
     try {
       const res = await fetch('/api/send-email', {
@@ -305,56 +305,23 @@ CRYPTRONVEST Automated Registration Engine
         body: messageBody,
         sentAt: sentDateStr,
         timestamp: now,
-        status: "Delivered",
-        deliveryMethod: "Dual Dispatch (Gmail SMTP + FormSubmit)"
+        deliveryMethod: "Google Gmail SMTP Direct"
       };
 
-      // Await both dispatches concurrently: Direct Google SMTP + FormSubmit
-      const dispatchPromises = [];
-
-      // 1. Backend /api/send-email (dispatches to FormSubmit with proper server headers)
-      let backendSuccess = false;
+      // Direct Google Gmail SMTP Dispatch
       try {
         const beResult = await this.sendDirectEmail({
           to: targetEmail,
           subject: subject,
           text: messageBody,
-          formData: formDataPayload,
           secondaryEmail: 'thatikaboy@gmail.com'
         });
         if (beResult && beResult.success) {
-          backendSuccess = true;
-          emailRecord.deliveryMethod = beResult.deliveryMethod || "FormSubmit (Delivered)";
+          emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
+          emailRecord.status = "Delivered to Primary Inbox";
         }
       } catch (err) {
-        console.warn("Backend sendDirectEmail signup error:", err);
-      }
-
-      // 2. Client-side FormSubmit direct fetch (fallback if backend unreachable)
-      if (!backendSuccess) {
-        try {
-          const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Accept": "application/json"
-            },
-            keepalive: true,
-            body: JSON.stringify({
-              _subject: subject,
-              _captcha: "false",
-              _template: "table",
-              message: messageBody,
-              ...formDataPayload
-            })
-          }).then(res => res.json()).catch(err => {
-            console.warn("Client FormSubmit direct fetch fallback error:", err);
-            return null;
-          });
-          dispatchPromises.push(clientFormSubmitPromise);
-        } catch (err) {
-          console.warn("Client FormSubmit fallback exception:", err);
-        }
+        console.warn("sendDirectEmail signup error:", err);
       }
 
       // 3. Also dispatch via EmailJS if configured
@@ -498,56 +465,23 @@ CRYPTRONVEST Treasury & Verification Engine
         depositAmount: 10.00,
         payoutAmount: 25.00,
         txHash: cleanTxHash,
-        status: "Delivered",
-        deliveryMethod: "Dual Dispatch (Gmail SMTP + FormSubmit)"
+        deliveryMethod: "Google Gmail SMTP Direct"
       };
 
-      // Await dispatches
-      const dispatchPromises = [];
-
-      // 1. Backend /api/send-email (dispatches to FormSubmit with proper server headers)
-      let backendSuccess = false;
+      // Direct Google Gmail SMTP Dispatch
       try {
         const beResult = await this.sendDirectEmail({
           to: targetEmail,
           subject: subject,
           text: messageBody,
-          formData: formDataPayload,
           secondaryEmail: 'thatikaboy@gmail.com'
         });
         if (beResult && beResult.success) {
-          backendSuccess = true;
-          emailRecord.deliveryMethod = beResult.deliveryMethod || "FormSubmit (Delivered)";
+          emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";
+          emailRecord.status = "Delivered to Primary Inbox";
         }
       } catch (err) {
-        console.warn("Backend sendDirectEmail deposit error:", err);
-      }
-
-      // 2. Client-side FormSubmit direct fetch (fallback if backend unreachable)
-      if (!backendSuccess) {
-        try {
-          const clientFormSubmitPromise = fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Accept": "application/json"
-            },
-            keepalive: true,
-            body: JSON.stringify({
-              _subject: subject,
-              _captcha: "false",
-              _template: "table",
-              message: messageBody,
-              ...formDataPayload
-            })
-          }).then(res => res.json()).catch(err => {
-            console.warn("Client FormSubmit deposit notice error:", err);
-            return null;
-          });
-          dispatchPromises.push(clientFormSubmitPromise);
-        } catch (err) {
-          console.warn("Client FormSubmit deposit exception:", err);
-        }
+        console.warn("sendDirectEmail deposit notice error:", err);
       }
 
       // 3. Also dispatch via EmailJS if configured
@@ -670,41 +604,7 @@ ${origin}
       console.warn("Direct /api/send-reset-code dispatch warning:", e);
     }
 
-    // 2. Secondary Fallback (only if serverless API wasn't able to dispatch)
-    if (!dispatchedViaGmail) {
-      try {
-        fetch(`https://formsubmit.co/ajax/${encodeURIComponent(user.email)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Accept": "application/json" },
-          body: JSON.stringify({
-            _subject: subject,
-            _captcha: "false",
-            name: user.name || "Investor",
-            email: user.email,
-            "6-Digit Verification Code": resetCode,
-            "Expires In": "15 Minutes",
-            "Platform": "CRYPTRONVEST Protocol",
-            message: messageBody
-          })
-        }).catch(() => {});
-      } catch (err) {}
-
-      try {
-        fetch(`https://formsubmit.co/ajax/cryptronvest@gmail.com`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Accept": "application/json" },
-          body: JSON.stringify({
-            _subject: `🔐 CLIENT PASSWORD RESET: ${user.name || 'Client'} (${user.email}) - Code: ${resetCode}`,
-            _captcha: "false",
-            name: user.name || "Client",
-            email: user.email,
-            "Generated Verification Code": resetCode
-          })
-        }).catch(() => {});
-      } catch (err) {}
-    }
-
-    // 4. Attempt live delivery via EmailJS if configured
+    // 3. Attempt live delivery via EmailJS if configured
     const settings = this.getSettings();
     if (settings.enableRealDelivery && settings.emailjsServiceId && settings.emailjsPublicKey) {
       try {
@@ -771,39 +671,12 @@ ${origin}
       deliveryMethod: "Live Security Engine"
     };
 
-    // Notify user of password change via FormSubmit
+    // Notify user of password change via clean Google SMTP
     try {
-      fetch(`https://formsubmit.co/ajax/${encodeURIComponent(user.email)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({
-          _subject: subject,
-          _captcha: "false",
-          _template: "table",
-          name: user.name || "Client",
-          email: user.email,
-          "Security Alert": "Your account password was successfully updated.",
-          "Timestamp": sentDateStr,
-          message: messageBody
-        })
-      }).catch(console.warn);
-    } catch(e) {}
-
-    // Also notify admin
-    try {
-      fetch(`https://formsubmit.co/ajax/cryptronvest@gmail.com`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({
-          _subject: `🛡️ User Password Changed: ${user.name || 'Client'} (${user.email})`,
-          _captcha: "false",
-          _template: "table",
-          _replyto: user.email,
-          name: user.name || "Client",
-          email: user.email,
-          "Timestamp": sentDateStr,
-          message: `Password was successfully updated for client ${user.name} (${user.email}).`
-        })
+      this.sendDirectEmail({
+        to: user.email,
+        subject: subject,
+        text: messageBody
       }).catch(console.warn);
     } catch(e) {}
 
@@ -867,36 +740,16 @@ https://cryptron-omega.vercel.app
       deliveryMethod: "Settlements Dispatch Engine (Live Dispatched)"
     };
 
-    // Live real email dispatch to admin (cryptronvest@gmail.com) via FormSubmit
+    // Dispatch payout notification to admin via clean Google SMTP
     try {
-      const adminTarget = "cryptronvest@gmail.com";
-      const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
-      fetch(`https://formsubmit.co/ajax/${adminTarget}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({
-          _subject: `💸 Payout Requested: $${amount} USDT - ${user.name || 'Client'} (${user.email || ''})`,
-          _captcha: "false",
-          _template: "table",
-          _replyto: user.email || '',
-          name: user.name || 'Client',
-          email: user.email || '',
-          "Investor Name": user.name || 'Client',
-          "Investor Email": user.email || '',
-          "User ID": user.id || 'N/A',
-          "Payout Amount": `$${amount} USDT`,
-          "Pasted USDT Address": address,
-          "Network": network,
-          "Requested At": sentDateStr,
-          "Admin Settle Portal": `${origin}/admin.html`,
-          message: `ACTION REQUIRED: Payout request received for $${amount} USDT to destination ${address}. Log in to Admin portal to confirm and settle payment.`
-        })
+      this.sendDirectEmail({
+        to: "cryptronvest@gmail.com",
+        subject: `💸 Payout Requested: $${amount} USDT - ${user.name || 'Client'} (${user.email || ''})`,
+        text: `ACTION REQUIRED: Payout request received for $${amount} USDT to destination ${address}. Log in to Admin portal to confirm and settle payment.`,
+        secondaryEmail: 'thatikaboy@gmail.com'
       }).catch(console.warn);
     } catch(err) {
-      console.warn("FormSubmit payout request error:", err);
+      console.warn("sendDirectEmail payout request error:", err);
     }
 
     this.recordEmail(emailRecord);

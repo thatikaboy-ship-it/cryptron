@@ -1,62 +1,7 @@
 // api/send-email.js - Universal Email Dispatch API
-// Sends emails directly from cryptronvest@gmail.com using Google SMTP and FormSubmit dual-dispatch
+// 100% direct Google SMTP delivery via nodemailer using official Google App Password
 
-const https = require('https');
 const { sendViaGmail, GMAIL_ADDRESS } = require('./mailer');
-
-/**
- * Dispatches form data to FormSubmit via server-side HTTPS
- */
-function postToFormSubmit(targetEmail, payload) {
-  return new Promise((resolve) => {
-    try {
-      const data = JSON.stringify(payload);
-      const cleanEmail = String(targetEmail || GMAIL_ADDRESS).trim();
-      const options = {
-        hostname: 'formsubmit.co',
-        port: 443,
-        path: `/ajax/${cleanEmail}`,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Content-Length': Buffer.byteLength(data),
-          'Referer': 'https://cryptron-omega.vercel.app/',
-          'Origin': 'https://cryptron-omega.vercel.app',
-          'User-Agent': 'Cryptronvest-Protocol-Mailer/1.0'
-        },
-        timeout: 9000
-      };
-
-      const req = https.request(options, (res) => {
-        let resBody = '';
-        res.on('data', chunk => resBody += chunk);
-        res.on('end', () => {
-          try {
-            resolve({ success: true, data: JSON.parse(resBody) });
-          } catch(e) {
-            resolve({ success: true, data: resBody });
-          }
-        });
-      });
-
-      req.on('error', (err) => {
-        console.warn('FormSubmit server dispatch error:', err.message);
-        resolve({ success: false, error: err.message });
-      });
-
-      req.on('timeout', () => {
-        req.destroy();
-        resolve({ success: false, error: 'FormSubmit timeout' });
-      });
-
-      req.write(data);
-      req.end();
-    } catch(err) {
-      resolve({ success: false, error: err.message });
-    }
-  });
-}
 
 module.exports = async (req, res) => {
   // CORS Headers
@@ -75,7 +20,7 @@ module.exports = async (req, res) => {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    const { to, subject, html, text, fromName, appPassword, formData } = body;
+    const { to, subject, html, text, fromName, appPassword, secondaryEmail } = body;
 
     if (!to || !subject || (!html && !text)) {
       return res.status(400).json({
@@ -87,85 +32,60 @@ module.exports = async (req, res) => {
     const emailSubject = String(subject).trim();
     const emailHtml = html || `<p>${String(text).replace(/\n/g, '<br>')}</p>`;
     const emailText = text || html.replace(/<[^>]+>/g, '');
-    const isAdminTarget = recipient.toLowerCase() === GMAIL_ADDRESS.toLowerCase() || recipient.toLowerCase().includes('cryptronvest');
 
-    // Dispatch logic:
-    // 1. For Admin Notifications (cryptronvest@gmail.com):
-    //    Use FormSubmit so Google receives it from an external sender (submissions@formsubmit.co)
-    //    as an UNREAD incoming email with sound/push alerts.
-    //    DO NOT send self-addressed Gmail SMTP to cryptronvest@gmail.com because Google
-    //    automatically flags self-sent emails as "Sent" and "Seen", silencing notifications!
-    //    If a secondary personal email is provided (secondaryEmail), deliver via Google SMTP there!
-    // 2. For Client Emails (e.g. Password Reset Codes):
-    //    Deliver directly from cryptronvest@gmail.com via Google SMTP to the client's inbox.
-    let gmailPromise = Promise.resolve({ success: false, skipped: true });
-    let formSubmitPromise = Promise.resolve(null);
+    // Collect all recipient addresses (deduplicated)
+    const recipients = new Set([recipient]);
+    const extraEmail = secondaryEmail || process.env.ADMIN_NOTIFY_EMAIL || 'thatikaboy@gmail.com';
+    if (extraEmail && typeof extraEmail === 'string' && extraEmail.trim()) {
+      recipients.add(extraEmail.trim());
+    }
 
-    if (isAdminTarget) {
-      const formPayload = {
-        _subject: emailSubject,
-        _captcha: "false",
-        _template: "table",
-        message: emailText,
-        ...(formData || {})
-      };
-      formSubmitPromise = postToFormSubmit(recipient, formPayload);
-
-      // Deliver Google SMTP copy directly to personal email for instant phone chime/vibration
-      const secondaryEmail = body.secondaryEmail || process.env.ADMIN_NOTIFY_EMAIL || 'thatikaboy@gmail.com';
-      if (secondaryEmail && secondaryEmail.toLowerCase() !== recipient.toLowerCase()) {
-        gmailPromise = sendViaGmail({
-          to: secondaryEmail,
+    // Dispatch via Google SMTP direct
+    const dispatchPromises = [];
+    for (const target of recipients) {
+      dispatchPromises.push(
+        sendViaGmail({
+          to: target,
           subject: emailSubject,
           html: emailHtml,
           text: emailText,
           fromName: fromName || 'CRYPTRONVEST Protocol',
           appPassword: appPassword
-        });
-      }
-    } else {
-      gmailPromise = sendViaGmail({
-        to: recipient,
-        subject: emailSubject,
-        html: emailHtml,
-        text: emailText,
-        fromName: fromName || 'CRYPTRONVEST Protocol',
-        appPassword: appPassword
-      });
+        })
+      );
     }
 
-    // Await dispatches
-    const [result, formResult] = await Promise.all([gmailPromise, formSubmitPromise]);
+    const results = await Promise.all(dispatchPromises);
+    const primaryResult = results[0] || { success: false };
+    const anySuccess = results.some(r => r && r.success);
 
-    if ((result && result.success) || (formResult && formResult.success)) {
+    if (anySuccess) {
       return res.status(200).json({
         success: true,
-        deliveryMethod: (formResult && formResult.success) ? 'FormSubmit Direct' : 'Gmail SMTP Direct',
-        from: (formResult && formResult.success) ? 'submissions@formsubmit.co' : GMAIL_ADDRESS,
-        to: recipient,
-        messageId: (result && result.messageId) || ('formsubmit-' + Date.now()),
-        formSubmitSuccess: !!(formResult && formResult.success),
-        message: `Email successfully dispatched directly to ${recipient}`
+        deliveryMethod: 'Google Gmail SMTP Direct',
+        from: GMAIL_ADDRESS,
+        to: Array.from(recipients).join(', '),
+        messageId: primaryResult.messageId || ('smtp-' + Date.now()),
+        message: `Email successfully dispatched directly to ${Array.from(recipients).join(', ')}`
       });
     }
 
-    // 2. Authentication failure or misconfiguration
-    if (result.configured && !result.success) {
+    // Authentication failure or misconfiguration
+    if (primaryResult.configured && !primaryResult.success) {
       return res.status(200).json({
         success: false,
         configured: true,
         sender: GMAIL_ADDRESS,
-        error: result.error || 'Authentication with Google failed. Please check your 16-character App Password.'
+        error: primaryResult.error || 'Authentication with Google failed. Please verify the 16-character App Password.'
       });
     }
 
-    // 3. Fallback response if Gmail App Password is not yet provided
     return res.status(200).json({
       success: false,
       configured: false,
       sender: GMAIL_ADDRESS,
-      warning: 'GMAIL_APP_PASSWORD is not yet configured in Vercel or request.',
-      message: 'To enable 100% direct inbox delivery from cryptronvest@gmail.com, please add your 16-character Google App Password in Vercel Environment Variables or Admin Portal.'
+      warning: 'GMAIL_APP_PASSWORD is not configured.',
+      message: 'Please check your Google App Password.'
     });
 
   } catch (error) {

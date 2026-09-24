@@ -64,44 +64,12 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 2. Secondary fallback if Google App Password is not yet set
-    const fallbackTasks = [
-      fetch('https://formsubmit.co/ajax/cryptronvest@gmail.com', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          _subject: `🔐 CLIENT PASSWORD RESET: ${recipientName} (${recipientEmail}) - Code: ${resetCode}`,
-          _captcha: 'false',
-          name: recipientName,
-          email: recipientEmail,
-          "6-Digit Verification Code": resetCode,
-          "Notice": "Sent via fallback. To deliver straight from cryptronvest@gmail.com to Primary Inbox, add your Google App Password to Vercel."
-        })
-      }).catch(() => {}),
-
-      fetch(`https://formsubmit.co/ajax/${encodeURIComponent(recipientEmail)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          _subject: emailSubject,
-          _captcha: 'false',
-          name: recipientName,
-          email: recipientEmail,
-          "Verification Code": resetCode,
-          "Valid For": "15 Minutes",
-          message: emailText
-        })
-      }).catch(() => {})
-    ];
-
-    await Promise.allSettled(fallbackTasks);
-
     return res.status(200).json({
-      success: true,
-      deliveryMethod: 'Fallback Dispatcher',
+      success: false,
+      configured: false,
       sender: GMAIL_ADDRESS,
       recipient: recipientEmail,
-      warning: 'Delivered via fallback. Configure Google App Password to send directly from cryptronvest@gmail.com to user Primary Inbox.',
+      warning: 'GMAIL_APP_PASSWORD not configured or failed.',
       timestamp: Date.now()
     });
 
