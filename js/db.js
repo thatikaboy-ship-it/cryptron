@@ -160,6 +160,7 @@ class CloudSyncEngine {
 
     const cleanUser = { ...user };
     delete cleanUser._fbKey;
+    this._deleteEpoch = (this._deleteEpoch || 0) + 1;
 
     try {
       // 1. If Firebase SDK initialized
@@ -192,6 +193,7 @@ class CloudSyncEngine {
     const url = this.getCloudUrl();
     if (!url || !Array.isArray(users)) return false;
     this.initFirebase();
+    this._deleteEpoch = (this._deleteEpoch || 0) + 1;
 
     try {
       const updateObj = {};
@@ -694,7 +696,7 @@ class CloudSyncEngine {
           existing.withdrawalHistory = [];
           existing.pendingTxHash = null;
           existing.depositSubmittedAt = null;
-          existing.withdrawalRequest = null;
+          existing.withdrawalRequest = ru.withdrawalRequest || null;
           existing.pendingWithdrawal = 0.00;
           existing.availableBalance = 0.00;
           existing.investedBalance = 0.00;
@@ -1956,7 +1958,10 @@ class UserDatabase {
    */
   static submitWithdrawalRequest(userId, amount, usdtAddress, network = "USDT (Tether)") {
     const users = this.getAllUsers();
-    const user = users.find(u => u.id === userId);
+    let user = users.find(u => u.id === userId);
+    if (!user) {
+      user = users.find(u => u.id === this.getCurrentUserId());
+    }
     if (!user) throw new Error(`User ${userId} not found.`);
 
     // MANDATORY RULE 1: Maximum withdrawal amount is $25.00 USDT
@@ -2006,7 +2011,7 @@ class UserDatabase {
     user.referralBypassed = false;
     user.lastSpinTimestamp = 0; // Fresh state for subsequent deposit
 
-    this.saveUsers(users);
+    this.saveUsers(users, { skipCloudPush: true });
 
     // Push to cloud database for worldwide real-time sync
     if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {

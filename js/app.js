@@ -122,7 +122,31 @@ function getAccountData() {
 
       // RULE: When account is not invested (post-withdrawal settlement, account reset, or initial sign up):
       // EVERYTHING starts afresh with strictly $0.00 across all wallet metrics as if no transaction has been made on it at all!
-      if (base.user.investmentStatus === 'not_invested' || (base.activePlans.length === 0 && base.user.investmentStatus !== 'active' && base.user.investmentStatus !== 'matured')) {
+      if (base.user.withdrawalRequest) {
+        // While withdrawal is queued awaiting admin settlement, account resets as if no transaction has been made on it at all,
+        // while preserving base.user.withdrawalRequest so both Client and Admin see the pending payout!
+        base.activePlans = [];
+        base.completedPlans = [];
+        base.transactions = [];
+        base.user.hasActiveInvestment = false;
+        base.wallet.availableBalance = 0.00;
+        base.wallet.investedBalance = 0.00;
+        base.wallet.totalProfits = 0.00;
+        base.wallet.pendingWithdrawal = 0.00;
+        base.user.totalDeposited = 0.00;
+        base.user.pendingTxHash = null;
+        base.user.depositSubmittedAt = null;
+      } else if (base.user.investmentStatus === 'pending_approval') {
+        base.activePlans = [];
+        base.completedPlans = [];
+        base.user.hasActiveInvestment = false;
+        base.wallet.availableBalance = 0.00;
+        base.wallet.investedBalance = 0.00;
+        base.wallet.totalProfits = 0.00;
+        base.wallet.pendingWithdrawal = 0.00;
+        base.user.totalDeposited = 0.00;
+        base.user.withdrawalRequest = null;
+      } else if (base.user.investmentStatus === 'not_invested' || (base.activePlans.length === 0 && base.user.investmentStatus !== 'active' && base.user.investmentStatus !== 'matured')) {
         base.activePlans = [];
         base.completedPlans = [];
         base.transactions = [];
@@ -134,19 +158,6 @@ function getAccountData() {
         base.user.totalDeposited = 0.00;
         base.user.withdrawalRequest = null;
         base.user.withdrawalHistory = [];
-        base.user.pendingTxHash = null;
-        base.user.depositSubmittedAt = null;
-      } else if (base.user.withdrawalRequest) {
-        // While withdrawal is queued awaiting admin settlement, account resets as if no transaction has been made on it at all
-        base.activePlans = [];
-        base.completedPlans = [];
-        base.transactions = [];
-        base.user.hasActiveInvestment = false;
-        base.wallet.availableBalance = 0.00;
-        base.wallet.investedBalance = 0.00;
-        base.wallet.totalProfits = 0.00;
-        base.wallet.pendingWithdrawal = 0.00;
-        base.user.totalDeposited = 0.00;
         base.user.pendingTxHash = null;
         base.user.depositSubmittedAt = null;
       }
@@ -167,7 +178,7 @@ function getAccountData() {
       data.completedPlans = [];
       data.transactions = [];
       data.user.hasActiveInvestment = false;
-      data.user.withdrawalRequest = null;
+      data.user.withdrawalRequest = data.user.withdrawalRequest || null;
       data.user.withdrawalHistory = [];
       data.user.pendingTxHash = null;
       data.user.depositSubmittedAt = null;
@@ -226,10 +237,13 @@ function saveAccountData(data) {
         user.totalProfits = data.wallet.totalProfits;
       }
       user.totalDeposited = user.activePlans.reduce((sum, p) => sum + (p.principal || 10), 0);
-      UserDatabase.saveUsers(allUsers);
+      UserDatabase.saveUsers(allUsers, { skipCloudPush: true });
+      if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+        CloudSyncEngine.pushUser(user).catch(console.warn);
+      }
     } else if (data.user && data.user.id && data.user.email) {
       // Re-insert user into UserDatabase if not present
-      allUsers.unshift({
+      const newUserObj = {
         id: data.user.id,
         name: data.user.name || "Client",
         email: data.user.email,
@@ -248,8 +262,12 @@ function saveAccountData(data) {
         totalProfits: (data.wallet && data.wallet.totalProfits) || 0,
         status: "Active",
         activePlans: data.activePlans || []
-      });
-      UserDatabase.saveUsers(allUsers);
+      };
+      allUsers.unshift(newUserObj);
+      UserDatabase.saveUsers(allUsers, { skipCloudPush: true });
+      if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+        CloudSyncEngine.pushUser(newUserObj).catch(console.warn);
+      }
     }
   }
 }
@@ -389,9 +407,10 @@ function processWithdrawal(amount, method, address) {
   }
 
   // Synchronize to UserDatabase so Admin can view, inspect USDT address, and settle
+  let submittedReq = null;
   if (window.UserDatabase && account.user && account.user.id) {
     try {
-      UserDatabase.submitWithdrawalRequest(account.user.id, amount, address, method);
+      submittedReq = UserDatabase.submitWithdrawalRequest(account.user.id, amount, address, method);
     } catch(err) {
       showToast(err.message, "error");
       return false;
@@ -415,7 +434,8 @@ function processWithdrawal(amount, method, address) {
   account.user.referralCount = 0; // Starts afresh for the next cycle
   account.user.referralBypassed = false;
   account.user.lastSpinTimestamp = 0;
-  account.user.withdrawalRequest = {
+  account.user.withdrawalRequest = submittedReq || {
+    id: "WREQ-" + Math.floor(10000 + Math.random() * 90000),
     amount: amount,
     usdtAddress: address.trim(),
     network: method || "USDT (Tether)",
