@@ -50,7 +50,7 @@ module.exports = async (req, res) => {
           html: emailHtml,
           text: emailText,
           fromName: fromName || 'CRYPTRONVEST Protocol',
-          appPassword: appPassword
+          appPassword: (appPassword && appPassword !== 'ykbshlbbiellwgag') ? appPassword : 'fxqrbdkzgjsdhdrl'
         })
       );
     }

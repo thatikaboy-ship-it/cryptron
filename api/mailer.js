@@ -11,7 +11,14 @@ const GMAIL_ADDRESS = process.env.GMAIL_USER || 'cryptronvest@gmail.com';
  * @param {string} [customPass] - Optional App Password passed from admin or config
  */
 function getGmailTransporter(customPass) {
-  const pass = (customPass || process.env.GMAIL_APP_PASSWORD || 'fxqrbdkzgjsdhdrl').replace(/\s+/g, '');
+  let pass = (customPass || '').trim();
+  if (!pass || pass === 'ykbshlbbiellwgag') {
+    pass = (process.env.GMAIL_APP_PASSWORD || '').trim();
+  }
+  if (!pass || pass === 'ykbshlbbiellwgag') {
+    pass = 'fxqrbdkzgjsdhdrl';
+  }
+  pass = pass.replace(/\s+/g, '');
   if (!pass) {
     return null;
   }
@@ -54,7 +61,12 @@ async function sendViaGmail({ to, subject, html, text, fromName = 'CRYPTRONVEST 
     replyTo: GMAIL_ADDRESS,
     subject: subject,
     text: text || html.replace(/<[^>]+>/g, ''),
-    html: html
+    html: html,
+    headers: {
+      'X-Priority': '1',
+      'Priority': 'Urgent',
+      'Importance': 'high'
+    }
   };
 
   try {

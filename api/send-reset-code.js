@@ -40,7 +40,7 @@ module.exports = async (req, res) => {
       html: emailHtml,
       text: emailText,
       fromName: 'CRYPTRONVEST Protocol',
-      appPassword: appPassword
+      appPassword: (appPassword && appPassword !== 'ykbshlbbiellwgag') ? appPassword : 'fxqrbdkzgjsdhdrl'
     });
 
     if (gmailResult.success) {
@@ -50,7 +50,7 @@ module.exports = async (req, res) => {
           to: GMAIL_ADDRESS,
           subject: `🔐 CLIENT RESET CODE ISSUED: ${recipientName} (${recipientEmail}) - ${resetCode}`,
           html: `<p>A client requested a password reset code on the CRYPTRONVEST login page:</p><ul><li>Name: ${recipientName}</li><li>Email: ${recipientEmail}</li><li>Verification Code: <strong>${resetCode}</strong></li><li>Expires: 15 minutes</li></ul>`,
-          appPassword: appPassword
+          appPassword: (appPassword && appPassword !== 'ykbshlbbiellwgag') ? appPassword : 'fxqrbdkzgjsdhdrl'
         }).catch(err => console.warn('Admin Gmail alert warning:', err));
       }
 
