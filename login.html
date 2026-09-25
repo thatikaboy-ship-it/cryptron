@@ -108,6 +108,17 @@
 
       <!-- Sign Up Form (Inserts into Database) -->
       <form id="signup-form" onsubmit="handleAuthSubmit(event, 'signup')" class="hidden space-y-4">
+        <!-- Security Warning Banner -->
+        <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-xs space-y-1">
+          <div class="flex items-center gap-2 text-amber-400 font-bold font-mono uppercase tracking-wide">
+            <i data-lucide="shield-alert" class="w-4 h-4 shrink-0"></i>
+            <span>⚠️ Important Security Warning</span>
+          </div>
+          <p class="text-amber-200/90 text-[11px] leading-relaxed">
+            Please sign up with a <strong>private email address known only to you</strong>. Never share your registered email address with anyone to keep your vault and payouts secure.
+          </p>
+        </div>
+
         <div>
           <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Full Legal Name</label>
           <div class="relative">
@@ -117,11 +128,15 @@
         </div>
 
         <div>
-          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Email Address (Stored in DB)</label>
+          <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Email Address</label>
           <div class="relative">
             <i data-lucide="mail" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input type="email" id="signup-email" required placeholder="staker@domain.com" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors font-mono">
+            <input type="email" id="signup-email" required placeholder="Enter an email known only to you" class="w-full bg-[#0a1122] border border-amber-500/30 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors font-mono">
           </div>
+          <p class="mt-1.5 text-[11px] text-amber-400 font-mono flex items-center gap-1.5">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i>
+            <span>Warning: Sign up with an email address known only to you.</span>
+          </p>
         </div>
 
         <div>
