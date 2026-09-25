@@ -54,6 +54,10 @@
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5 refresh-spin-icon"></i>
             <span>Refresh</span>
           </button>
+          <button onclick="openClientPagesModal()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-bold border border-cyan-500/40 text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 transition-all shadow-sm cursor-pointer" title="Open any client page (Dashboard, Spin, Plans, Transactions)">
+            <i data-lucide="layout-dashboard" class="w-4 h-4 text-cyan-400"></i>
+            <span>Client Pages</span>
+          </button>
           <button onclick="openAdminMessageModal()" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border border-amber-500/30 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-all font-mono" title="Drop message for individual or groups">
             <i data-lucide="message-square" class="w-4 h-4 text-amber-400"></i>
             <span>Drop Message</span>
@@ -93,6 +97,11 @@
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5 refresh-spin-icon"></i>
             <span class="text-xs">Refresh</span>
           </button>
+          <!-- Mobile Open Client Pages Button -->
+          <button onclick="openClientPagesModal()" class="flex items-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-mono font-bold border border-cyan-500/40 text-cyan-300 bg-cyan-500/20 hover:bg-cyan-500/30 transition-all cursor-pointer active:scale-95" title="Open Client Pages">
+            <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span class="text-xs">Pages</span>
+          </button>
           <!-- Mobile Message Button with badge -->
           <button onclick="openAdminMessageModal()" class="relative p-2 rounded-xl border border-amber-500/30 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95" title="Client Messages">
             <i data-lucide="message-square" class="w-4 h-4"></i>
@@ -119,6 +128,10 @@
     <!-- Mobile Drawer Menu (Revealed on 'more' click) -->
     <div id="mobile-admin-menu" class="hidden xl:hidden border-t border-white/10 bg-[#070b16]/95 backdrop-blur-xl px-4 py-3 space-y-2.5 font-mono text-xs shadow-2xl">
       <div class="grid grid-cols-2 gap-2">
+        <button onclick="openClientPagesModal(); toggleMobileAdminMenu();" class="col-span-2 p-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 text-cyan-300 font-bold flex items-center justify-center gap-1.5 active:scale-95">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span>Open Any Client Page (Dashboard, Spin, Plans, Ledger)</span>
+        </button>
         <button onclick="undoLastAction(); toggleMobileAdminMenu();" class="p-2 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-300 font-bold flex items-center justify-center gap-1.5 active:scale-95">
           <i data-lucide="undo-2" class="w-3.5 h-3.5"></i>
           <span>Undo (<span id="admin-undo-count-mobile">0</span>)</span>
@@ -141,9 +154,10 @@
         </button>
       </div>
       <div class="pt-2 border-t border-white/10 flex items-center justify-between text-slate-400 text-[11px]">
-        <a href="dashboard.html" class="hover:text-emerald-400">Client Portal ➔</a>
-        <a href="transactions.html" class="hover:text-cyan-400">Ledger ➔</a>
-        <a href="index.html" class="hover:text-white">Homepage ➔</a>
+        <a href="dashboard.html?adminView=1" class="hover:text-emerald-400">Client Dashboard ➔</a>
+        <a href="spin.html?adminView=1" class="hover:text-amber-400">Spin Wheel ➔</a>
+        <a href="plans.html?adminView=1" class="hover:text-emerald-400">Vault Plans ➔</a>
+        <a href="transactions.html?adminView=1" class="hover:text-cyan-400">Ledger ➔</a>
       </div>
     </div>
   </nav>
@@ -1057,12 +1071,55 @@
     </div>
   </footer>
 
+  <!-- MODAL: Open Any Client Page Launcher -->
+  <div id="admin-client-pages-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel max-w-xl w-full rounded-3xl p-6 sm:p-8 border border-cyan-500/40 relative space-y-5 glow-emerald max-h-[90vh] overflow-y-auto">
+      <button onclick="closeModal('admin-client-pages-modal')" class="absolute top-5 right-5 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center justify-between gap-3 pr-8">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-black text-lg" id="client-pages-avatar">
+            CL
+          </div>
+          <div>
+            <h3 class="text-lg font-black text-white flex items-center gap-2">
+              <span id="client-pages-name">Client Name</span>
+              <span id="client-pages-id" class="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">USR-1001</span>
+            </h3>
+            <p id="client-pages-email" class="text-xs text-cyan-300 font-mono">client@email.com</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Client Switcher inside Modal -->
+      <div class="p-3 rounded-xl bg-slate-900/90 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <label class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Switch Client:</label>
+        <select id="client-pages-select" onchange="openClientPagesModal(this.value)" class="flex-1 bg-[#050914] border border-cyan-500/30 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400">
+        </select>
+      </div>
+
+      <p class="text-xs text-slate-300 font-mono">
+        Select any page below to open and control that exact page as <strong id="client-pages-inline-name" class="text-emerald-400">this client</strong>:
+      </p>
+
+      <!-- Grid of All Client Pages -->
+      <div id="client-pages-links-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      </div>
+
+      <div class="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-slate-400">
+        <span>🛡️ An Admin floating bar will appear at the bottom of the client page so you can switch pages or return here anytime.</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.0.0"></script>
-  <script src="js/email.js?v=4.0.0"></script>
-  <script src="js/app.js?v=4.0.0"></script>
+  <script src="js/db.js?v=4.1.0"></script>
+  <script src="js/email.js?v=4.1.0"></script>
+  <script src="js/app.js?v=4.1.0"></script>
   <script>
     // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
     // The plaintext passcode is NEVER stored in source code or memory.
@@ -1450,6 +1507,10 @@
                       </div>
                     </div>
                     <div class="flex items-center gap-2 flex-wrap">
+                      <button onclick="openClientPagesModal('${u.id}')" class="px-3 py-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 font-bold text-xs font-mono border border-cyan-500/40 flex items-center gap-1.5 transition-all cursor-pointer" title="Open any page for this client">
+                        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+                        <span>Client Pages</span>
+                      </button>
                       <button onclick="openAdminMessageModal('${u.id}')" class="px-3 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs font-mono border border-amber-500/40 flex items-center gap-1.5 transition-all cursor-pointer" title="Send message to client regarding their payout">
                         <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
                         <span>Message Client</span>
@@ -1665,9 +1726,13 @@
                 <i data-lucide="key" class="w-3 h-3 text-amber-400"></i>
                 <span>Pass</span>
               </button>
-              <button onclick="viewUserDashboard('${user.id}')" title="Preview dashboard as this user" class="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-mono text-xs flex items-center gap-1 transition-all cursor-pointer">
+              <button onclick="openClientPage('${user.id}', 'dashboard.html')" title="Open this client's live Dashboard" class="px-2.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-mono font-bold text-xs flex items-center gap-1 transition-all cursor-pointer">
                 <i data-lucide="external-link" class="w-3 h-3"></i>
-                <span>View</span>
+                <span>Dashboard</span>
+              </button>
+              <button onclick="openClientPagesModal('${user.id}')" title="Open any page for this client (Dashboard, Spin, Plans, Transactions)" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-mono font-bold text-xs flex items-center gap-1 transition-all cursor-pointer">
+                <i data-lucide="layout-grid" class="w-3 h-3"></i>
+                <span>Pages</span>
               </button>
               <button onclick="deleteUserRecord('${user.id}')" title="Delete this user" class="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono text-xs flex items-center gap-1 transition-all cursor-pointer">
                 <i data-lucide="trash-2" class="w-3 h-3"></i>
@@ -1691,11 +1756,14 @@
               </td>
               <td class="py-4">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-xs font-bold text-emerald-400 flex-shrink-0">
+                  <button type="button" onclick="openClientPagesModal('${user.id}')" title="Click to open client pages" class="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 hover:border-cyan-400 flex items-center justify-center text-xs font-bold text-emerald-400 flex-shrink-0 cursor-pointer transition-colors">
                     ${initials}
-                  </div>
+                  </button>
                   <div>
-                    <div class="font-bold text-white">${displayName}</div>
+                    <button type="button" onclick="openClientPagesModal('${user.id}')" class="font-bold text-white hover:text-cyan-300 text-left flex items-center gap-1 cursor-pointer transition-colors" title="Click to open any page for ${displayName}">
+                      <span>${displayName}</span>
+                      <i data-lucide="external-link" class="w-3 h-3 text-cyan-400"></i>
+                    </button>
                     <div class="text-[11px] text-emerald-400 font-mono">${safeId} · <span class="text-slate-300 font-bold" title="Promo Code">🎟️ ${safePromo}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Unlocked</span>' : ''}${safeRefBy ? ` · <span class="text-cyan-300 font-bold" title="Used Promo Code">🎟️ ${safeRefBy}</span>` : ''}</div>
                   </div>
                 </div>
@@ -1860,14 +1928,15 @@
               <div class="flex items-start justify-between gap-3">
                 <div class="flex items-center gap-2.5 min-w-0">
                   <input type="checkbox" value="${user.id}" ${isSelected ? 'checked' : ''} onchange="handleUserCheckboxChange('${user.id}', this.checked)" class="user-select-cb rounded bg-slate-900 border-white/30 text-emerald-400 accent-emerald-400 focus:ring-0 w-5 h-5 cursor-pointer mt-0.5 flex-shrink-0">
-                  <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-xs font-bold text-emerald-400 flex-shrink-0">
+                  <button type="button" onclick="openClientPagesModal('${user.id}')" class="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 hover:border-cyan-400 flex items-center justify-center text-xs font-bold text-emerald-400 flex-shrink-0 cursor-pointer">
                     ${initials}
-                  </div>
+                  </button>
                   <div class="min-w-0">
-                    <div class="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap">
+                    <button type="button" onclick="openClientPagesModal('${user.id}')" class="font-bold text-white hover:text-cyan-300 text-sm flex items-center gap-1.5 flex-wrap text-left cursor-pointer">
                       <span class="truncate">${displayName}</span>
                       <span class="text-[11px] font-mono text-emerald-400 font-normal">(${safeId})</span>
-                    </div>
+                      <i data-lucide="external-link" class="w-3 h-3 text-cyan-400"></i>
+                    </button>
                     <div class="text-[11px] text-cyan-300 font-mono break-all">${safeEmail}</div>
                   </div>
                 </div>
@@ -1890,7 +1959,7 @@
                 ${mobilePrimaryActions}
               </div>
 
-              <!-- Secondary Utility Actions (Skip Ref, Msg, Pass, View) -->
+              <!-- Secondary Utility Actions (Skip Ref, Msg, Pass, Pages) -->
               <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-white/5">
                 <button onclick="toggleUserReferralBypass('${user.id}')" title="${isBypassed ? 'Re-enforce 5-referral requirement' : 'Skip referral requirement for this client'}" class="py-2.5 px-1 rounded-xl ${isBypassed ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'bg-slate-800 text-slate-300 border border-white/10'} font-mono text-[11px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
                   <i data-lucide="${isBypassed ? 'unlock' : 'lock'}" class="w-3.5 h-3.5 text-purple-400"></i>
@@ -1904,9 +1973,25 @@
                   <i data-lucide="key" class="w-3.5 h-3.5 text-amber-400"></i>
                   <span>Pass</span>
                 </button>
-                <button onclick="viewUserDashboard('${user.id}')" title="Preview dashboard" class="py-2.5 px-1 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-mono text-[11px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
-                  <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                  <span>View</span>
+                <button onclick="openClientPagesModal('${user.id}')" title="Open any page for this client" class="py-2.5 px-1 rounded-xl bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 font-mono text-[11px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                  <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                  <span>All Pages</span>
+                </button>
+              </div>
+
+              <!-- Quick Direct Client Page Buttons on Mobile -->
+              <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-white/5 text-[10px] font-mono">
+                <button onclick="openClientPage('${user.id}', 'dashboard.html')" class="py-1.5 px-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold text-center truncate cursor-pointer">
+                  📊 Dashboard
+                </button>
+                <button onclick="openClientPage('${user.id}', 'spin.html')" class="py-1.5 px-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-center truncate cursor-pointer">
+                  🎡 Spin
+                </button>
+                <button onclick="openClientPage('${user.id}', 'plans.html')" class="py-1.5 px-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold text-center truncate cursor-pointer">
+                  📈 Plans
+                </button>
+                <button onclick="openClientPage('${user.id}', 'transactions.html')" class="py-1.5 px-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold text-center truncate cursor-pointer">
+                  🧾 Ledger
                 </button>
               </div>
 
@@ -2319,15 +2404,127 @@
     }
 
     /**
-     * Switch session to this user and open their dashboard
+     * Switch session to this user and open any of their client pages
      */
+    function openClientPage(userId, pageFile = 'dashboard.html', newTab = false) {
+      const allUsers = UserDatabase.getAllUsers();
+      const targetId = userId || UserDatabase.getCurrentUserId() || (allUsers[0] && allUsers[0].id);
+      if (!targetId) {
+        showToast("No registered clients found.", "warning");
+        return;
+      }
+      UserDatabase.setCurrentUserId(targetId);
+      const user = UserDatabase.getUserById(targetId);
+      const targetUrl = `${pageFile}?userId=${encodeURIComponent(targetId)}&adminView=1`;
+      if (newTab) {
+        window.open(targetUrl, '_blank');
+      } else {
+        showToast(`Opening ${pageFile.replace('.html', '')} for ${user ? user.name : targetId}...`, 'info');
+        setTimeout(() => {
+          window.location.href = targetUrl;
+        }, 250);
+      }
+    }
+
     function viewUserDashboard(userId) {
-      UserDatabase.setCurrentUserId(userId);
-      const user = UserDatabase.getUserById(userId);
-      showToast(`Switching session to ${user.name}...`, 'info');
-      setTimeout(() => {
-        window.location.href = 'dashboard.html';
-      }, 500);
+      openClientPage(userId, 'dashboard.html', false);
+    }
+
+    /**
+     * Open the Client Pages Launcher Modal for any client
+     */
+    function openClientPagesModal(userId = null) {
+      const allUsers = UserDatabase.getAllUsers();
+      if (allUsers.length === 0) {
+        showToast("No registered clients in the database yet.", "warning");
+        return;
+      }
+      const targetUser = (userId && UserDatabase.getUserById(userId)) || UserDatabase.getUserById(UserDatabase.getCurrentUserId()) || allUsers[0];
+      if (!targetUser) return;
+
+      UserDatabase.setCurrentUserId(targetUser.id);
+
+      const avatarEl = document.getElementById('client-pages-avatar');
+      const nameEl = document.getElementById('client-pages-name');
+      const inlineNameEl = document.getElementById('client-pages-inline-name');
+      const idEl = document.getElementById('client-pages-id');
+      const emailEl = document.getElementById('client-pages-email');
+      const selectEl = document.getElementById('client-pages-select');
+      const gridEl = document.getElementById('client-pages-links-grid');
+
+      if (avatarEl) avatarEl.textContent = (targetUser.name || 'CL').substring(0, 2).toUpperCase();
+      if (nameEl) nameEl.textContent = targetUser.name || 'Client';
+      if (inlineNameEl) inlineNameEl.textContent = `${targetUser.name || 'Client'} (${targetUser.id})`;
+      if (idEl) idEl.textContent = targetUser.id;
+      if (emailEl) emailEl.textContent = targetUser.email || '';
+
+      if (selectEl) {
+        selectEl.innerHTML = allUsers.map(u => {
+          const isSel = u.id === targetUser.id ? 'selected' : '';
+          return `<option value="${u.id}" ${isSel}>${escapeHtml(u.name)} (${escapeHtml(u.id)}) · ${escapeHtml(u.email)}</option>`;
+        }).join('');
+      }
+
+      const clientPages = [
+        {
+          title: "📊 Client Dashboard",
+          desc: "Balances, 7-day countdown timer, deposit hash, withdrawal & inbox.",
+          file: "dashboard.html",
+          color: "emerald"
+        },
+        {
+          title: "🎡 Daily Lucky Spin ($10,000)",
+          desc: "Open the daily wheel page and spin status as this client.",
+          file: "spin.html",
+          color: "amber"
+        },
+        {
+          title: "📈 7-Day Vault Plans",
+          desc: "View and activate the $10 ➔ $25 7-day staking contract.",
+          file: "plans.html",
+          color: "cyan"
+        },
+        {
+          title: "🧾 Transactions & Ledger",
+          desc: "Inspect full deposit, yield, spin, and payout history.",
+          file: "transactions.html",
+          color: "purple"
+        },
+        {
+          title: "🌐 Live Crypto Markets",
+          desc: "View real-time crypto market tickers and arbitrage pairs.",
+          file: "markets.html",
+          color: "cyan"
+        },
+        {
+          title: "🏠 Platform Homepage",
+          desc: "View the main landing page while logged in as this client.",
+          file: "index.html",
+          color: "emerald"
+        }
+      ];
+
+      if (gridEl) {
+        gridEl.innerHTML = clientPages.map(p => `
+          <div class="p-4 rounded-2xl bg-[#070d1d] border border-white/10 hover:border-cyan-400/50 transition-all flex flex-col justify-between gap-3">
+            <div>
+              <div class="font-bold text-white text-sm">${p.title}</div>
+              <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">${p.desc}</p>
+            </div>
+            <div class="flex items-center gap-2 pt-1">
+              <button type="button" onclick="openClientPage('${targetUser.id}', '${p.file}', false)" class="flex-1 py-2 px-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-all cursor-pointer">
+                Open Page
+              </button>
+              <button type="button" onclick="openClientPage('${targetUser.id}', '${p.file}', true)" class="py-2 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono border border-white/15 transition-all cursor-pointer" title="Open in new tab">
+                ↗
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      openModal('admin-client-pages-modal');
+      lucide.createIcons();
     }
 
     /**

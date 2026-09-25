@@ -1188,20 +1188,51 @@ class UserDatabase {
   }
 
   /**
-   * Get current active user session
+   * Get current active user session (supports ?userId=USR-XXXX URL parameter for Admin direct client page access)
    */
   static getCurrentUserId() {
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.search) {
+        const params = new URLSearchParams(window.location.search);
+        const urlUserId = params.get('userId') || params.get('client');
+        if (params.get('adminView') === '1') {
+          sessionStorage.setItem('cryptron_admin_authenticated', 'true');
+        }
+        if (urlUserId && String(urlUserId).trim().startsWith('USR-')) {
+          const cleanId = String(urlUserId).trim();
+          const currentStored = localStorage.getItem(CURRENT_USER_KEY);
+          if (currentStored !== cleanId) {
+            this.setCurrentUserId(cleanId);
+          }
+          return cleanId;
+        }
+      }
+    } catch (e) {}
     return localStorage.getItem(CURRENT_USER_KEY) || null;
   }
 
   /**
-   * Set current active user session
+   * Set current active user session and clear any cached countdown state from a previous user
    */
   static setCurrentUserId(userId) {
     if (!userId) {
       localStorage.removeItem(CURRENT_USER_KEY);
     } else {
+      const prev = localStorage.getItem(CURRENT_USER_KEY);
       localStorage.setItem(CURRENT_USER_KEY, userId);
+      if (prev !== userId) {
+        try {
+          const stored = localStorage.getItem("cryptron_account_v3_countdown");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (!parsed.user || parsed.user.id !== userId) {
+              localStorage.removeItem("cryptron_account_v3_countdown");
+            }
+          }
+        } catch (e) {
+          localStorage.removeItem("cryptron_account_v3_countdown");
+        }
+      }
     }
   }
 

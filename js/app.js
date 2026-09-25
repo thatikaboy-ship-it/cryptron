@@ -955,9 +955,91 @@ function getReferralLink(code) {
   return code || "DAVID8821";
 }
 
+function initAdminClientViewBar() {
+  try {
+    const path = (window.location.pathname || '').toLowerCase();
+    if (path.includes('admin.html')) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('adminView') === '1') {
+      sessionStorage.setItem('cryptron_admin_authenticated', 'true');
+    }
+
+    const isAdmin = sessionStorage.getItem('cryptron_admin_authenticated') === 'true';
+    if (!isAdmin || !window.UserDatabase) return;
+
+    const currentUserId = UserDatabase.getCurrentUserId();
+    const allUsers = UserDatabase.getAllUsers();
+    const activeUser = UserDatabase.getUserById(currentUserId) || allUsers[0];
+    if (!activeUser) return;
+
+    const existingBar = document.getElementById('admin-client-preview-bar');
+    if (existingBar) existingBar.remove();
+
+    const bar = document.createElement('div');
+    bar.id = 'admin-client-preview-bar';
+    bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(4,8,18,0.96);backdrop-filter:blur(12px);border-top:2px solid #10b981;padding:10px 16px;box-shadow:0 -10px 30px rgba(0,0,0,0.8);font-family:monospace;';
+
+    const pages = [
+      { label: '📊 Dashboard', file: 'dashboard.html' },
+      { label: '🎡 Spin Wheel', file: 'spin.html' },
+      { label: '📈 Vault Plans', file: 'plans.html' },
+      { label: '🧾 Transactions', file: 'transactions.html' },
+      { label: '🌐 Markets', file: 'markets.html' },
+      { label: '🏠 Home', file: 'index.html' }
+    ];
+
+    const userOptions = allUsers.map(u => {
+      const sel = u.id === activeUser.id ? 'selected' : '';
+      return `<option value="${u.id}" ${sel}>${u.name} (${u.id}) - ${u.email}</option>`;
+    }).join('');
+
+    const pageLinks = pages.map(p => {
+      const isCurrent = path.endsWith(p.file) || (p.file === 'index.html' && (path === '/' || path.endsWith('/')));
+      const btnStyle = isCurrent
+        ? 'background:#10b981;color:#020617;font-weight:900;border:1px solid #34d399;'
+        : 'background:rgba(255,255,255,0.07);color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);';
+      return `<a href="${p.file}?userId=${encodeURIComponent(activeUser.id)}&adminView=1" style="${btnStyle}padding:6px 10px;border-radius:8px;font-size:11px;text-decoration:none;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">${p.label}</a>`;
+    }).join('');
+
+    bar.innerHTML = `
+      <div style="max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(16,185,129,0.4);padding:4px 8px;border-radius:6px;font-size:11px;font-weight:bold;">🛡️ ADMIN CLIENT VIEW</span>
+          <select id="admin-bar-client-select" style="background:#0f172a;color:#38bdf8;border:1px solid rgba(56,189,248,0.4);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:bold;max-width:260px;outline:none;">
+            ${userOptions}
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow-x:auto;">
+          ${pageLinks}
+          <a href="admin.html" style="background:#f59e0b;color:#020617;font-weight:900;padding:6px 12px;border-radius:8px;font-size:11px;text-decoration:none;white-space:nowrap;margin-left:4px;">← Back to Admin Portal</a>
+        </div>
+      </div>
+    `;
+
+    document.body.style.paddingBottom = '68px';
+    document.body.appendChild(bar);
+
+    const selEl = document.getElementById('admin-bar-client-select');
+    if (selEl) {
+      selEl.addEventListener('change', (e) => {
+        const nextId = e.target.value;
+        if (nextId) {
+          UserDatabase.setCurrentUserId(nextId);
+          const currentFile = pages.find(p => path.endsWith(p.file))?.file || 'dashboard.html';
+          window.location.href = `${currentFile}?userId=${encodeURIComponent(nextId)}&adminView=1`;
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('Admin client preview bar error:', e);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initMobileMenu();
+  initAdminClientViewBar();
 });
 
 window.executeSpin = executeSpin;
@@ -973,4 +1055,6 @@ window.handleClientLogout = handleClientLogout;
 window.getReferralLink = getReferralLink;
 window.getPromoCode = getPromoCode;
 window.isClientFundedAndActive = isClientFundedAndActive;
+window.initAdminClientViewBar = initAdminClientViewBar;
+
 
