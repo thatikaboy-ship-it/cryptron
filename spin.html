@@ -283,8 +283,8 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.1.0"></script>
-  <script src="js/app.js?v=4.1.0"></script>
+  <script src="js/db.js?v=4.2.0"></script>
+  <script src="js/app.js?v=4.2.0"></script>
   <script>
     function updateSpinCountdownTicker(account) {
       const countdownEl = document.getElementById('spin-vault-countdown');
@@ -298,7 +298,11 @@
 
       const diff = primaryPlan.maturityTimestamp - Date.now();
       if (diff <= 0) {
-        countdownEl.textContent = "Matured • $25 Ready";
+        const spinEarned = account.user ? (Number(account.user.spinWinnings) || 0) : 0;
+        const availOut = (Number(account.wallet && account.wallet.availableBalance) >= 25)
+          ? Number(account.wallet.availableBalance)
+          : (25.00 + spinEarned);
+        countdownEl.textContent = `Matured • $${availOut.toFixed(2)} Ready`;
         countdownEl.className = "text-emerald-400 font-black tracking-wider text-sm";
         return;
       }

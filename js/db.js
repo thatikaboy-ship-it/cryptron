@@ -574,13 +574,16 @@ class CloudSyncEngine {
               acc.user.withdrawalHistory = [];
               acc.user.pendingTxHash = null;
               acc.user.depositSubmittedAt = null;
+              acc.user.hasCustomPortfolio = !!curUser.hasCustomPortfolio;
+              acc.user.customPortfolioValue = curUser.customPortfolioValue !== undefined ? curUser.customPortfolioValue : null;
+              acc.user.spinWinnings = Number(curUser.spinWinnings) || 0.00;
               acc.activePlans = [];
               acc.completedPlans = [];
               acc.transactions = [];
               acc.wallet = acc.wallet || {};
-              acc.wallet.availableBalance = 0.00;
-              acc.wallet.investedBalance = 0.00;
-              acc.wallet.totalProfits = 0.00;
+              acc.wallet.availableBalance = curUser.hasCustomPortfolio ? (Number(curUser.availableBalance) || 0.00) : 0.00;
+              acc.wallet.investedBalance = curUser.hasCustomPortfolio ? (Number(curUser.investedBalance) || 0.00) : 0.00;
+              acc.wallet.totalProfits = curUser.hasCustomPortfolio ? (Number(curUser.totalProfits) || 0.00) : 0.00;
               acc.wallet.pendingWithdrawal = 0.00;
               acc.user.totalDeposited = 0.00;
               acc.user.referralCount = curUser.referralCount || 0;
@@ -695,6 +698,9 @@ class CloudSyncEngine {
         if (ru.depositSubmittedAt !== undefined) existing.depositSubmittedAt = ru.depositSubmittedAt;
         if (ru.registeredAt && !existing.registeredAt) existing.registeredAt = ru.registeredAt;
         if (ru.withdrawalHistory) existing.withdrawalHistory = ru.withdrawalHistory;
+        if (ru.hasCustomPortfolio !== undefined) existing.hasCustomPortfolio = !!ru.hasCustomPortfolio;
+        if (ru.customPortfolioValue !== undefined) existing.customPortfolioValue = ru.customPortfolioValue;
+        if (ru.spinWinnings !== undefined) existing.spinWinnings = Number(ru.spinWinnings) || 0.00;
         if (Array.isArray(ru.notifications) || Array.isArray(existing.notifications)) {
           const notifMap = new Map();
           (ru.notifications || []).forEach(n => {
@@ -729,10 +735,11 @@ class CloudSyncEngine {
           existing.depositSubmittedAt = null;
           existing.withdrawalRequest = effectiveWreq;
           existing.pendingWithdrawal = 0.00;
-          existing.availableBalance = 0.00;
-          existing.investedBalance = 0.00;
-          existing.totalProfits = 0.00;
+          existing.availableBalance = existing.hasCustomPortfolio ? (Number(ru.availableBalance !== undefined ? ru.availableBalance : existing.availableBalance) || 0.00) : 0.00;
+          existing.investedBalance = existing.hasCustomPortfolio ? (Number(ru.investedBalance !== undefined ? ru.investedBalance : existing.investedBalance) || 0.00) : 0.00;
+          existing.totalProfits = existing.hasCustomPortfolio ? (Number(ru.totalProfits !== undefined ? ru.totalProfits : existing.totalProfits) || 0.00) : 0.00;
           existing.totalDeposited = 0.00;
+          existing.spinWinnings = 0.00;
           existing.referralCount = ru.referralCount !== undefined ? ru.referralCount : 0;
           existing.referralBypassed = !!ru.referralBypassed;
           existing.lastSpinTimestamp = ru.lastSpinTimestamp || 0;
@@ -746,6 +753,7 @@ class CloudSyncEngine {
           if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
           if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
           if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
+          if (ru.spinWinnings !== undefined) existing.spinWinnings = Number(ru.spinWinnings) || 0.00;
           existing.withdrawalRequest = effectiveWreq;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
           if (ru.referralCount !== undefined) existing.referralCount = ru.referralCount;
@@ -764,8 +772,13 @@ class CloudSyncEngine {
         } else if (ru.investmentStatus === 'matured') {
           existing.investmentStatus = 'matured';
           existing.hasActiveInvestment = false;
+          if (ru.activePlans && Array.isArray(ru.activePlans) && ru.activePlans.length > 0) {
+            existing.activePlans = ru.activePlans;
+          }
           if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
+          if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
           if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          if (ru.spinWinnings !== undefined) existing.spinWinnings = Number(ru.spinWinnings) || 0.00;
           existing.withdrawalRequest = effectiveWreq;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
           if (ru.referralCount !== undefined) existing.referralCount = ru.referralCount;
@@ -776,6 +789,7 @@ class CloudSyncEngine {
           if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
           if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
           if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
+          if (ru.spinWinnings !== undefined) existing.spinWinnings = Number(ru.spinWinnings) || 0.00;
           existing.withdrawalRequest = effectiveWreq;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
         }
@@ -1399,16 +1413,26 @@ class UserDatabase {
   }
 
   /**
-   * Record that a user has spun the wheel and credit their inviter if this is their first spin
+   * Record that a user has spun the wheel, credit any spin prize to spinWinnings & availableBalance,
+   * and credit their inviter if this is their first spin.
    * (Rule: Referrals must sign up with promo code, deposit $10, and spin the wheel for the inviter to receive credit)
    */
-  static recordUserSpin(userId) {
+  static recordUserSpin(userId, prizePayout = 0) {
     if (!userId) return null;
     const users = this.getAllUsers();
     const user = users.find(u => u.id === userId);
     if (!user) return null;
 
     user.lastSpinTimestamp = Date.now();
+
+    const wonAmount = Number(prizePayout) || 0;
+    if (wonAmount > 0) {
+      user.spinWinnings = Number(((Number(user.spinWinnings) || 0) + wonAmount).toFixed(2));
+      user.availableBalance = Number(((Number(user.availableBalance) || 0) + wonAmount).toFixed(2));
+      user.totalProfits = Number(((Number(user.totalProfits) || 0) + wonAmount).toFixed(2));
+    }
+
+    let updatedReferrer = null;
 
     // If this user was referred by someone and hasn't yet credited them for spinning
     if (user.referredBy && !user.referralSpinCredited) {
@@ -1431,6 +1455,7 @@ class UserDatabase {
 
       if (referrer) {
         referrer.referralCount = (referrer.referralCount || 0) + 1;
+        updatedReferrer = referrer;
         
         // Sync active account in localStorage if referrer is in session
         try {
@@ -1446,7 +1471,13 @@ class UserDatabase {
       }
     }
 
-    this.saveUsers(users);
+    this.saveUsers(users, { skipCloudPush: true });
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+      if (updatedReferrer) {
+        CloudSyncEngine.pushUser(updatedReferrer).catch(console.warn);
+      }
+    }
     return user;
   }
 
@@ -1681,7 +1712,9 @@ class UserDatabase {
     user.activePlans = user.activePlans || [];
     user.activePlans.unshift(newPlan);
     user.investmentStatus = "active";
+    user.investedBalance = 10.00;
     user.totalDeposited = (user.totalDeposited || 0) + 10.00;
+    user.spinWinnings = Number(user.spinWinnings) || 0.00;
     user.pendingTxHash = null; // Clear pending flag
     user.lastSpinTimestamp = 0; // Fresh daily spin guaranteed on countdown start day!
 
@@ -1704,7 +1737,8 @@ class UserDatabase {
         acc.user.investmentStatus = "active";
         acc.user.pendingTxHash = null;
         acc.user.lastSpinTimestamp = 0;
-        acc.wallet.investedBalance = (acc.wallet.investedBalance || 0) + 10.00;
+        acc.user.spinWinnings = user.spinWinnings || 0.00;
+        acc.wallet.investedBalance = 10.00;
         localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
       } catch (e) {}
     }
@@ -1746,6 +1780,9 @@ class UserDatabase {
     user.totalProfits = 0.00;
     user.totalDeposited = 0.00;
     user.pendingWithdrawal = 0.00;
+    user.spinWinnings = 0.00;
+    user.hasCustomPortfolio = false;
+    user.customPortfolioValue = null;
     user.withdrawalRequest = null;
     user.lastSpinTimestamp = 0;
     user.referralCount = 0;
@@ -1770,6 +1807,9 @@ class UserDatabase {
           acc.user.withdrawalHistory = [];
           acc.user.pendingTxHash = null;
           acc.user.depositSubmittedAt = null;
+          acc.user.spinWinnings = 0.00;
+          acc.user.hasCustomPortfolio = false;
+          acc.user.customPortfolioValue = null;
           acc.activePlans = [];
           acc.completedPlans = [];
           acc.transactions = [];
@@ -1946,7 +1986,7 @@ class UserDatabase {
 
   /**
    * ADMIN ACTION: Instantly mature an investment contract (Fast-forward countdown to 0)
-   * Unlocks the $25.00 payout immediately for client withdrawal.
+   * Unlocks the $25.00 profit + any amount won from the spin wheel immediately in Available Wallet.
    * @param {string} userId - ID of user whose contract to mature
    */
   static matureUserInvestment(userId) {
@@ -1961,17 +2001,29 @@ class UserDatabase {
     const now = Date.now();
     let totalYieldAdded = 0;
 
+    // Preserve any spin winnings earned during the 7-day countdown
+    const preMatureSpinFromAvail = (user.investmentStatus !== 'matured' && (Number(user.availableBalance) || 0) < 25)
+      ? (Number(user.availableBalance) || 0)
+      : 0;
+    const spinEarned = Number(Math.max(Number(user.spinWinnings) || 0, preMatureSpinFromAvail).toFixed(2));
+    user.spinWinnings = spinEarned;
+
     user.activePlans.forEach(plan => {
       // Set maturity timestamp to past so real-time countdown becomes 0 / Expired
       plan.maturityTimestamp = now - 5000;
       plan.status = "Matured";
       plan.isMatured = true;
+      plan.yieldCredited = true;
       totalYieldAdded += (plan.totalPayout || 25.00);
     });
 
-    // Strictly $25.00 payout available to client upon maturity
-    user.availableBalance = 25.00;
-    user.totalProfits = 25.00;
+    const baseYield = totalYieldAdded > 0 ? totalYieldAdded : 25.00;
+    const totalMaturedAvailable = Number((baseYield + spinEarned).toFixed(2));
+
+    // $25.00 profit + any amount won from the spin wheel available in wallet upon maturity
+    user.availableBalance = totalMaturedAvailable;
+    user.totalProfits = totalMaturedAvailable;
+    user.investedBalance = 0.00;
     user.investmentStatus = "matured";
 
     this.saveUsers(users);
@@ -1981,14 +2033,18 @@ class UserDatabase {
       CloudSyncEngine.pushUser(user).catch(console.warn);
     }
 
+    const spinBreakdownText = spinEarned > 0
+      ? ` ($25.00 vault payout + $${spinEarned.toFixed(2)} from Daily Spin rewards)`
+      : '';
+
     // Dispatch congratulatory maturity notification message to the client
     try {
       this.sendMessage({
         targetType: "individual",
         targetUserId: userId,
         targetUserName: user.name,
-        subject: "🎉 Contract Matured - $25.00 Ready for Withdrawal!",
-        body: `Congratulations ${user.name}! Your 7-day crypto yield vault investment has completed its term. Your guaranteed $25.00 USDT payout is now unlocked and available in your balance. Please click the 'Withdraw' button and paste your personal USDT Tether wallet address to receive your payment.`,
+        subject: `🎉 Contract Matured - $${totalMaturedAvailable.toFixed(2)} Ready for Withdrawal!`,
+        body: `Congratulations ${user.name}! Your 7-day crypto yield vault investment has completed its term. Your guaranteed $${totalMaturedAvailable.toFixed(2)} USDT payout${spinBreakdownText} is now unlocked and available in your wallet. Please click the 'Withdraw' button and paste your personal USDT Tether wallet address to receive your payment.`,
         priority: "success",
         category: "Maturity Settlement"
       });
@@ -2002,8 +2058,10 @@ class UserDatabase {
         if (!acc.wallet) acc.wallet = {};
         if (!acc.user) acc.user = {};
         acc.activePlans = user.activePlans;
-        acc.wallet.availableBalance = 25.00;
-        acc.wallet.totalProfits = 25.00;
+        acc.wallet.availableBalance = totalMaturedAvailable;
+        acc.wallet.totalProfits = totalMaturedAvailable;
+        acc.wallet.investedBalance = 0.00;
+        acc.user.spinWinnings = spinEarned;
         acc.user.hasActiveInvestment = true;
         acc.user.investmentStatus = "matured";
         localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
@@ -2011,6 +2069,66 @@ class UserDatabase {
         console.warn("Could not sync active session state", e);
       }
     }
+
+    return user;
+  }
+
+  /**
+   * ADMIN ACTION: Change Total Portfolio (and optional wallet balances) of any user to any amount
+   * @param {string} userId - ID of user
+   * @param {number|null} portfolioAmount - Desired Total Portfolio amount in USD
+   * @param {object} options - { resetToAuto, availableBalance, investedBalance, totalProfits }
+   */
+  static adminSetUserPortfolio(userId, portfolioAmount, options = {}) {
+    const users = this.getAllUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) throw new Error(`User ${userId} not found.`);
+
+    if (options && options.resetToAuto) {
+      user.hasCustomPortfolio = false;
+      user.customPortfolioValue = null;
+    } else {
+      const parsedPortfolio = Number(portfolioAmount);
+      if (isNaN(parsedPortfolio) || parsedPortfolio < 0) {
+        throw new Error("Please enter a valid non-negative USD amount.");
+      }
+      user.hasCustomPortfolio = true;
+      user.customPortfolioValue = Number(parsedPortfolio.toFixed(2));
+
+      if (options.availableBalance !== undefined && options.availableBalance !== null && options.availableBalance !== '') {
+        user.availableBalance = Number(Number(options.availableBalance).toFixed(2)) || 0.00;
+      }
+      if (options.investedBalance !== undefined && options.investedBalance !== null && options.investedBalance !== '') {
+        user.investedBalance = Number(Number(options.investedBalance).toFixed(2)) || 0.00;
+      }
+      if (options.totalProfits !== undefined && options.totalProfits !== null && options.totalProfits !== '') {
+        user.totalProfits = Number(Number(options.totalProfits).toFixed(2)) || 0.00;
+      }
+    }
+
+    this.saveUsers(users, { skipCloudPush: true });
+
+    // Immediately push updated portfolio to Firebase Cloud Database
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
+
+    // If this user is currently in active session, sync localStorage immediately
+    try {
+      const stored = localStorage.getItem("cryptron_account_v3_countdown");
+      if (stored) {
+        const acc = JSON.parse(stored);
+        if (acc.user && (acc.user.id === userId || this.getCurrentUserId() === userId)) {
+          acc.user.hasCustomPortfolio = !!user.hasCustomPortfolio;
+          acc.user.customPortfolioValue = user.customPortfolioValue;
+          acc.wallet = acc.wallet || {};
+          if (user.availableBalance !== undefined) acc.wallet.availableBalance = Number(user.availableBalance) || 0.00;
+          if (user.investedBalance !== undefined) acc.wallet.investedBalance = Number(user.investedBalance) || 0.00;
+          if (user.totalProfits !== undefined) acc.wallet.totalProfits = Number(user.totalProfits) || 0.00;
+          localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
+        }
+      }
+    } catch (e) {}
 
     return user;
   }
@@ -2030,10 +2148,14 @@ class UserDatabase {
     }
     if (!user) throw new Error(`User ${userId} not found.`);
 
-    // MANDATORY RULE 1: Maximum withdrawal amount is $25.00 USDT
-    const parsedAmount = parseFloat(amount) || 25.00;
-    if (parsedAmount > 25.00) {
-      throw new Error("Maximum withdrawal amount is $25.00 USDT per request.");
+    const maxAllowedWithdrawal = Math.max(
+      25.00,
+      Number(user.availableBalance) || 0,
+      Number((25.00 + (Number(user.spinWinnings) || 0)).toFixed(2))
+    );
+    const parsedAmount = parseFloat(amount) || maxAllowedWithdrawal;
+    if (parsedAmount > maxAllowedWithdrawal + 0.01) {
+      throw new Error(`Maximum withdrawal amount is $${maxAllowedWithdrawal.toFixed(2)} USDT.`);
     }
 
     // MANDATORY RULE 2: Must have invited at least 5 friends who spun the wheel (unless waived by Admin)
@@ -2074,6 +2196,9 @@ class UserDatabase {
     user.totalProfits = 0.00;
     user.totalDeposited = 0.00;
     user.pendingWithdrawal = 0.00;
+    user.spinWinnings = 0.00;
+    user.hasCustomPortfolio = false;
+    user.customPortfolioValue = null;
     user.referralCount = 0; // Starts afresh for the next cycle
     user.referralBypassed = false;
     user.lastSpinTimestamp = 0; // Fresh state for subsequent deposit
@@ -2121,6 +2246,9 @@ class UserDatabase {
           acc.user.withdrawalHistory = [];
           acc.user.pendingTxHash = null;
           acc.user.depositSubmittedAt = null;
+          acc.user.spinWinnings = 0.00;
+          acc.user.hasCustomPortfolio = false;
+          acc.user.customPortfolioValue = null;
           acc.activePlans = [];
           acc.completedPlans = [];
           acc.transactions = [];
@@ -2175,6 +2303,9 @@ class UserDatabase {
     user.investedBalance = 0.00;
     user.totalProfits = 0.00;
     user.totalDeposited = 0.00;
+    user.spinWinnings = 0.00;
+    user.hasCustomPortfolio = false;
+    user.customPortfolioValue = null;
     user.hasActiveInvestment = false;
     user.investmentStatus = "not_invested";
     user.referralCount = 0;
@@ -2224,6 +2355,9 @@ class UserDatabase {
           acc.user.withdrawalHistory = [];
           acc.user.pendingTxHash = null;
           acc.user.depositSubmittedAt = null;
+          acc.user.spinWinnings = 0.00;
+          acc.user.hasCustomPortfolio = false;
+          acc.user.customPortfolioValue = null;
           acc.activePlans = [];
           acc.completedPlans = [];
           acc.transactions = [];

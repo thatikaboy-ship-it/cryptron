@@ -63,6 +63,8 @@ function getAccountData() {
       base.user.referralBypassed = !!dbUser.referralBypassed;
       base.user.investmentStatus = dbUser.investmentStatus || (dbUser.activePlans && dbUser.activePlans.length > 0 ? 'active' : 'not_invested');
       base.user.pendingTxHash = dbUser.pendingTxHash || null;
+      base.user.hasCustomPortfolio = !!dbUser.hasCustomPortfolio;
+      base.user.customPortfolioValue = dbUser.customPortfolioValue !== undefined ? dbUser.customPortfolioValue : null;
       
       // Isolate lastSpinTimestamp cleanly to dbUser only (default to 0 so fresh staker can spin on day countdown starts)
       base.user.lastSpinTimestamp = (dbUser.lastSpinTimestamp !== undefined && dbUser.lastSpinTimestamp !== null) 
@@ -112,13 +114,83 @@ function getAccountData() {
         }
       }
 
-      base.user.hasActiveInvestment = (base.activePlans.length > 0) || (base.user.investmentStatus === 'active');
-      
-      const investedTotal = base.activePlans.reduce((sum, p) => sum + (p.principal || 10), 0);
-      base.wallet.investedBalance = investedTotal;
-      if (dbUser.availableBalance !== undefined) base.wallet.availableBalance = Number(dbUser.availableBalance) || 0.00;
-      if (dbUser.pendingWithdrawal !== undefined) base.wallet.pendingWithdrawal = Number(dbUser.pendingWithdrawal) || 0.00;
-      if (dbUser.totalProfits !== undefined) base.wallet.totalProfits = Number(dbUser.totalProfits) || 0.00;
+      // Compute accumulated spin winnings during this 7-day contract
+      const txSpinSum = Array.isArray(base.transactions)
+        ? base.transactions.filter(t => t && t.type === 'Daily Spin Win').reduce((s, t) => s + (Number(t.amount) || 0), 0)
+        : 0;
+      const preMatureSpinFromAvail = (dbUser.investmentStatus !== 'matured' && (Number(dbUser.availableBalance) || 0) < 25)
+        ? (Number(dbUser.availableBalance) || 0)
+        : 0;
+      const spinEarned = Number(Math.max(
+        Number(dbUser.spinWinnings) || 0,
+        Number(base.user.spinWinnings) || 0,
+        txSpinSum,
+        preMatureSpinFromAvail
+      ).toFixed(2));
+      base.user.spinWinnings = spinEarned;
+
+      // Check if 7-day countdown has finished (naturally or via Admin mature action)
+      const nowTs = Date.now();
+      const anyPlanMatured = base.activePlans.some(p => p && (p.isMatured || (p.maturityTimestamp && p.maturityTimestamp <= nowTs)));
+
+      if ((anyPlanMatured || base.user.investmentStatus === 'matured') && !base.user.withdrawalRequest) {
+        let needsDbPersist = false;
+        let baseYield = 0;
+        base.activePlans.forEach(p => {
+          if (!p.isMatured || !p.yieldCredited) {
+            p.isMatured = true;
+            p.yieldCredited = true;
+            p.status = "Matured";
+            needsDbPersist = true;
+          }
+          baseYield += (p.totalPayout || 25.00);
+        });
+        if (baseYield <= 0) baseYield = 25.00;
+        const maturedTotal = Number((baseYield + spinEarned).toFixed(2));
+
+        base.user.investmentStatus = 'matured';
+        base.user.hasActiveInvestment = true;
+        base.wallet.availableBalance = maturedTotal;
+        base.wallet.totalProfits = maturedTotal;
+        base.wallet.investedBalance = 0.00;
+        if (dbUser.pendingWithdrawal !== undefined) base.wallet.pendingWithdrawal = Number(dbUser.pendingWithdrawal) || 0.00;
+
+        if (needsDbPersist || dbUser.investmentStatus !== 'matured' || Number(dbUser.availableBalance) !== maturedTotal) {
+          try {
+            const allU = UserDatabase.getAllUsers();
+            const target = allU.find(u => u.id === dbUser.id);
+            if (target) {
+              target.activePlans = base.activePlans;
+              target.investmentStatus = 'matured';
+              target.spinWinnings = spinEarned;
+              target.availableBalance = maturedTotal;
+              target.totalProfits = maturedTotal;
+              target.investedBalance = 0.00;
+              UserDatabase.saveUsers(allU, { skipCloudPush: true });
+              if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+                CloudSyncEngine.pushUser(target).catch(console.warn);
+              }
+            }
+          } catch (e) {}
+        }
+      } else {
+        base.user.hasActiveInvestment = (base.activePlans.length > 0) || (base.user.investmentStatus === 'active');
+        const investedTotal = base.activePlans.reduce((sum, p) => sum + (p.principal || 10), 0);
+        base.wallet.investedBalance = dbUser.hasCustomPortfolio && dbUser.investedBalance !== undefined
+          ? (Number(dbUser.investedBalance) || investedTotal)
+          : investedTotal;
+        if (dbUser.availableBalance !== undefined) {
+          base.wallet.availableBalance = Number(dbUser.availableBalance) || 0.00;
+        } else {
+          base.wallet.availableBalance = spinEarned;
+        }
+        if (dbUser.pendingWithdrawal !== undefined) base.wallet.pendingWithdrawal = Number(dbUser.pendingWithdrawal) || 0.00;
+        if (dbUser.totalProfits !== undefined) {
+          base.wallet.totalProfits = Number(dbUser.totalProfits) || 0.00;
+        } else {
+          base.wallet.totalProfits = spinEarned;
+        }
+      }
 
       // RULE: When account is not invested (post-withdrawal settlement, account reset, or initial sign up):
       // EVERYTHING starts afresh with strictly $0.00 across all wallet metrics as if no transaction has been made on it at all!
@@ -129,20 +201,21 @@ function getAccountData() {
         base.completedPlans = [];
         base.transactions = [];
         base.user.hasActiveInvestment = false;
-        base.wallet.availableBalance = 0.00;
-        base.wallet.investedBalance = 0.00;
-        base.wallet.totalProfits = 0.00;
+        base.wallet.availableBalance = base.user.hasCustomPortfolio ? (Number(dbUser.availableBalance) || 0.00) : 0.00;
+        base.wallet.investedBalance = base.user.hasCustomPortfolio ? (Number(dbUser.investedBalance) || 0.00) : 0.00;
+        base.wallet.totalProfits = base.user.hasCustomPortfolio ? (Number(dbUser.totalProfits) || 0.00) : 0.00;
         base.wallet.pendingWithdrawal = 0.00;
         base.user.totalDeposited = 0.00;
+        base.user.spinWinnings = 0.00;
         base.user.pendingTxHash = null;
         base.user.depositSubmittedAt = null;
       } else if (base.user.investmentStatus === 'pending_approval') {
         base.activePlans = [];
         base.completedPlans = [];
         base.user.hasActiveInvestment = false;
-        base.wallet.availableBalance = 0.00;
-        base.wallet.investedBalance = 0.00;
-        base.wallet.totalProfits = 0.00;
+        base.wallet.availableBalance = base.user.hasCustomPortfolio ? (Number(dbUser.availableBalance) || 0.00) : 0.00;
+        base.wallet.investedBalance = base.user.hasCustomPortfolio ? (Number(dbUser.investedBalance) || 0.00) : 0.00;
+        base.wallet.totalProfits = base.user.hasCustomPortfolio ? (Number(dbUser.totalProfits) || 0.00) : 0.00;
         base.wallet.pendingWithdrawal = 0.00;
         base.user.totalDeposited = 0.00;
         base.user.withdrawalRequest = null;
@@ -151,11 +224,12 @@ function getAccountData() {
         base.completedPlans = [];
         base.transactions = [];
         base.user.hasActiveInvestment = false;
-        base.wallet.availableBalance = 0.00;
-        base.wallet.investedBalance = 0.00;
-        base.wallet.totalProfits = 0.00;
+        base.wallet.availableBalance = base.user.hasCustomPortfolio ? (Number(dbUser.availableBalance) || 0.00) : 0.00;
+        base.wallet.investedBalance = base.user.hasCustomPortfolio ? (Number(dbUser.investedBalance) || 0.00) : 0.00;
+        base.wallet.totalProfits = base.user.hasCustomPortfolio ? (Number(dbUser.totalProfits) || 0.00) : 0.00;
         base.wallet.pendingWithdrawal = 0.00;
         base.user.totalDeposited = 0.00;
+        base.user.spinWinnings = 0.00;
         base.user.withdrawalRequest = null;
         base.user.withdrawalHistory = [];
         base.user.pendingTxHash = null;
@@ -183,9 +257,9 @@ function getAccountData() {
       data.user.pendingTxHash = null;
       data.user.depositSubmittedAt = null;
       data.wallet = data.wallet || {};
-      data.wallet.availableBalance = 0.00;
-      data.wallet.investedBalance = 0.00;
-      data.wallet.totalProfits = 0.00;
+      data.wallet.availableBalance = data.user.hasCustomPortfolio ? (Number(data.wallet.availableBalance) || 0.00) : 0.00;
+      data.wallet.investedBalance = data.user.hasCustomPortfolio ? (Number(data.wallet.investedBalance) || 0.00) : 0.00;
+      data.wallet.totalProfits = data.user.hasCustomPortfolio ? (Number(data.wallet.totalProfits) || 0.00) : 0.00;
       data.wallet.pendingWithdrawal = 0.00;
       data.user.totalDeposited = 0.00;
     } else if (data.user && (data.user.investmentStatus === 'active' || data.user.hasActiveInvestment) && (!data.activePlans || data.activePlans.length === 0)) {
@@ -228,12 +302,21 @@ function saveAccountData(data) {
       user.activePlans = data.activePlans || [];
       user.referralCount = data.user.referralCount || 0;
       if (data.user.referralBypassed !== undefined) user.referralBypassed = !!data.user.referralBypassed;
-      user.investmentStatus = (user.activePlans.length > 0) ? 'active' : (data.user.investmentStatus || 'not_invested');
+      const anyMaturedPlan = user.activePlans.some(p => p && (p.isMatured || (p.maturityTimestamp && p.maturityTimestamp <= Date.now())));
+      if (data.user.investmentStatus === 'matured' || anyMaturedPlan) {
+        user.investmentStatus = 'matured';
+      } else {
+        user.investmentStatus = (user.activePlans.length > 0) ? 'active' : (data.user.investmentStatus || 'not_invested');
+      }
       user.pendingTxHash = data.user.pendingTxHash || null;
       user.lastSpinTimestamp = data.user.lastSpinTimestamp || 0;
+      if (data.user.spinWinnings !== undefined) user.spinWinnings = Number(data.user.spinWinnings) || 0.00;
+      if (data.user.hasCustomPortfolio !== undefined) user.hasCustomPortfolio = !!data.user.hasCustomPortfolio;
+      if (data.user.customPortfolioValue !== undefined) user.customPortfolioValue = data.user.customPortfolioValue;
       if (data.user.withdrawalRequest !== undefined) user.withdrawalRequest = data.user.withdrawalRequest;
       if (data.wallet) {
         user.availableBalance = data.wallet.availableBalance;
+        user.investedBalance = data.wallet.investedBalance;
         user.totalProfits = data.wallet.totalProfits;
       }
       user.totalDeposited = user.activePlans.reduce((sum, p) => sum + (p.principal || 10), 0);
@@ -259,7 +342,11 @@ function saveAccountData(data) {
         withdrawalRequest: data.user.withdrawalRequest || null,
         totalDeposited: (data.wallet && data.wallet.investedBalance) || 0,
         availableBalance: (data.wallet && data.wallet.availableBalance) || 0,
+        investedBalance: (data.wallet && data.wallet.investedBalance) || 0,
         totalProfits: (data.wallet && data.wallet.totalProfits) || 0,
+        spinWinnings: Number(data.user.spinWinnings) || 0,
+        hasCustomPortfolio: !!data.user.hasCustomPortfolio,
+        customPortfolioValue: data.user.customPortfolioValue !== undefined ? data.user.customPortfolioValue : null,
         status: "Active",
         activePlans: data.activePlans || []
       };
@@ -380,9 +467,13 @@ function processWithdrawal(amount, method, address) {
     return false;
   }
 
-  // MANDATORY RULE CHECK: Maximum withdrawal limit is $25.00 USDT
-  if (amount > 25.00) {
-    showToast("Maximum withdrawal amount is $25.00 USDT per request.", "error");
+  const maxAllowedWithdrawal = Math.max(
+    25.00,
+    Number(account.wallet.availableBalance) || 0,
+    Number((25.00 + (Number(account.user && account.user.spinWinnings) || 0)).toFixed(2))
+  );
+  if (amount > maxAllowedWithdrawal + 0.01) {
+    showToast(`Maximum withdrawal amount is ${formatUSD(maxAllowedWithdrawal)} USDT.`, "error");
     return false;
   }
 
@@ -401,7 +492,7 @@ function processWithdrawal(amount, method, address) {
     return false;
   }
 
-  if (amount > account.wallet.availableBalance) {
+  if (amount > account.wallet.availableBalance + 0.01) {
     showToast(`Insufficient balance! Available: ${formatUSD(account.wallet.availableBalance)}`, "error");
     return false;
   }
@@ -428,6 +519,9 @@ function processWithdrawal(amount, method, address) {
   account.user.hasActiveInvestment = false;
   account.user.investmentStatus = 'pending_withdrawal'; // Tracks pending withdrawal for Admin while balances are 0.00
   account.user.totalDeposited = 0.00;
+  account.user.spinWinnings = 0.00;
+  account.user.hasCustomPortfolio = false;
+  account.user.customPortfolioValue = null;
   account.user.pendingTxHash = null;
   account.user.depositSubmittedAt = null;
   account.user.withdrawalHistory = [];
@@ -775,15 +869,10 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
     // Record spin timestamp to begin the 24-hour cooldown for the next spin
     account.user.lastSpinTimestamp = Date.now();
 
-    // Record user spin in UserDatabase to credit their inviter if this referral spins for the first time
-    if (window.UserDatabase && account.user && account.user.id) {
-      try {
-        UserDatabase.recordUserSpin(account.user.id);
-      } catch(e) {}
-    }
-
     if (prize.payout > 0) {
-      account.wallet.availableBalance = (account.wallet.availableBalance || 0) + prize.payout;
+      account.user.spinWinnings = Number(((Number(account.user.spinWinnings) || 0) + prize.payout).toFixed(2));
+      account.wallet.availableBalance = Number(((Number(account.wallet.availableBalance) || 0) + prize.payout).toFixed(2));
+      account.wallet.totalProfits = Number(((Number(account.wallet.totalProfits) || 0) + prize.payout).toFixed(2));
       account.transactions.unshift({
         id: "TX-SPIN-" + Math.floor(1000 + Math.random() * 9000),
         type: "Daily Spin Win",
@@ -793,6 +882,16 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
         status: "Completed",
         txHash: "0xSPIN" + Math.random().toString(16).substring(2, 10)
       });
+    }
+
+    // Record user spin in UserDatabase (also persists spinWinnings & credits inviter on first spin)
+    if (window.UserDatabase && account.user && account.user.id) {
+      try {
+        UserDatabase.recordUserSpin(account.user.id, prize.payout || 0);
+      } catch(e) {}
+    }
+
+    if (prize.payout > 0) {
       saveAccountData(account);
       showToast(`🎉 You won ${formatUSD(prize.payout)} from the Lucky Wheel! Added to wallet. Next free spin unlocks in 24 hours.`, "success");
     } else {

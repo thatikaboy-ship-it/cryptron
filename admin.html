@@ -1114,12 +1114,103 @@
     </div>
   </div>
 
+  <!-- MODAL: Edit User Total Portfolio & Wallet Balances -->
+  <div id="admin-edit-portfolio-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel max-w-lg w-full rounded-3xl p-6 sm:p-8 border border-emerald-500/40 relative space-y-5 glow-emerald max-h-[90vh] overflow-y-auto">
+      <button onclick="closeModal('admin-edit-portfolio-modal')" class="absolute top-5 right-5 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 pr-8">
+        <div class="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-lg">
+          💰
+        </div>
+        <div>
+          <h3 class="text-lg font-black text-white">Change Client Total Portfolio</h3>
+          <p id="edit-portfolio-subtitle" class="text-xs text-cyan-300 font-mono">Set Total Portfolio of any user to any USD amount</p>
+        </div>
+      </div>
+
+      <!-- Client Switcher -->
+      <div class="p-3 rounded-xl bg-slate-900/90 border border-white/10 space-y-1.5">
+        <label class="text-[10px] font-mono uppercase tracking-wider text-slate-400 block">Selected Client:</label>
+        <select id="edit-portfolio-user-select" onchange="openAdminEditPortfolioModal(this.value)" class="w-full bg-[#050914] border border-emerald-500/30 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-400">
+        </select>
+      </div>
+
+      <form id="admin-edit-portfolio-form" onsubmit="handleAdminEditPortfolioSubmit(event)" class="space-y-4">
+        <input type="hidden" id="edit-portfolio-user-id">
+
+        <!-- Primary Field: Total Portfolio Amount -->
+        <div class="p-4 rounded-2xl bg-emerald-950/25 border border-emerald-500/40 space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-mono uppercase tracking-wider text-emerald-300 font-bold">Total Portfolio Amount (USD)</label>
+            <span id="edit-portfolio-mode-badge" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">Custom Override</span>
+          </div>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-mono font-black text-base">$</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              id="edit-portfolio-amount-input"
+              required
+              placeholder="0.00"
+              class="w-full bg-[#040812] border border-emerald-500/40 rounded-xl pl-9 pr-4 py-3 text-base font-black text-white font-mono focus:outline-none focus:border-emerald-400"
+            >
+          </div>
+          <!-- Quick Presets -->
+          <div class="flex flex-wrap items-center gap-1.5 pt-1 font-mono text-[11px]">
+            <span class="text-slate-400 text-[10px] mr-1">Quick Set:</span>
+            <button type="button" onclick="setQuickPortfolioInput(0)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">$0</button>
+            <button type="button" onclick="setQuickPortfolioInput(10)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">$10</button>
+            <button type="button" onclick="setQuickPortfolioInput(25)" class="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-bold">$25</button>
+            <button type="button" onclick="setQuickPortfolioInput(50)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">$50</button>
+            <button type="button" onclick="setQuickPortfolioInput(100)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">$100</button>
+            <button type="button" onclick="setQuickPortfolioInput(250)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">$250</button>
+            <button type="button" onclick="setQuickPortfolioInput(500)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">$500</button>
+            <button type="button" onclick="setQuickPortfolioInput(1000)" class="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-bold">$1,000</button>
+          </div>
+        </div>
+
+        <!-- Optional Sub-Wallet Balances -->
+        <div class="p-4 rounded-2xl bg-[#070b16] border border-white/10 space-y-3">
+          <div class="text-[11px] font-mono text-slate-400 uppercase tracking-wider font-bold">Optional Wallet Breakdown (Leave as-is or customize):</div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 mb-1">Available Wallet ($)</label>
+              <input type="number" step="0.01" min="0" id="edit-avail-balance-input" placeholder="0.00" class="w-full bg-[#040812] border border-white/15 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400">
+            </div>
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 mb-1">Invested Balance ($)</label>
+              <input type="number" step="0.01" min="0" id="edit-invested-balance-input" placeholder="0.00" class="w-full bg-[#040812] border border-white/15 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400">
+            </div>
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 mb-1">Total Profits ($)</label>
+              <input type="number" step="0.01" min="0" id="edit-total-profits-input" placeholder="0.00" class="w-full bg-[#040812] border border-white/15 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
+          <button type="submit" class="btn-shimmer w-full sm:flex-1 py-3.5 px-5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 cursor-pointer">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span>Save Total Portfolio Amount</span>
+          </button>
+          <button type="button" onclick="handleResetPortfolioToAuto()" class="w-full sm:w-auto py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 text-xs font-mono font-bold transition-all cursor-pointer" title="Revert to automatic calculation from active plans + available balance">
+            Auto Calculate
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.1.0"></script>
-  <script src="js/email.js?v=4.1.0"></script>
-  <script src="js/app.js?v=4.1.0"></script>
+  <script src="js/db.js?v=4.2.0"></script>
+  <script src="js/email.js?v=4.2.0"></script>
+  <script src="js/app.js?v=4.2.0"></script>
   <script>
     // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
     // The plaintext passcode is NEVER stored in source code or memory.
@@ -1619,6 +1710,8 @@
             const primaryPlan = user.activePlans[0];
             const isMatured = primaryPlan.isMatured || (primaryPlan.maturityTimestamp <= Date.now());
             const cd = formatCountdown(primaryPlan.maturityTimestamp);
+            const spinEarned = Number(user.spinWinnings) || 0;
+            const maturedAvail = Number(user.availableBalance) >= 25 ? Number(user.availableBalance) : (25.00 + spinEarned);
             
             if (isMatured) {
               statusHtml = `
@@ -1626,10 +1719,10 @@
                   <div class="flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                     <span class="text-xs font-bold text-emerald-400 uppercase tracking-wide">🎉 Contract Matured</span>
-                    <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">$25 READY</span>
+                    <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">$${maturedAvail.toFixed(2)} READY</span>
                   </div>
                   <div class="text-[11px] font-mono text-emerald-300">
-                    <span>Available to client: <strong>$${(Number(user.availableBalance) || 25).toFixed(2)} USDT</strong></span>
+                    <span>Available Wallet: <strong>$${maturedAvail.toFixed(2)} USDT</strong>${spinEarned > 0 ? ` <span class="text-amber-300">($25 + $${spinEarned.toFixed(2)} Spin)</span>` : ''}</span>
                   </div>
                 </div>
               `;
@@ -1639,7 +1732,7 @@
                   <div class="flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     <span class="text-xs font-bold text-emerald-400 uppercase tracking-wide">Active (7-Day Timer)</span>
-                    <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono">$10 ➔ $25</span>
+                    <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono">$10 ➔ $25${spinEarned > 0 ? ` + $${spinEarned.toFixed(2)} Spin` : ''}</span>
                   </div>
                   <div class="text-[11px] font-mono text-white bg-slate-900/90 px-2 py-1 rounded border border-emerald-500/30 flex items-center gap-2">
                     <span class="text-slate-400">Time Left:</span>
@@ -1673,6 +1766,21 @@
             `;
           }
 
+          const effectivePortfolio = getEffectiveUserPortfolio(user);
+          const hasCustomPortfolio = !!(user.hasCustomPortfolio && user.customPortfolioValue !== undefined && user.customPortfolioValue !== null);
+          const availBal = Number(user.availableBalance) || 0;
+          const spinBal = Number(user.spinWinnings) || 0;
+
+          statusHtml += `
+            <div class="mt-1.5 flex items-center gap-1.5 flex-wrap text-[10px] font-mono">
+              <button type="button" onclick="openAdminEditPortfolioModal('${user.id}')" title="Click to change Total Portfolio amount for this client" class="px-2 py-0.5 rounded ${hasCustomPortfolio ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/50' : 'bg-slate-800/90 text-slate-200 border border-white/10 hover:border-emerald-400/40'} font-bold flex items-center gap-1 cursor-pointer transition-colors">
+                <span>💰 Portfolio: $${effectivePortfolio.toFixed(2)}</span>
+                ${hasCustomPortfolio ? '<span class="text-[9px] text-amber-300 uppercase">(Custom)</span>' : ''}
+              </button>
+              <span class="px-1.5 py-0.5 rounded bg-slate-900/80 border border-white/5 text-cyan-300">Avail: $${availBal.toFixed(2)}${spinBal > 0 ? ` (🎡 $${spinBal.toFixed(2)})` : ''}</span>
+            </div>
+          `;
+
           // Action Buttons Column HTML
           let actionsHtml = `<div class="flex items-center justify-end gap-1.5 flex-wrap">`;
           
@@ -1701,7 +1809,7 @@
             `;
           } else {
             actionsHtml += `
-              <button onclick="quickMatureUser('${user.id}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs flex items-center gap-1 transition-all cursor-pointer" title="Instantly mature 7-day contract and unlock $25 payout">
+              <button onclick="quickMatureUser('${user.id}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs flex items-center gap-1 transition-all cursor-pointer" title="Instantly mature 7-day contract and unlock $25 + Spin payout">
                 <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
                 <span>Mature Now</span>
               </button>
@@ -1714,6 +1822,10 @@
 
           const isBypassed = !!user.referralBypassed;
           actionsHtml += `
+              <button onclick="openAdminEditPortfolioModal('${user.id}')" title="Change Total Portfolio or wallet balances for this client" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs flex items-center gap-1 transition-all cursor-pointer">
+                <i data-lucide="dollar-sign" class="w-3 h-3 text-emerald-400"></i>
+                <span>Portfolio</span>
+              </button>
               <button onclick="toggleUserReferralBypass('${user.id}')" title="${isBypassed ? 'Re-enforce 5-referral requirement' : 'Skip referral requirement for this client'}" class="px-2.5 py-1.5 rounded-lg ${isBypassed ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30' : 'bg-slate-800 hover:bg-purple-500/20 hover:text-purple-300 border border-white/10 text-slate-400'} font-mono text-xs flex items-center gap-1 transition-all cursor-pointer">
                 <i data-lucide="${isBypassed ? 'unlock' : 'lock'}" class="w-3 h-3 text-purple-400"></i>
                 <span>${isBypassed ? 'Unlocked' : 'Skip Ref'}</span>
@@ -1786,6 +1898,11 @@
           const hasWreq = !!user.withdrawalRequest;
           const isBypassed = !!user.referralBypassed;
           const isSelected = selectedUserIds.has(user.id);
+          const spinEarned = Number(user.spinWinnings) || 0;
+          const maturedAvail = Number(user.availableBalance) >= 25 ? Number(user.availableBalance) : (25.00 + spinEarned);
+          const effectivePortfolio = getEffectiveUserPortfolio(user);
+          const hasCustomPortfolio = !!(user.hasCustomPortfolio && user.customPortfolioValue !== undefined && user.customPortfolioValue !== null);
+          const availBal = Number(user.availableBalance) || 0;
 
           let isMatured = false;
           let cd = { days: 0, hours: 0, minutes: 0, seconds: 0 };
@@ -1837,10 +1954,10 @@
                       <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                       🎉 Contract Matured
                     </span>
-                    <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">$25 READY</span>
+                    <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">$${maturedAvail.toFixed(2)} READY</span>
                   </div>
                   <div class="text-[11px] font-mono text-emerald-300">
-                    Available to client: <strong>$${(Number(user.availableBalance) || 25).toFixed(2)} USDT</strong>
+                    Available Wallet: <strong>$${maturedAvail.toFixed(2)} USDT</strong>${spinEarned > 0 ? ` <span class="text-amber-300">($25 + $${spinEarned.toFixed(2)} Spin)</span>` : ''}
                   </div>
                 </div>
               `;
@@ -1858,7 +1975,7 @@
                       <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                       Active (7-Day Timer)
                     </span>
-                    <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">$10 ➔ $25</span>
+                    <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">$10 ➔ $25${spinEarned > 0 ? ` + $${spinEarned.toFixed(2)}` : ''}</span>
                   </div>
                   <div class="text-xs font-mono text-white bg-black/60 px-3 py-1.5 rounded-lg border border-emerald-500/30 flex items-center justify-between">
                     <span class="text-slate-400 text-[11px]">Time Left:</span>
@@ -1867,7 +1984,7 @@
                 </div>
               `;
               mobilePrimaryActions = `
-                <button onclick="quickMatureUser('${user.id}')" class="py-2.5 px-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer" title="Instantly mature 7-day contract and unlock $25 payout">
+                <button onclick="quickMatureUser('${user.id}')" class="py-2.5 px-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer" title="Instantly mature 7-day contract and unlock $25 + Spin payout">
                   <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
                   <span>Mature Now</span>
                 </button>
@@ -1914,6 +2031,23 @@
             `;
           }
 
+          mobileStatusHtml += `
+            <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/90 border ${hasCustomPortfolio ? 'border-emerald-400/50' : 'border-white/10'} text-xs font-mono">
+              <div>
+                <div class="text-[10px] text-slate-400 uppercase">Total Portfolio ${hasCustomPortfolio ? '<span class="text-amber-300 font-bold">(Custom)</span>' : ''}</div>
+                <div class="text-sm font-black text-emerald-400">$${effectivePortfolio.toFixed(2)}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] text-slate-400 uppercase">Avail Wallet</div>
+                <div class="text-xs font-bold text-cyan-300">$${availBal.toFixed(2)}${spinEarned > 0 ? ` (🎡 $${spinEarned.toFixed(2)})` : ''}</div>
+              </div>
+              <button type="button" onclick="openAdminEditPortfolioModal('${user.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-[11px] flex items-center gap-1 active:scale-95 cursor-pointer">
+                <i data-lucide="dollar-sign" class="w-3.5 h-3.5"></i>
+                <span>Edit</span>
+              </button>
+            </div>
+          `;
+
           const displayName = escapeHtml(user.name || "Client");
           const initials = escapeHtml(displayName.substring(0, 2).toUpperCase());
           const safeId = escapeHtml(user.id || '');
@@ -1959,23 +2093,27 @@
                 ${mobilePrimaryActions}
               </div>
 
-              <!-- Secondary Utility Actions (Skip Ref, Msg, Pass, Pages) -->
-              <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-white/5">
-                <button onclick="toggleUserReferralBypass('${user.id}')" title="${isBypassed ? 'Re-enforce 5-referral requirement' : 'Skip referral requirement for this client'}" class="py-2.5 px-1 rounded-xl ${isBypassed ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'bg-slate-800 text-slate-300 border border-white/10'} font-mono text-[11px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+              <!-- Secondary Utility Actions (Portfolio, Skip Ref, Msg, Pass, Pages) -->
+              <div class="grid grid-cols-5 gap-1.5 pt-1 border-t border-white/5">
+                <button onclick="openAdminEditPortfolioModal('${user.id}')" title="Change Total Portfolio amount" class="py-2.5 px-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                  <i data-lucide="dollar-sign" class="w-3.5 h-3.5 text-emerald-400"></i>
+                  <span>Portfolio</span>
+                </button>
+                <button onclick="toggleUserReferralBypass('${user.id}')" title="${isBypassed ? 'Re-enforce 5-referral requirement' : 'Skip referral requirement for this client'}" class="py-2.5 px-1 rounded-xl ${isBypassed ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'bg-slate-800 text-slate-300 border border-white/10'} font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
                   <i data-lucide="${isBypassed ? 'unlock' : 'lock'}" class="w-3.5 h-3.5 text-purple-400"></i>
                   <span>${isBypassed ? 'Unlocked' : 'Skip Ref'}</span>
                 </button>
-                <button onclick="openAdminMessageModal('${user.id}')" title="Send direct message" class="py-2.5 px-1 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 font-mono text-[11px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                <button onclick="openAdminMessageModal('${user.id}')" title="Send direct message" class="py-2.5 px-1 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
                   <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
                   <span>Msg</span>
                 </button>
-                <button onclick="openAdminResetPassModal('${user.id}')" title="Reset password" class="py-2.5 px-1 rounded-xl bg-slate-800 text-slate-300 border border-white/10 font-mono text-[11px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                <button onclick="openAdminResetPassModal('${user.id}')" title="Reset password" class="py-2.5 px-1 rounded-xl bg-slate-800 text-slate-300 border border-white/10 font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
                   <i data-lucide="key" class="w-3.5 h-3.5 text-amber-400"></i>
                   <span>Pass</span>
                 </button>
-                <button onclick="openClientPagesModal('${user.id}')" title="Open any page for this client" class="py-2.5 px-1 rounded-xl bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 font-mono text-[11px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                <button onclick="openClientPagesModal('${user.id}')" title="Open any page for this client" class="py-2.5 px-1 rounded-xl bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
                   <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
-                  <span>All Pages</span>
+                  <span>Pages</span>
                 </button>
               </div>
 
@@ -2773,19 +2911,139 @@
     }
 
     /**
+     * Compute effective Total Portfolio amount for a user
+     */
+    function getEffectiveUserPortfolio(user) {
+      if (!user) return 0.00;
+      if (user.hasCustomPortfolio && user.customPortfolioValue !== undefined && user.customPortfolioValue !== null) {
+        return Number(user.customPortfolioValue) || 0.00;
+      }
+      const hasPlans = user.activePlans && user.activePlans.length > 0;
+      const isMatured = user.investmentStatus === 'matured' || (hasPlans && (user.activePlans[0].isMatured || user.activePlans[0].maturityTimestamp <= Date.now()));
+      const spinEarned = Number(user.spinWinnings) || 0;
+      if (isMatured) {
+        return Number(user.availableBalance) >= 25 ? Number(user.availableBalance) : (25.00 + spinEarned);
+      }
+      if (user.investmentStatus === 'active' || hasPlans) {
+        const invested = Number(user.investedBalance) || 10.00;
+        const avail = Number(user.availableBalance) || 0.00;
+        return Number((invested + avail).toFixed(2));
+      }
+      return Number(user.availableBalance) || 0.00;
+    }
+
+    /**
+     * ADMIN ACTION: Open Edit Total Portfolio Modal for any user
+     */
+    function openAdminEditPortfolioModal(userId) {
+      const user = UserDatabase.getUserById(userId);
+      if (!user) {
+        showToast('User not found', 'error');
+        return;
+      }
+
+      const effectivePortfolio = getEffectiveUserPortfolio(user);
+      const hasCustom = !!(user.hasCustomPortfolio && user.customPortfolioValue !== undefined && user.customPortfolioValue !== null);
+      const availBal = Number(user.availableBalance) || 0;
+      const spinBal = Number(user.spinWinnings) || 0;
+
+      document.getElementById('admin-portfolio-user-id').value = user.id;
+      document.getElementById('admin-portfolio-user-name').textContent = `${user.name} (${user.id})`;
+      document.getElementById('admin-portfolio-user-email').textContent = user.email;
+      document.getElementById('admin-portfolio-current-val').textContent = `$${effectivePortfolio.toFixed(2)}${hasCustom ? ' (Custom)' : ''}`;
+      document.getElementById('admin-portfolio-current-avail').textContent = `$${availBal.toFixed(2)}${spinBal > 0 ? ` ($${spinBal.toFixed(2)} Spin)` : ''}`;
+
+      document.getElementById('admin-portfolio-amount-input').value = effectivePortfolio.toFixed(2);
+      document.getElementById('admin-avail-balance-input').value = '';
+      document.getElementById('admin-invested-balance-input').value = '';
+      document.getElementById('admin-total-profit-input').value = '';
+
+      openModal('admin-edit-portfolio-modal');
+    }
+
+    function setQuickPortfolioInput(amount) {
+      const input = document.getElementById('admin-portfolio-amount-input');
+      if (input) {
+        input.value = Number(amount).toFixed(2);
+        input.focus();
+      }
+    }
+
+    function handleAdminEditPortfolioSubmit(e) {
+      e.preventDefault();
+      const userId = document.getElementById('admin-portfolio-user-id').value;
+      const user = UserDatabase.getUserById(userId);
+      const name = user ? user.name : userId;
+
+      const portfolioVal = parseFloat(document.getElementById('admin-portfolio-amount-input').value);
+      if (isNaN(portfolioVal) || portfolioVal < 0) {
+        showToast('Please enter a valid non-negative USD amount for Total Portfolio.', 'error');
+        return;
+      }
+
+      const availRaw = document.getElementById('admin-avail-balance-input').value.trim();
+      const investedRaw = document.getElementById('admin-invested-balance-input').value.trim();
+      const profitRaw = document.getElementById('admin-total-profit-input').value.trim();
+
+      const options = {};
+      if (availRaw !== '' && !isNaN(parseFloat(availRaw))) {
+        options.availableBalance = parseFloat(availRaw);
+      }
+      if (investedRaw !== '' && !isNaN(parseFloat(investedRaw))) {
+        options.investedBalance = parseFloat(investedRaw);
+      }
+      if (profitRaw !== '' && !isNaN(parseFloat(profitRaw))) {
+        options.totalProfits = parseFloat(profitRaw);
+      }
+
+      try {
+        const updated = UserDatabase.adminSetUserPortfolio(userId, portfolioVal, options);
+        recordAdminAction(`Updated Total Portfolio for ${name} to $${Number(updated.customPortfolioValue).toFixed(2)} USD`);
+        closeModal('admin-edit-portfolio-modal');
+        renderUsers();
+        showToast(`✅ Total Portfolio for ${name} set to $${Number(updated.customPortfolioValue).toFixed(2)} USD! Synced to Cloud.`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function handleResetPortfolioToAuto() {
+      const userId = document.getElementById('admin-portfolio-user-id').value;
+      const user = UserDatabase.getUserById(userId);
+      if (!user) return;
+
+      try {
+        UserDatabase.adminSetUserPortfolio(userId, 0, { resetToAuto: true });
+        recordAdminAction(`Reverted Total Portfolio for ${user.name} to automatic calculation`);
+        closeModal('admin-edit-portfolio-modal');
+        renderUsers();
+        showToast(`🔄 Total Portfolio for ${user.name} reverted to automatic calculation.`, 'info');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    /**
      * ADMIN ACTION: Instantly fast-forward / mature a user's 7-day contract
      */
     function quickMatureUser(userId) {
       const user = UserDatabase.getUserById(userId);
       const name = user ? user.name : userId;
-      if (!confirm(`⚡ INSTANT MATURITY (ADMIN ACTION):\n\nFast-forward 7-day contract to 0 for "${name}"?\n\nThis immediately releases the $25.00 USDT yield for the client to withdraw.`)) {
+      const spinEarned = user ? (Number(user.spinWinnings) || 0) : 0;
+      const totalPayout = (25.00 + spinEarned).toFixed(2);
+      const breakdownText = spinEarned > 0
+        ? `$${totalPayout} USDT ($25.00 profit + $${spinEarned.toFixed(2)} spin winnings)`
+        : `$25.00 USDT`;
+
+      if (!confirm(`⚡ INSTANT MATURITY (ADMIN ACTION):\n\nFast-forward 7-day contract to 0 for "${name}"?\n\nThis immediately releases ${breakdownText} into the client's Available Wallet for withdrawal.`)) {
         return;
       }
-      recordAdminAction(`Instantly matured 7-day contract for ${name}`);
+      recordAdminAction(`Instantly matured 7-day contract for ${name} (${breakdownText})`);
 
       try {
-        UserDatabase.matureUserInvestment(userId);
-        showToast(`⚡ Contract matured for ${name}! $25.00 payout unlocked for withdrawal.`, 'success');
+        const updated = UserDatabase.matureUserInvestment(userId);
+        const finalAvail = Number(updated.availableBalance || totalPayout).toFixed(2);
+        showToast(`⚡ Contract matured for ${name}! $${finalAvail} USDT unlocked in Available Wallet.`, 'success');
         renderUsers();
       } catch (err) {
         showToast(err.message, 'error');
