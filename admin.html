@@ -1116,7 +1116,7 @@
 
   <!-- MODAL: Edit / Gift User Account Balance & Total Portfolio -->
   <div id="admin-edit-portfolio-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-panel max-w-lg w-full rounded-3xl p-6 sm:p-8 border border-emerald-500/40 relative space-y-4 glow-emerald max-h-[92vh] overflow-y-auto">
+    <div class="glass-panel max-w-2xl w-full rounded-3xl p-6 sm:p-7 border border-emerald-500/40 relative space-y-4 glow-emerald max-h-[92vh] overflow-y-auto">
       <button type="button" onclick="closeModal('admin-edit-portfolio-modal')" class="absolute top-5 right-5 text-slate-400 hover:text-white cursor-pointer">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
@@ -1126,33 +1126,41 @@
           🎁
         </div>
         <div>
-          <h3 class="text-lg font-black text-white">Gift / Customize Client Balance</h3>
-          <p id="edit-portfolio-subtitle" class="text-xs text-cyan-300 font-mono">Change Total Portfolio & Available Wallet balance to any amount</p>
+          <h3 class="text-lg font-black text-white">Edit / Gift Client Account Balances</h3>
+          <p id="edit-portfolio-subtitle" class="text-xs text-cyan-300 font-mono">Edit Total Portfolio, Available Wallet, Locked in 7-Day Contracts & Total Payouts Collected</p>
         </div>
       </div>
 
-      <!-- Client Switcher & Current Balance Summary -->
+      <!-- Client Switcher & Current 4-Balance Summary -->
       <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-white/10 space-y-2.5">
-        <div>
-          <label class="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Select Client Account:</label>
-          <select id="edit-portfolio-user-select" onchange="openAdminEditPortfolioModal(this.value)" class="w-full bg-[#050914] border border-emerald-500/30 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-400">
-          </select>
-        </div>
-        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-xs font-mono">
-          <div class="p-2 rounded-xl bg-black/40 border border-white/5">
-            <div class="text-[10px] text-slate-400">Client Details</div>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex-1">
+            <label class="text-[10px] font-mono uppercase tracking-wider text-slate-400 block mb-1">Select Client Account:</label>
+            <select id="edit-portfolio-user-select" onchange="openAdminEditPortfolioModal(this.value)" class="w-full bg-[#050914] border border-emerald-500/30 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-400">
+            </select>
+          </div>
+          <div class="sm:text-right text-xs font-mono">
             <div id="edit-portfolio-user-name" class="text-white font-bold truncate">—</div>
             <div id="edit-portfolio-user-email" class="text-[10px] text-cyan-300 truncate">—</div>
+            <span id="edit-portfolio-mode-badge" class="inline-block mt-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">Custom Balance</span>
           </div>
-          <div class="p-2 rounded-xl bg-black/40 border border-white/5 flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-              <span class="text-[10px] text-slate-400">Portfolio:</span>
-              <span id="edit-portfolio-current-val" class="text-emerald-400 font-black">$0.00</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-[10px] text-slate-400">Avail Wallet:</span>
-              <span id="edit-portfolio-current-avail" class="text-cyan-300 font-bold">$0.00</span>
-            </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10 text-xs font-mono">
+          <div class="p-2 rounded-xl bg-black/40 border border-white/5">
+            <div class="text-[9px] text-slate-400 uppercase">Total Portfolio</div>
+            <div id="edit-portfolio-current-val" class="text-emerald-400 font-black">$0.00</div>
+          </div>
+          <div class="p-2 rounded-xl bg-black/40 border border-white/5">
+            <div class="text-[9px] text-slate-400 uppercase">Available Wallet</div>
+            <div id="edit-portfolio-current-avail" class="text-cyan-300 font-bold">$0.00</div>
+          </div>
+          <div class="p-2 rounded-xl bg-black/40 border border-white/5">
+            <div class="text-[9px] text-slate-400 uppercase">Locked in 7-Day</div>
+            <div id="edit-portfolio-current-locked" class="text-purple-300 font-bold">$0.00</div>
+          </div>
+          <div class="p-2 rounded-xl bg-black/40 border border-white/5">
+            <div class="text-[9px] text-slate-400 uppercase">Payouts Collected</div>
+            <div id="edit-portfolio-current-payouts" class="text-amber-300 font-bold">$0.00</div>
           </div>
         </div>
       </div>
@@ -1160,90 +1168,149 @@
       <form id="admin-edit-portfolio-form" onsubmit="handleAdminEditPortfolioSubmit(event)" class="space-y-4">
         <input type="hidden" id="edit-portfolio-user-id">
 
-        <!-- Quick Gift (+ Add to Current Balance) -->
-        <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+        <!-- Quick Gift (+ Add Bonus to Client) -->
+        <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-mono uppercase tracking-wider text-amber-300 font-bold flex items-center gap-1">
-              <span>🎁 Quick Gift (Add to Current Balance)</span>
+              <span>🎁 Quick Gift Bonus (+ Add to Portfolio & Available Wallet)</span>
             </span>
-            <span class="text-[10px] font-mono text-amber-200/80">1-Click Bonus</span>
+            <span class="text-[10px] font-mono text-amber-200/80">1-Click Gift</span>
           </div>
           <div class="flex flex-wrap items-center gap-1.5 font-mono text-xs">
-            <button type="button" onclick="addGiftToPortfolioInput(5)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$5</button>
-            <button type="button" onclick="addGiftToPortfolioInput(10)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$10</button>
-            <button type="button" onclick="addGiftToPortfolioInput(25)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$25</button>
-            <button type="button" onclick="addGiftToPortfolioInput(50)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$50</button>
-            <button type="button" onclick="addGiftToPortfolioInput(100)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$100</button>
-            <button type="button" onclick="addGiftToPortfolioInput(250)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$250</button>
-            <button type="button" onclick="addGiftToPortfolioInput(500)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$500</button>
+            <button type="button" onclick="addGiftToPortfolioInput(5)" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$5</button>
+            <button type="button" onclick="addGiftToPortfolioInput(10)" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$10</button>
+            <button type="button" onclick="addGiftToPortfolioInput(25)" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$25</button>
+            <button type="button" onclick="addGiftToPortfolioInput(50)" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$50</button>
+            <button type="button" onclick="addGiftToPortfolioInput(100)" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$100</button>
+            <button type="button" onclick="addGiftToPortfolioInput(250)" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$250</button>
+            <button type="button" onclick="addGiftToPortfolioInput(500)" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold cursor-pointer active:scale-95 transition-all">+$500</button>
           </div>
         </div>
 
-        <!-- Primary Field: Total Portfolio Amount -->
-        <div class="p-4 rounded-2xl bg-emerald-950/25 border border-emerald-500/40 space-y-3">
-          <div class="flex items-center justify-between">
-            <label for="edit-portfolio-amount-input" class="text-xs font-mono uppercase tracking-wider text-emerald-300 font-bold">New Total Portfolio Balance (USD)</label>
-            <span id="edit-portfolio-mode-badge" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">Custom Balance</span>
-          </div>
-          <div class="relative">
-            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-mono font-black text-lg">$</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              id="edit-portfolio-amount-input"
-              oninput="onPortfolioAmountInput(this.value)"
-              required
-              placeholder="0.00"
-              class="w-full bg-[#040812] border border-emerald-500/40 rounded-xl pl-9 pr-4 py-3 text-lg font-black text-white font-mono focus:outline-none focus:border-emerald-400"
-            >
-          </div>
-          <!-- Quick Presets -->
-          <div class="flex flex-wrap items-center gap-1.5 pt-1 font-mono text-[11px]">
-            <span class="text-slate-400 text-[10px] mr-1">Set Exact:</span>
-            <button type="button" onclick="setQuickPortfolioInput(0)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$0</button>
-            <button type="button" onclick="setQuickPortfolioInput(10)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$10</button>
-            <button type="button" onclick="setQuickPortfolioInput(25)" class="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-bold cursor-pointer">$25</button>
-            <button type="button" onclick="setQuickPortfolioInput(50)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$50</button>
-            <button type="button" onclick="setQuickPortfolioInput(100)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$100</button>
-            <button type="button" onclick="setQuickPortfolioInput(250)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$250</button>
-            <button type="button" onclick="setQuickPortfolioInput(500)" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$500</button>
-            <button type="button" onclick="setQuickPortfolioInput(1000)" class="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-bold cursor-pointer">$1,000</button>
+        <!-- 4 Editable Dashboard Balance Cards (2x2 Grid) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <!-- Card 1: Total Portfolio Value -->
+          <div class="p-3.5 rounded-2xl bg-emerald-950/25 border border-emerald-500/40 space-y-2">
+            <label for="edit-portfolio-amount-input" class="block text-xs font-mono uppercase tracking-wider text-emerald-300 font-bold">
+              1. Total Portfolio Value ($)
+            </label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-mono font-black text-base">$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                id="edit-portfolio-amount-input"
+                required
+                placeholder="0.00"
+                class="w-full bg-[#040812] border border-emerald-500/40 rounded-xl pl-8 pr-3 py-2.5 text-base font-black text-white font-mono focus:outline-none focus:border-emerald-400"
+              >
+            </div>
+            <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
+              <button type="button" onclick="setBalanceFieldInput('edit-portfolio-amount-input', 0)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$0</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-portfolio-amount-input', 10)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$10</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-portfolio-amount-input', 25)" class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold cursor-pointer">$25</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-portfolio-amount-input', 50)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$50</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-portfolio-amount-input', 100)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$100</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-portfolio-amount-input', 500)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$500</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-portfolio-amount-input', 1000)" class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold cursor-pointer">$1,000</button>
+            </div>
           </div>
 
-          <label class="flex items-center gap-2 pt-1 text-xs font-mono text-emerald-200 cursor-pointer select-none">
-            <input type="checkbox" id="edit-sync-avail-checkbox" checked onchange="onSyncAvailCheckboxChange(this.checked)" class="rounded bg-slate-900 border-emerald-400/50 text-emerald-400 accent-emerald-400 w-4 h-4 cursor-pointer">
-            <span>Also credit this amount to <strong>Available Wallet</strong> (Gift / Withdrawable)</span>
-          </label>
-        </div>
-
-        <!-- Wallet Breakdown Balances -->
-        <div class="p-4 rounded-2xl bg-[#070b16] border border-white/10 space-y-3">
-          <div class="text-[11px] font-mono text-slate-300 uppercase tracking-wider font-bold">Wallet Breakdown (Customize any box below):</div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <div>
-              <label for="edit-avail-balance-input" class="block text-[10px] font-mono text-cyan-300 font-bold mb-1">Available Wallet ($)</label>
-              <input type="number" step="0.01" min="0" id="edit-avail-balance-input" placeholder="0.00" class="w-full bg-[#040812] border border-cyan-500/30 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold focus:outline-none focus:border-cyan-400">
+          <!-- Card 2: Available Wallet -->
+          <div class="p-3.5 rounded-2xl bg-cyan-950/25 border border-cyan-500/40 space-y-2">
+            <label for="edit-avail-balance-input" class="block text-xs font-mono uppercase tracking-wider text-cyan-300 font-bold">
+              2. Available Wallet ($)
+            </label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-cyan-400 font-mono font-black text-base">$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                id="edit-avail-balance-input"
+                required
+                placeholder="0.00"
+                class="w-full bg-[#040812] border border-cyan-500/40 rounded-xl pl-8 pr-3 py-2.5 text-base font-black text-white font-mono focus:outline-none focus:border-cyan-400"
+              >
             </div>
-            <div>
-              <label for="edit-invested-balance-input" class="block text-[10px] font-mono text-slate-400 mb-1">Active Stake ($)</label>
-              <input type="number" step="0.01" min="0" id="edit-invested-balance-input" placeholder="0.00" class="w-full bg-[#040812] border border-white/15 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400">
-            </div>
-            <div>
-              <label for="edit-total-profits-input" class="block text-[10px] font-mono text-emerald-300 mb-1">Total Profits ($)</label>
-              <input type="number" step="0.01" min="0" id="edit-total-profits-input" placeholder="0.00" class="w-full bg-[#040812] border border-white/15 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-400">
+            <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
+              <button type="button" onclick="setBalanceFieldInput('edit-avail-balance-input', 0)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$0</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-avail-balance-input', 10)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$10</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-avail-balance-input', 25)" class="px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold cursor-pointer">$25</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-avail-balance-input', 50)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$50</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-avail-balance-input', 100)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$100</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-avail-balance-input', 500)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$500</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-avail-balance-input', 1000)" class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold cursor-pointer">$1,000</button>
             </div>
           </div>
-          <label class="flex items-center gap-2 pt-1 text-[11px] font-mono text-slate-300 cursor-pointer select-none">
-            <input type="checkbox" id="edit-send-gift-notice" checked class="rounded bg-slate-900 border-white/30 text-emerald-400 accent-emerald-400 w-4 h-4 cursor-pointer">
-            <span>📩 Send a Gift / Balance Credited notification to Client's Dashboard</span>
-          </label>
+
+          <!-- Card 3: Locked in 7-Day Contracts -->
+          <div class="p-3.5 rounded-2xl bg-purple-950/25 border border-purple-500/40 space-y-2">
+            <label for="edit-invested-balance-input" class="block text-xs font-mono uppercase tracking-wider text-purple-300 font-bold">
+              3. Locked in 7-Day Contracts ($)
+            </label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-purple-400 font-mono font-black text-base">$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                id="edit-invested-balance-input"
+                required
+                placeholder="0.00"
+                class="w-full bg-[#040812] border border-purple-500/40 rounded-xl pl-8 pr-3 py-2.5 text-base font-black text-white font-mono focus:outline-none focus:border-purple-400"
+              >
+            </div>
+            <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
+              <button type="button" onclick="setBalanceFieldInput('edit-invested-balance-input', 0)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$0</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-invested-balance-input', 10)" class="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 font-bold cursor-pointer">$10</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-invested-balance-input', 20)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$20</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-invested-balance-input', 50)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$50</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-invested-balance-input', 100)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$100</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-invested-balance-input', 250)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$250</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-invested-balance-input', 500)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$500</button>
+            </div>
+          </div>
+
+          <!-- Card 4: Total $25 Payouts Collected -->
+          <div class="p-3.5 rounded-2xl bg-amber-950/25 border border-amber-500/40 space-y-2">
+            <label for="edit-total-profits-input" class="block text-xs font-mono uppercase tracking-wider text-amber-300 font-bold">
+              4. Total $25 Payouts Collected ($)
+            </label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400 font-mono font-black text-base">$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                id="edit-total-profits-input"
+                required
+                placeholder="0.00"
+                class="w-full bg-[#040812] border border-amber-500/40 rounded-xl pl-8 pr-3 py-2.5 text-base font-black text-white font-mono focus:outline-none focus:border-amber-400"
+              >
+            </div>
+            <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
+              <button type="button" onclick="setBalanceFieldInput('edit-total-profits-input', 0)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$0</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-total-profits-input', 25)" class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold cursor-pointer">$25</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-total-profits-input', 50)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$50</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-total-profits-input', 75)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$75</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-total-profits-input', 100)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$100</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-total-profits-input', 250)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$250</button>
+              <button type="button" onclick="setBalanceFieldInput('edit-total-profits-input', 500)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">$500</button>
+            </div>
+          </div>
         </div>
+
+        <label class="flex items-center gap-2 px-1 text-xs font-mono text-slate-300 cursor-pointer select-none">
+          <input type="checkbox" id="edit-send-gift-notice" checked class="rounded bg-slate-900 border-white/30 text-emerald-400 accent-emerald-400 w-4 h-4 cursor-pointer">
+          <span>📩 Send a Gift / Balance Credited notification to Client's Dashboard</span>
+        </label>
 
         <div class="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
           <button type="submit" class="btn-shimmer w-full sm:flex-1 py-3.5 px-5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 cursor-pointer">
             <i data-lucide="save" class="w-4 h-4"></i>
-            <span>Save & Credit Balance</span>
+            <span>Save All 4 Balances</span>
           </button>
           <button type="button" onclick="handleResetPortfolioToAuto()" class="w-full sm:w-auto py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 text-xs font-mono font-bold transition-all cursor-pointer" title="Revert to automatic calculation from active plans + available balance">
             Auto Calculate
@@ -1256,9 +1323,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.3.0"></script>
-  <script src="js/email.js?v=4.3.0"></script>
-  <script src="js/app.js?v=4.3.0"></script>
+  <script src="js/db.js?v=4.4.0"></script>
+  <script src="js/email.js?v=4.4.0"></script>
+  <script src="js/app.js?v=4.4.0"></script>
   <script>
     // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
     // The plaintext passcode is NEVER stored in source code or memory.
@@ -1818,15 +1885,20 @@
           const hasCustomPortfolio = !!(user.hasCustomPortfolio && user.customPortfolioValue !== undefined && user.customPortfolioValue !== null);
           const availBal = Number(user.availableBalance) || 0;
           const spinBal = Number(user.spinWinnings) || 0;
+          const lockedBal = user.investedBalance !== undefined && user.investedBalance !== null
+            ? (Number(user.investedBalance) || 0)
+            : ((user.investmentStatus === 'active' || (user.activePlans && user.activePlans.length > 0)) ? 10.00 : 0.00);
+          const payoutsBal = Number(user.totalProfits) || 0;
 
           statusHtml += `
-            <div class="mt-1.5 flex items-center gap-1.5 flex-wrap text-[10px] font-mono">
-              <button type="button" onclick="openAdminEditPortfolioModal('${user.id}')" title="Click to gift or customize balance for this client" class="px-2 py-0.5 rounded ${hasCustomPortfolio ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/50' : 'bg-slate-800/90 text-slate-200 border border-white/10 hover:border-emerald-400/40'} font-bold flex items-center gap-1 cursor-pointer transition-colors">
+            <div class="mt-1.5 flex items-center gap-1 flex-wrap text-[10px] font-mono">
+              <button type="button" onclick="openAdminEditPortfolioModal('${user.id}', 'edit-portfolio-amount-input')" title="Click to edit Total Portfolio Value" class="px-2 py-0.5 rounded ${hasCustomPortfolio ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/50' : 'bg-slate-800/90 text-slate-200 border border-white/10 hover:border-emerald-400/40'} font-bold flex items-center gap-1 cursor-pointer transition-colors">
                 <span>💰 Portfolio: $${effectivePortfolio.toFixed(2)}</span>
-                <span class="text-[9px] text-emerald-300 underline ml-0.5">[Edit]</span>
-                ${hasCustomPortfolio ? '<span class="text-[9px] text-amber-300 uppercase">(Custom)</span>' : ''}
+                <span class="text-[9px] text-emerald-300 underline">[Edit]</span>
               </button>
-              <button type="button" onclick="openAdminEditPortfolioModal('${user.id}')" title="Click to customize Available Wallet balance" class="px-1.5 py-0.5 rounded bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-cyan-300 cursor-pointer transition-colors">Avail: $${availBal.toFixed(2)}${spinBal > 0 ? ` (🎡 $${spinBal.toFixed(2)})` : ''}</button>
+              <button type="button" onclick="openAdminEditPortfolioModal('${user.id}', 'edit-avail-balance-input')" title="Click to edit Available Wallet" class="px-1.5 py-0.5 rounded bg-slate-900/90 hover:bg-slate-800 border border-cyan-500/30 text-cyan-300 font-bold cursor-pointer transition-colors">Avail: $${availBal.toFixed(2)}${spinBal > 0 ? ` (🎡 $${spinBal.toFixed(2)})` : ''} <span class="underline text-[9px]">[Edit]</span></button>
+              <button type="button" onclick="openAdminEditPortfolioModal('${user.id}', 'edit-invested-balance-input')" title="Click to edit Locked in 7-Day Contracts" class="px-1.5 py-0.5 rounded bg-slate-900/90 hover:bg-slate-800 border border-purple-500/30 text-purple-300 font-bold cursor-pointer transition-colors">Locked: $${lockedBal.toFixed(2)} <span class="underline text-[9px]">[Edit]</span></button>
+              <button type="button" onclick="openAdminEditPortfolioModal('${user.id}', 'edit-total-profits-input')" title="Click to edit Total $25 Payouts Collected" class="px-1.5 py-0.5 rounded bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 text-amber-300 font-bold cursor-pointer transition-colors">Payouts: +$${payoutsBal.toFixed(2)} <span class="underline text-[9px]">[Edit]</span></button>
             </div>
           `;
 
@@ -2080,20 +2152,38 @@
             `;
           }
 
+          const lockedBal = user.investedBalance !== undefined && user.investedBalance !== null
+            ? (Number(user.investedBalance) || 0)
+            : ((user.investmentStatus === 'active' || (user.activePlans && user.activePlans.length > 0)) ? 10.00 : 0.00);
+          const payoutsBal = Number(user.totalProfits) || 0;
+
           mobileStatusHtml += `
-            <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/90 border ${hasCustomPortfolio ? 'border-emerald-400/50' : 'border-white/10'} text-xs font-mono">
-              <div>
-                <div class="text-[10px] text-slate-400 uppercase">Total Portfolio ${hasCustomPortfolio ? '<span class="text-amber-300 font-bold">(Custom)</span>' : ''}</div>
-                <div class="text-sm font-black text-emerald-400">$${effectivePortfolio.toFixed(2)}</div>
+            <div class="p-2.5 rounded-xl bg-slate-900/90 border ${hasCustomPortfolio ? 'border-emerald-400/50' : 'border-white/10'} text-xs font-mono space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] text-slate-400 uppercase font-bold">Client Balances ${hasCustomPortfolio ? '<span class="text-amber-300">(Custom)</span>' : ''}</span>
+                <button type="button" onclick="openAdminEditPortfolioModal('${user.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-[10px] flex items-center gap-1 active:scale-95 cursor-pointer">
+                  <i data-lucide="gift" class="w-3 h-3 text-amber-300"></i>
+                  <span>Edit All 4</span>
+                </button>
               </div>
-              <div class="text-right">
-                <div class="text-[10px] text-slate-400 uppercase">Avail Wallet</div>
-                <div class="text-xs font-bold text-cyan-300">$${availBal.toFixed(2)}${spinEarned > 0 ? ` (🎡 $${spinEarned.toFixed(2)})` : ''}</div>
+              <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+                <button type="button" onclick="openAdminEditPortfolioModal('${user.id}', 'edit-portfolio-amount-input')" class="p-2 rounded-lg bg-black/50 border border-emerald-500/25 text-left cursor-pointer hover:border-emerald-400">
+                  <div class="text-[9px] text-slate-400 uppercase flex justify-between"><span>Total Portfolio</span><span class="text-emerald-300 underline">Edit</span></div>
+                  <div class="font-black text-emerald-400">$${effectivePortfolio.toFixed(2)}</div>
+                </button>
+                <button type="button" onclick="openAdminEditPortfolioModal('${user.id}', 'edit-avail-balance-input')" class="p-2 rounded-lg bg-black/50 border border-cyan-500/25 text-left cursor-pointer hover:border-cyan-400">
+                  <div class="text-[9px] text-slate-400 uppercase flex justify-between"><span>Available Wallet</span><span class="text-cyan-300 underline">Edit</span></div>
+                  <div class="font-bold text-cyan-300">$${availBal.toFixed(2)}</div>
+                </button>
+                <button type="button" onclick="openAdminEditPortfolioModal('${user.id}', 'edit-invested-balance-input')" class="p-2 rounded-lg bg-black/50 border border-purple-500/25 text-left cursor-pointer hover:border-purple-400">
+                  <div class="text-[9px] text-slate-400 uppercase flex justify-between"><span>Locked 7-Day</span><span class="text-purple-300 underline">Edit</span></div>
+                  <div class="font-bold text-purple-300">$${lockedBal.toFixed(2)}</div>
+                </button>
+                <button type="button" onclick="openAdminEditPortfolioModal('${user.id}', 'edit-total-profits-input')" class="p-2 rounded-lg bg-black/50 border border-amber-500/25 text-left cursor-pointer hover:border-amber-400">
+                  <div class="text-[9px] text-slate-400 uppercase flex justify-between"><span>Payouts Collected</span><span class="text-amber-300 underline">Edit</span></div>
+                  <div class="font-bold text-amber-300">+$${payoutsBal.toFixed(2)}</div>
+                </button>
               </div>
-              <button type="button" onclick="openAdminEditPortfolioModal('${user.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-[11px] flex items-center gap-1 active:scale-95 cursor-pointer">
-                <i data-lucide="dollar-sign" class="w-3.5 h-3.5"></i>
-                <span>Edit</span>
-              </button>
             </div>
           `;
 
@@ -2984,7 +3074,7 @@
     /**
      * ADMIN ACTION: Open Edit / Gift Client Balance & Total Portfolio Modal for any user
      */
-    function openAdminEditPortfolioModal(userId) {
+    function openAdminEditPortfolioModal(userId, focusFieldId = null) {
       const allUsers = UserDatabase.getAllUsers();
       let user = UserDatabase.getUserById(userId);
       if (!user && allUsers.length > 0) {
@@ -3009,7 +3099,7 @@
       const availBal = Number(user.availableBalance) || 0;
       const spinBal = Number(user.spinWinnings) || 0;
       const hasPlans = user.activePlans && user.activePlans.length > 0;
-      const investedBal = user.investedBalance !== undefined
+      const investedBal = (user.investedBalance !== undefined && user.investedBalance !== null)
         ? (Number(user.investedBalance) || 0)
         : (hasPlans || user.investmentStatus === 'active' ? 10.00 : 0.00);
       const profitBal = Number(user.totalProfits) || 0;
@@ -3024,20 +3114,26 @@
       if (emailEl) emailEl.textContent = user.email || '';
 
       const subtitleEl = document.getElementById('edit-portfolio-subtitle');
-      if (subtitleEl) subtitleEl.textContent = `Customize or gift balance for ${user.name || user.id}`;
+      if (subtitleEl) subtitleEl.textContent = `Edit all 4 Dashboard balances for ${user.name || user.id}`;
 
       const curValEl = document.getElementById('edit-portfolio-current-val');
-      if (curValEl) curValEl.textContent = `$${effectivePortfolio.toFixed(2)}${hasCustom ? ' (Custom)' : ''}`;
+      if (curValEl) curValEl.textContent = `$${effectivePortfolio.toFixed(2)}`;
 
       const curAvailEl = document.getElementById('edit-portfolio-current-avail');
       if (curAvailEl) curAvailEl.textContent = `$${availBal.toFixed(2)}${spinBal > 0 ? ` ($${spinBal.toFixed(2)} Spin)` : ''}`;
 
+      const curLockedEl = document.getElementById('edit-portfolio-current-locked');
+      if (curLockedEl) curLockedEl.textContent = `$${investedBal.toFixed(2)}`;
+
+      const curPayoutsEl = document.getElementById('edit-portfolio-current-payouts');
+      if (curPayoutsEl) curPayoutsEl.textContent = `+$${profitBal.toFixed(2)}`;
+
       const badgeEl = document.getElementById('edit-portfolio-mode-badge');
       if (badgeEl) {
-        badgeEl.textContent = hasCustom ? 'Custom Balance Active' : 'Auto / Standard';
+        badgeEl.textContent = hasCustom ? 'Custom Balances Active' : 'Auto / Standard';
         badgeEl.className = hasCustom
-          ? 'px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold'
-          : 'px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-mono font-bold';
+          ? 'inline-block mt-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold'
+          : 'inline-block mt-1 px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-mono font-bold';
       }
 
       const amountInput = document.getElementById('edit-portfolio-amount-input');
@@ -3052,39 +3148,30 @@
       const profitInput = document.getElementById('edit-total-profits-input');
       if (profitInput) profitInput.value = profitBal.toFixed(2);
 
-      const syncCb = document.getElementById('edit-sync-avail-checkbox');
-      if (syncCb) syncCb.checked = true;
-
       openModal('admin-edit-portfolio-modal');
-    }
 
-    function onPortfolioAmountInput(val) {
-      const num = parseFloat(val);
-      if (isNaN(num) || num < 0) return;
-      const syncCb = document.getElementById('edit-sync-avail-checkbox');
-      if (syncCb && syncCb.checked) {
-        const availInput = document.getElementById('edit-avail-balance-input');
-        const profitInput = document.getElementById('edit-total-profits-input');
-        if (availInput) availInput.value = num.toFixed(2);
-        if (profitInput) profitInput.value = num.toFixed(2);
+      if (focusFieldId) {
+        setTimeout(() => {
+          const targetInput = document.getElementById(focusFieldId);
+          if (targetInput) {
+            targetInput.focus();
+            targetInput.select();
+          }
+        }, 60);
       }
     }
 
-    function onSyncAvailCheckboxChange(checked) {
-      if (checked) {
-        const amountInput = document.getElementById('edit-portfolio-amount-input');
-        if (amountInput) onPortfolioAmountInput(amountInput.value);
+    function setBalanceFieldInput(inputId, amount) {
+      const parsed = Number(amount) || 0;
+      const input = document.getElementById(inputId);
+      if (input) {
+        input.value = parsed.toFixed(2);
+        input.focus();
       }
     }
 
     function setQuickPortfolioInput(amount) {
-      const parsed = Number(amount) || 0;
-      const input = document.getElementById('edit-portfolio-amount-input');
-      if (input) {
-        input.value = parsed.toFixed(2);
-        onPortfolioAmountInput(parsed);
-        input.focus();
-      }
+      setBalanceFieldInput('edit-portfolio-amount-input', amount);
     }
 
     function addGiftToPortfolioInput(giftAmount) {
@@ -3097,15 +3184,11 @@
       const curAvail = availInput ? (parseFloat(availInput.value) || 0) : 0;
       const curProfit = profitInput ? (parseFloat(profitInput.value) || 0) : 0;
 
-      const nextPort = Number((curPort + bonus).toFixed(2));
-      const nextAvail = Number((curAvail + bonus).toFixed(2));
-      const nextProfit = Number((curProfit + bonus).toFixed(2));
+      if (portInput) portInput.value = (curPort + bonus).toFixed(2);
+      if (availInput) availInput.value = (curAvail + bonus).toFixed(2);
+      if (profitInput) profitInput.value = (curProfit + bonus).toFixed(2);
 
-      if (portInput) portInput.value = nextPort.toFixed(2);
-      if (availInput) availInput.value = nextAvail.toFixed(2);
-      if (profitInput) profitInput.value = nextProfit.toFixed(2);
-
-      showToast(`🎁 +$${bonus.toFixed(2)} added! Click "Save & Credit Balance" below to confirm.`, 'info');
+      showToast(`🎁 +$${bonus.toFixed(2)} added! You can adjust any of the 4 boxes or click "Save All 4 Balances".`, 'info');
     }
 
     function handleAdminEditPortfolioSubmit(e) {
@@ -3117,50 +3200,39 @@
       const name = user ? user.name : userId;
 
       const portInput = document.getElementById('edit-portfolio-amount-input');
-      const portfolioVal = portInput ? parseFloat(portInput.value) : NaN;
-      if (isNaN(portfolioVal) || portfolioVal < 0) {
-        showToast('Please enter a valid non-negative USD amount for Total Portfolio.', 'error');
-        return;
-      }
-
-      const syncCb = document.getElementById('edit-sync-avail-checkbox');
       const availEl = document.getElementById('edit-avail-balance-input');
       const investedEl = document.getElementById('edit-invested-balance-input');
       const profitEl = document.getElementById('edit-total-profits-input');
       const notifyCb = document.getElementById('edit-send-gift-notice');
 
-      const availRaw = availEl ? availEl.value.trim() : '';
-      const investedRaw = investedEl ? investedEl.value.trim() : '';
-      const profitRaw = profitEl ? profitEl.value.trim() : '';
+      const portfolioVal = portInput && portInput.value.trim() !== '' ? parseFloat(portInput.value) : 0;
+      const availVal = availEl && availEl.value.trim() !== '' ? parseFloat(availEl.value) : 0;
+      const investedVal = investedEl && investedEl.value.trim() !== '' ? parseFloat(investedEl.value) : 0;
+      const profitVal = profitEl && profitEl.value.trim() !== '' ? parseFloat(profitEl.value) : 0;
+
+      if (isNaN(portfolioVal) || portfolioVal < 0 || isNaN(availVal) || availVal < 0 || isNaN(investedVal) || investedVal < 0 || isNaN(profitVal) || profitVal < 0) {
+        showToast('Please enter valid non-negative USD amounts across all 4 balance boxes.', 'error');
+        return;
+      }
 
       const options = {
+        availableBalance: availVal,
+        investedBalance: investedVal,
+        totalProfits: profitVal,
         sendNotification: !!(notifyCb && notifyCb.checked)
       };
 
-      if (syncCb && syncCb.checked && (availRaw === '' || parseFloat(availRaw) === 0)) {
-        options.availableBalance = portfolioVal;
-      } else if (availRaw !== '' && !isNaN(parseFloat(availRaw))) {
-        options.availableBalance = parseFloat(availRaw);
-      }
-
-      if (investedRaw !== '' && !isNaN(parseFloat(investedRaw))) {
-        options.investedBalance = parseFloat(investedRaw);
-      }
-      if (profitRaw !== '' && !isNaN(parseFloat(profitRaw))) {
-        options.totalProfits = parseFloat(profitRaw);
-      } else if (syncCb && syncCb.checked) {
-        options.totalProfits = portfolioVal;
-      }
-
       try {
         const updated = UserDatabase.adminSetUserPortfolio(userId, portfolioVal, options);
-        const finalPort = Number(updated.customPortfolioValue).toFixed(2);
+        const finalPort = Number(updated.customPortfolioValue || 0).toFixed(2);
         const finalAvail = Number(updated.availableBalance || 0).toFixed(2);
-        recordAdminAction(`Customized balance for ${name}: Portfolio $${finalPort}, Available Wallet $${finalAvail} USD`);
+        const finalLocked = Number(updated.investedBalance || 0).toFixed(2);
+        const finalPayouts = Number(updated.totalProfits || 0).toFixed(2);
+        recordAdminAction(`Updated ${name}: Portfolio $${finalPort}, Avail $${finalAvail}, Locked $${finalLocked}, Payouts +$${finalPayouts}`);
         closeModal('admin-edit-portfolio-modal');
         renderUsers();
         updateMsgCountBadge();
-        showToast(`🎁 Balance for ${name} updated! Portfolio: $${finalPort} | Available Wallet: $${finalAvail} USD.`, 'success');
+        showToast(`✅ Saved for ${name}! Portfolio: $${finalPort} | Avail: $${finalAvail} | Locked: $${finalLocked} | Payouts: +$${finalPayouts}`, 'success');
       } catch (err) {
         showToast(err.message, 'error');
       }
@@ -3175,10 +3247,10 @@
 
       try {
         UserDatabase.adminSetUserPortfolio(userId, 0, { resetToAuto: true });
-        recordAdminAction(`Reverted Total Portfolio for ${user.name} to automatic calculation`);
+        recordAdminAction(`Reverted balances for ${user.name} to automatic calculation`);
         closeModal('admin-edit-portfolio-modal');
         renderUsers();
-        showToast(`🔄 Balance for ${user.name} reverted to automatic calculation.`, 'info');
+        showToast(`🔄 Balances for ${user.name} reverted to automatic calculation.`, 'info');
       } catch (err) {
         showToast(err.message, 'error');
       }

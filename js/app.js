@@ -150,12 +150,18 @@ function getAccountData() {
 
         base.user.investmentStatus = 'matured';
         base.user.hasActiveInvestment = true;
-        base.wallet.availableBalance = maturedTotal;
-        base.wallet.totalProfits = maturedTotal;
-        base.wallet.investedBalance = 0.00;
+        if (base.user.hasCustomPortfolio) {
+          base.wallet.availableBalance = dbUser.availableBalance !== undefined ? (Number(dbUser.availableBalance) || 0.00) : maturedTotal;
+          base.wallet.totalProfits = dbUser.totalProfits !== undefined ? (Number(dbUser.totalProfits) || 0.00) : maturedTotal;
+          base.wallet.investedBalance = dbUser.investedBalance !== undefined ? (Number(dbUser.investedBalance) || 0.00) : 0.00;
+        } else {
+          base.wallet.availableBalance = maturedTotal;
+          base.wallet.totalProfits = maturedTotal;
+          base.wallet.investedBalance = 0.00;
+        }
         if (dbUser.pendingWithdrawal !== undefined) base.wallet.pendingWithdrawal = Number(dbUser.pendingWithdrawal) || 0.00;
 
-        if (needsDbPersist || dbUser.investmentStatus !== 'matured' || Number(dbUser.availableBalance) !== maturedTotal) {
+        if (!base.user.hasCustomPortfolio && (needsDbPersist || dbUser.investmentStatus !== 'matured' || Number(dbUser.availableBalance) !== maturedTotal)) {
           try {
             const allU = UserDatabase.getAllUsers();
             const target = allU.find(u => u.id === dbUser.id);
@@ -176,16 +182,16 @@ function getAccountData() {
       } else {
         base.user.hasActiveInvestment = (base.activePlans.length > 0) || (base.user.investmentStatus === 'active');
         const investedTotal = base.activePlans.reduce((sum, p) => sum + (p.principal || 10), 0);
-        base.wallet.investedBalance = dbUser.hasCustomPortfolio && dbUser.investedBalance !== undefined
-          ? (Number(dbUser.investedBalance) || investedTotal)
+        base.wallet.investedBalance = (dbUser.hasCustomPortfolio && dbUser.investedBalance !== undefined && dbUser.investedBalance !== null)
+          ? (Number(dbUser.investedBalance) || 0.00)
           : investedTotal;
-        if (dbUser.availableBalance !== undefined) {
+        if (dbUser.availableBalance !== undefined && dbUser.availableBalance !== null) {
           base.wallet.availableBalance = Number(dbUser.availableBalance) || 0.00;
         } else {
           base.wallet.availableBalance = spinEarned;
         }
         if (dbUser.pendingWithdrawal !== undefined) base.wallet.pendingWithdrawal = Number(dbUser.pendingWithdrawal) || 0.00;
-        if (dbUser.totalProfits !== undefined) {
+        if (dbUser.totalProfits !== undefined && dbUser.totalProfits !== null) {
           base.wallet.totalProfits = Number(dbUser.totalProfits) || 0.00;
         } else {
           base.wallet.totalProfits = spinEarned;
@@ -193,10 +199,8 @@ function getAccountData() {
       }
 
       // RULE: When account is not invested (post-withdrawal settlement, account reset, or initial sign up):
-      // EVERYTHING starts afresh with strictly $0.00 across all wallet metrics as if no transaction has been made on it at all!
+      // Everything starts at $0.00 UNLESS Admin has customized the user's balances (hasCustomPortfolio = true).
       if (base.user.withdrawalRequest) {
-        // While withdrawal is queued awaiting admin settlement, account resets as if no transaction has been made on it at all,
-        // while preserving base.user.withdrawalRequest so both Client and Admin see the pending payout!
         base.activePlans = [];
         base.completedPlans = [];
         base.transactions = [];
@@ -1108,6 +1112,7 @@ function initAdminClientViewBar() {
           <select id="admin-bar-client-select" style="background:#0f172a;color:#38bdf8;border:1px solid rgba(56,189,248,0.4);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:bold;max-width:260px;outline:none;">
             ${userOptions}
           </select>
+          <button type="button" onclick="window.openInlineAdminBalanceEditor && window.openInlineAdminBalanceEditor()" style="background:#10b981;color:#020617;font-weight:900;padding:6px 12px;border-radius:8px;font-size:11px;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">🎁 Edit All 4 Balances</button>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow-x:auto;">
           ${pageLinks}
@@ -1118,6 +1123,107 @@ function initAdminClientViewBar() {
 
     document.body.style.paddingBottom = '68px';
     document.body.appendChild(bar);
+
+    // Inject inline Admin Edit buttons on the 4 Dashboard cards if on dashboard.html
+    const cardMap = [
+      { valId: 'total-portfolio-val', fieldId: 'inline-edit-portfolio', label: 'Edit Portfolio' },
+      { valId: 'available-balance-val', fieldId: 'inline-edit-avail', label: 'Edit Available' },
+      { valId: 'invested-balance-val', fieldId: 'inline-edit-locked', label: 'Edit Locked' },
+      { valId: 'total-profit-val', fieldId: 'inline-edit-payouts', label: 'Edit Payouts' }
+    ];
+    cardMap.forEach(item => {
+      const valEl = document.getElementById(item.valId);
+      if (valEl && valEl.parentElement && !valEl.parentElement.querySelector('.admin-inline-edit-btn')) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'admin-inline-edit-btn';
+        btn.style.cssText = 'margin-top:6px;background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(16,185,129,0.5);padding:3px 8px;border-radius:6px;font-size:10px;font-family:monospace;font-weight:bold;cursor:pointer;display:inline-flex;align-items:center;gap:4px;';
+        btn.innerHTML = `✏️ ${item.label}`;
+        btn.onclick = () => window.openInlineAdminBalanceEditor(item.fieldId);
+        valEl.insertAdjacentElement('afterend', btn);
+      }
+    });
+
+    window.openInlineAdminBalanceEditor = function(focusInputId) {
+      const u = UserDatabase.getUserById(UserDatabase.getCurrentUserId()) || activeUser;
+      if (!u) return;
+      const acct = getAccountData();
+      const curPort = (u.hasCustomPortfolio && u.customPortfolioValue !== undefined && u.customPortfolioValue !== null)
+        ? Number(u.customPortfolioValue)
+        : ((acct.wallet.availableBalance || 0) + (acct.wallet.investedBalance || 0));
+      const curAvail = Number(u.availableBalance !== undefined ? u.availableBalance : acct.wallet.availableBalance) || 0;
+      const curLocked = Number(u.investedBalance !== undefined ? u.investedBalance : acct.wallet.investedBalance) || 0;
+      const curPayouts = Number(u.totalProfits !== undefined ? u.totalProfits : acct.wallet.totalProfits) || 0;
+
+      let modal = document.getElementById('admin-inline-balance-modal');
+      if (modal) modal.remove();
+
+      modal = document.createElement('div');
+      modal.id = 'admin-inline-balance-modal';
+      modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.82);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;font-family:monospace;';
+      modal.innerHTML = `
+        <div style="background:#080e1e;border:1px solid rgba(16,185,129,0.5);border-radius:20px;max-width:540px;width:100%;padding:24px;color:#fff;box-shadow:0 20px 50px rgba(0,0,0,0.9);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div>
+              <div style="font-size:15px;font-weight:900;color:#34d399;">🎁 Edit Client Balances (${u.name})</div>
+              <div style="font-size:11px;color:#94a3b8;">${u.email} (${u.id})</div>
+            </div>
+            <button type="button" id="close-inline-bal-modal" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;">✕</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div style="background:#040812;border:1px solid rgba(16,185,129,0.4);padding:10px;border-radius:12px;">
+              <label style="display:block;font-size:10px;color:#34d399;font-weight:bold;margin-bottom:4px;">1. Total Portfolio Value ($)</label>
+              <input type="number" step="0.01" min="0" id="inline-edit-portfolio" value="${curPort.toFixed(2)}" style="width:100%;background:#0a1122;border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px;border-radius:8px;font-size:14px;font-weight:bold;">
+            </div>
+            <div style="background:#040812;border:1px solid rgba(34,211,238,0.4);padding:10px;border-radius:12px;">
+              <label style="display:block;font-size:10px;color:#22d3ee;font-weight:bold;margin-bottom:4px;">2. Available Wallet ($)</label>
+              <input type="number" step="0.01" min="0" id="inline-edit-avail" value="${curAvail.toFixed(2)}" style="width:100%;background:#0a1122;border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px;border-radius:8px;font-size:14px;font-weight:bold;">
+            </div>
+            <div style="background:#040812;border:1px solid rgba(192,132,252,0.4);padding:10px;border-radius:12px;">
+              <label style="display:block;font-size:10px;color:#c084fc;font-weight:bold;margin-bottom:4px;">3. Locked in 7-Day Contracts ($)</label>
+              <input type="number" step="0.01" min="0" id="inline-edit-locked" value="${curLocked.toFixed(2)}" style="width:100%;background:#0a1122;border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px;border-radius:8px;font-size:14px;font-weight:bold;">
+            </div>
+            <div style="background:#040812;border:1px solid rgba(251,191,36,0.4);padding:10px;border-radius:12px;">
+              <label style="display:block;font-size:10px;color:#fbbf24;font-weight:bold;margin-bottom:4px;">4. Total $25 Payouts Collected ($)</label>
+              <input type="number" step="0.01" min="0" id="inline-edit-payouts" value="${curPayouts.toFixed(2)}" style="width:100%;background:#0a1122;border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px;border-radius:8px;font-size:14px;font-weight:bold;">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button type="button" id="save-inline-bal-btn" style="flex:1;background:#10b981;color:#020617;font-weight:900;padding:11px;border-radius:10px;border:none;cursor:pointer;font-size:12px;">💾 Save All 4 Balances</button>
+            <button type="button" id="auto-inline-bal-btn" style="background:#1e293b;color:#cbd5e1;font-weight:bold;padding:11px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);cursor:pointer;font-size:11px;">Auto Reset</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      document.getElementById('close-inline-bal-modal').onclick = () => modal.remove();
+      document.getElementById('save-inline-bal-btn').onclick = () => {
+        const pVal = parseFloat(document.getElementById('inline-edit-portfolio').value) || 0;
+        const aVal = parseFloat(document.getElementById('inline-edit-avail').value) || 0;
+        const lVal = parseFloat(document.getElementById('inline-edit-locked').value) || 0;
+        const yVal = parseFloat(document.getElementById('inline-edit-payouts').value) || 0;
+        UserDatabase.adminSetUserPortfolio(u.id, pVal, {
+          availableBalance: aVal,
+          investedBalance: lVal,
+          totalProfits: yVal,
+          sendNotification: true
+        });
+        modal.remove();
+        if (typeof updateDashboardUI === 'function') updateDashboardUI();
+        if (typeof showToast === 'function') showToast(`✅ All 4 balances updated for ${u.name}!`, 'success');
+      };
+      document.getElementById('auto-inline-bal-btn').onclick = () => {
+        UserDatabase.adminSetUserPortfolio(u.id, 0, { resetToAuto: true });
+        modal.remove();
+        if (typeof updateDashboardUI === 'function') updateDashboardUI();
+        if (typeof showToast === 'function') showToast(`🔄 Reverted to automatic calculation.`, 'info');
+      };
+
+      if (focusInputId) {
+        const el = document.getElementById(focusInputId);
+        if (el) { el.focus(); el.select(); }
+      }
+    };
 
     const selEl = document.getElementById('admin-bar-client-select');
     if (selEl) {

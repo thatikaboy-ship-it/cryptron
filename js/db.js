@@ -776,9 +776,11 @@ class CloudSyncEngine {
           existing.investmentStatus = 'pending_approval';
           existing.hasActiveInvestment = false;
           existing.activePlans = [];
-          if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
-          if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
-          if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          if (!localPortfolioNewer) {
+            if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
+            if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
+            if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          }
           if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
           existing.withdrawalRequest = effectiveWreq;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
@@ -788,9 +790,11 @@ class CloudSyncEngine {
           if (ru.activePlans && Array.isArray(ru.activePlans) && ru.activePlans.length > 0) {
             existing.activePlans = ru.activePlans;
           }
-          if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
-          if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
-          if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          if (!localPortfolioNewer) {
+            if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
+            if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
+            if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          }
           if (ru.spinWinnings !== undefined) existing.spinWinnings = Number(ru.spinWinnings) || 0.00;
           existing.withdrawalRequest = effectiveWreq;
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
@@ -798,9 +802,11 @@ class CloudSyncEngine {
           if (ru.referralBypassed !== undefined) existing.referralBypassed = !!ru.referralBypassed;
         } else {
           if (ru.investmentStatus !== undefined) existing.investmentStatus = ru.investmentStatus;
-          if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
-          if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
-          if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          if (!localPortfolioNewer) {
+            if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
+            if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
+            if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          }
           if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
           if (ru.spinWinnings !== undefined) existing.spinWinnings = Number(ru.spinWinnings) || 0.00;
           existing.withdrawalRequest = effectiveWreq;
