@@ -698,9 +698,14 @@ class CloudSyncEngine {
         if (ru.depositSubmittedAt !== undefined) existing.depositSubmittedAt = ru.depositSubmittedAt;
         if (ru.registeredAt && !existing.registeredAt) existing.registeredAt = ru.registeredAt;
         if (ru.withdrawalHistory) existing.withdrawalHistory = ru.withdrawalHistory;
-        if (ru.hasCustomPortfolio !== undefined) existing.hasCustomPortfolio = !!ru.hasCustomPortfolio;
-        if (ru.customPortfolioValue !== undefined) existing.customPortfolioValue = ru.customPortfolioValue;
-        if (ru.spinWinnings !== undefined) existing.spinWinnings = Number(ru.spinWinnings) || 0.00;
+
+        const localPortfolioNewer = existing._portfolioUpdatedAt && (!ru._portfolioUpdatedAt || existing._portfolioUpdatedAt > ru._portfolioUpdatedAt);
+        if (!localPortfolioNewer) {
+          if (ru._portfolioUpdatedAt) existing._portfolioUpdatedAt = ru._portfolioUpdatedAt;
+          if (ru.hasCustomPortfolio !== undefined) existing.hasCustomPortfolio = !!ru.hasCustomPortfolio;
+          if (ru.customPortfolioValue !== undefined) existing.customPortfolioValue = ru.customPortfolioValue;
+        }
+        if (ru.spinWinnings !== undefined && !localPortfolioNewer) existing.spinWinnings = Number(ru.spinWinnings) || 0.00;
         if (Array.isArray(ru.notifications) || Array.isArray(existing.notifications)) {
           const notifMap = new Map();
           (ru.notifications || []).forEach(n => {
@@ -735,9 +740,15 @@ class CloudSyncEngine {
           existing.depositSubmittedAt = null;
           existing.withdrawalRequest = effectiveWreq;
           existing.pendingWithdrawal = 0.00;
-          existing.availableBalance = existing.hasCustomPortfolio ? (Number(ru.availableBalance !== undefined ? ru.availableBalance : existing.availableBalance) || 0.00) : 0.00;
-          existing.investedBalance = existing.hasCustomPortfolio ? (Number(ru.investedBalance !== undefined ? ru.investedBalance : existing.investedBalance) || 0.00) : 0.00;
-          existing.totalProfits = existing.hasCustomPortfolio ? (Number(ru.totalProfits !== undefined ? ru.totalProfits : existing.totalProfits) || 0.00) : 0.00;
+          existing.availableBalance = existing.hasCustomPortfolio
+            ? (Number(localPortfolioNewer ? existing.availableBalance : (ru.availableBalance !== undefined ? ru.availableBalance : existing.availableBalance)) || 0.00)
+            : 0.00;
+          existing.investedBalance = existing.hasCustomPortfolio
+            ? (Number(localPortfolioNewer ? existing.investedBalance : (ru.investedBalance !== undefined ? ru.investedBalance : existing.investedBalance)) || 0.00)
+            : 0.00;
+          existing.totalProfits = existing.hasCustomPortfolio
+            ? (Number(localPortfolioNewer ? existing.totalProfits : (ru.totalProfits !== undefined ? ru.totalProfits : existing.totalProfits)) || 0.00)
+            : 0.00;
           existing.totalDeposited = 0.00;
           existing.spinWinnings = 0.00;
           existing.referralCount = ru.referralCount !== undefined ? ru.referralCount : 0;
@@ -749,9 +760,11 @@ class CloudSyncEngine {
           if (ru.activePlans && Array.isArray(ru.activePlans) && ru.activePlans.length > 0) {
             existing.activePlans = ru.activePlans;
           }
-          if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
-          if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
-          if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          if (!localPortfolioNewer) {
+            if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
+            if (ru.investedBalance !== undefined) existing.investedBalance = Number(ru.investedBalance) || 0.00;
+            if (ru.totalProfits !== undefined) existing.totalProfits = Number(ru.totalProfits) || 0.00;
+          }
           if (ru.totalDeposited !== undefined) existing.totalDeposited = Number(ru.totalDeposited) || 0.00;
           if (ru.spinWinnings !== undefined) existing.spinWinnings = Number(ru.spinWinnings) || 0.00;
           existing.withdrawalRequest = effectiveWreq;
@@ -2077,12 +2090,14 @@ class UserDatabase {
    * ADMIN ACTION: Change Total Portfolio (and optional wallet balances) of any user to any amount
    * @param {string} userId - ID of user
    * @param {number|null} portfolioAmount - Desired Total Portfolio amount in USD
-   * @param {object} options - { resetToAuto, availableBalance, investedBalance, totalProfits }
+   * @param {object} options - { resetToAuto, availableBalance, investedBalance, totalProfits, sendNotification }
    */
   static adminSetUserPortfolio(userId, portfolioAmount, options = {}) {
     const users = this.getAllUsers();
     const user = users.find(u => u.id === userId);
     if (!user) throw new Error(`User ${userId} not found.`);
+
+    user._portfolioUpdatedAt = Date.now();
 
     if (options && options.resetToAuto) {
       user.hasCustomPortfolio = false;
@@ -2111,6 +2126,23 @@ class UserDatabase {
     // Immediately push updated portfolio to Firebase Cloud Database
     if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
       CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
+
+    // Optionally dispatch a Dashboard Gift / Balance Notification to the client
+    if (!options.resetToAuto && options.sendNotification && Number(user.customPortfolioValue) > 0) {
+      try {
+        const creditedAmt = Number(user.customPortfolioValue).toFixed(2);
+        const availAmt = Number(user.availableBalance || user.customPortfolioValue).toFixed(2);
+        this.sendMessage({
+          targetType: "individual",
+          targetUserId: user.id,
+          targetUserName: user.name,
+          subject: `🎁 Account Balance Credited: $${creditedAmt} USDT`,
+          body: `Congratulations ${user.name || 'Investor'}! Your CRYPTRONVEST account has been credited by the administrator. Your Total Portfolio is now $${creditedAmt} USDT (Available Wallet: $${availAmt} USDT).`,
+          priority: "success",
+          category: "Balance Credited"
+        });
+      } catch (e) {}
     }
 
     // If this user is currently in active session, sync localStorage immediately

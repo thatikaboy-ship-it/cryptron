@@ -717,9 +717,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.2.0"></script>
-  <script src="js/email.js?v=4.2.0"></script>
-  <script src="js/app.js?v=4.2.0"></script>
+  <script src="js/db.js?v=4.3.0"></script>
+  <script src="js/email.js?v=4.3.0"></script>
+  <script src="js/app.js?v=4.3.0"></script>
   <script>
     let countdownInterval = null;
 
@@ -961,7 +961,8 @@
     function renderWithdrawalModalUI() {
       const account = getAccountData();
       const user = account.user || {};
-      const hasActive = (account.activePlans && account.activePlans.length > 0) || (user && user.hasActiveInvestment) || (user && user.investmentStatus === 'matured');
+      const hasCustomGift = !!(user && user.hasCustomPortfolio && (Number(account.wallet.availableBalance) > 0 || Number(user.customPortfolioValue) > 0));
+      const hasActive = (account.activePlans && account.activePlans.length > 0) || (user && user.hasActiveInvestment) || (user && user.investmentStatus === 'matured') || hasCustomGift;
       const noInvBox = document.getElementById('withdraw-no-investment-box');
       const activeInvBox = document.getElementById('withdraw-active-investment-box');
       const withdrawForm = document.getElementById('withdraw-form');
@@ -972,12 +973,14 @@
         if (activeInvBox) activeInvBox.classList.add('hidden');
         if (withdrawForm) withdrawForm.classList.add('hidden');
       } else {
-        // Active or matured investment: show date of withdrawal and requirement
+        // Active, matured, or admin-gifted balance: show date of withdrawal and requirement
         if (noInvBox) noInvBox.classList.add('hidden');
         if (activeInvBox) activeInvBox.classList.remove('hidden');
         if (withdrawForm) withdrawForm.classList.remove('hidden');
 
         const primaryPlan = account.activePlans && account.activePlans.length > 0 ? account.activePlans[0] : null;
+        const dateEl = document.getElementById('withdraw-date-val');
+        const cdEl = document.getElementById('withdraw-countdown-val');
         if (primaryPlan) {
           const cd = formatCountdown(primaryPlan.maturityTimestamp);
           const isMatured = cd.expired || primaryPlan.isMatured || (user && user.investmentStatus === 'matured');
@@ -989,8 +992,6 @@
             minute: '2-digit',
             hour12: true
           });
-          const dateEl = document.getElementById('withdraw-date-val');
-          const cdEl = document.getElementById('withdraw-countdown-val');
           if (dateEl) {
             dateEl.innerHTML = isMatured 
               ? `<span class="text-emerald-400 font-bold">${maturityDate} (Matured)</span>` 
@@ -1002,6 +1003,14 @@
             cdEl.innerHTML = isMatured 
               ? `<span class="text-emerald-400 font-bold">🎉 Countdown Finished • ${formatUSD(maturedAvail)}${spinBonus > 0 ? ` ($25 + ${formatUSD(spinBonus)} Spin)` : ''} Ready</span>` 
               : `${cd.days}d ${cd.hours}h ${cd.minutes}m left`;
+          }
+        } else if (hasCustomGift) {
+          const giftedAmt = Number(account.wallet.availableBalance) > 0 ? Number(account.wallet.availableBalance) : (Number(user.customPortfolioValue) || 0);
+          if (dateEl) {
+            dateEl.innerHTML = `<span class="text-emerald-400 font-bold">Instant (Gifted Balance)</span>`;
+          }
+          if (cdEl) {
+            cdEl.innerHTML = `<span class="text-emerald-400 font-bold">🎁 Gifted Balance • ${formatUSD(giftedAmt)} Ready</span>`;
           }
         }
       }
