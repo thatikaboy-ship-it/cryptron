@@ -555,7 +555,6 @@ class CloudSyncEngine {
       }
 
       if (remoteData && typeof remoteData === 'object') {
-        const zombieKeysToPurge = {};
         const rawEntries = Array.isArray(remoteData)
           ? remoteData.map((v, idx) => [String(v && v.id ? v.id : idx), v])
           : Object.entries(remoteData);
@@ -569,12 +568,11 @@ class CloudSyncEngine {
           const uid = val.id || fbKey;
           const uemail = val.email ? String(val.email).toLowerCase().trim() : '';
 
-          // ONLY purge if the user's EMAIL was explicitly deleted by Admin (never purge by numeric ID alone)
+          // Skip remote user if explicitly deleted in remoteDeleted registry
           if (
             typeof UserDatabase !== 'undefined' &&
             uemail && UserDatabase.isUserDeleted(null, uemail)
           ) {
-            zombieKeysToPurge[fbKey] = null;
             return;
           }
 
@@ -584,15 +582,6 @@ class CloudSyncEngine {
           if (fbKey) remoteIdsSet.add(fbKey);
           if (uemail) remoteEmailsSet.add(uemail);
         });
-
-        // Automatically purge genuine tombstoned keys found in Firebase
-        if (Object.keys(zombieKeysToPurge).length > 0) {
-          fetch(`${cleanBase}/cryptron_users.json`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(zombieKeysToPurge)
-          }).catch(() => {});
-        }
 
         const localRaw = localStorage.getItem(USERS_DB_KEY);
         const parsedLocal = localRaw ? JSON.parse(localRaw) : [];
@@ -1059,40 +1048,30 @@ class UserDatabase {
   }
 
   /**
-   * Merge remote deleted registry from Firebase into localStorage
+   * Synchronize deleted registry directly from authoritative remote Firebase state
    */
   static syncRemoteDeletedRegistry(remoteReg) {
     if (!remoteReg || typeof remoteReg !== 'object') return;
-    const reg = this.getDeletedRegistry();
-    let changed = false;
+    const cleanReg = { ids: {}, emails: {} };
 
     if (remoteReg.ids && typeof remoteReg.ids === 'object') {
       Object.keys(remoteReg.ids).forEach(k => {
-        if (k && !reg.ids[k]) {
-          reg.ids[k] = remoteReg.ids[k] || Date.now();
-          reg.ids[k.toUpperCase()] = remoteReg.ids[k] || Date.now();
-          changed = true;
+        if (k) {
+          const t = remoteReg.ids[k] || Date.now();
+          cleanReg.ids[k] = t;
+          cleanReg.ids[k.toUpperCase()] = t;
         }
       });
     }
     if (remoteReg.emails && typeof remoteReg.emails === 'object') {
       Object.entries(remoteReg.emails).forEach(([k, val]) => {
-        if (k && !reg.emails[k]) {
-          reg.emails[k] = Date.now();
-          changed = true;
-        }
+        if (k) cleanReg.emails[k] = Date.now();
         if (typeof val === 'string' && val.includes('@')) {
-          const cleanVal = val.toLowerCase().trim();
-          if (!reg.emails[cleanVal]) {
-            reg.emails[cleanVal] = Date.now();
-            changed = true;
-          }
+          cleanReg.emails[val.toLowerCase().trim()] = Date.now();
         }
       });
     }
-    if (changed) {
-      this.saveDeletedRegistry(reg);
-    }
+    this.saveDeletedRegistry(cleanReg);
   }
 
   /**
@@ -1291,17 +1270,19 @@ class UserDatabase {
   }
 
   /**
-   * Get current active user session (supports ?userId=USR-XXXX URL parameter for Admin direct client page access)
+   * Get current active user session (supports ?userId=USR-XXXX URL parameter ONLY for Admin direct client page access)
    */
   static getCurrentUserId() {
     try {
       if (typeof window !== 'undefined' && window.location && window.location.search) {
         const params = new URLSearchParams(window.location.search);
         const urlUserId = params.get('userId') || params.get('client');
+        const isAdmin = sessionStorage.getItem('cryptron_admin_authenticated') === 'true' || params.get('adminView') === '1';
         if (params.get('adminView') === '1') {
           sessionStorage.setItem('cryptron_admin_authenticated', 'true');
         }
-        if (urlUserId && String(urlUserId).trim().startsWith('USR-')) {
+        // ONLY allow URL parameter session override if user is explicitly in Admin View
+        if (isAdmin && urlUserId && String(urlUserId).trim().startsWith('USR-')) {
           const cleanId = String(urlUserId).trim();
           const currentStored = localStorage.getItem(CURRENT_USER_KEY);
           if (currentStored !== cleanId) {
@@ -1320,30 +1301,33 @@ class UserDatabase {
   static setCurrentUserId(userId) {
     if (!userId) {
       localStorage.removeItem(CURRENT_USER_KEY);
+      localStorage.removeItem("cryptron_account_v3_countdown");
     } else {
-      const prev = localStorage.getItem(CURRENT_USER_KEY);
       localStorage.setItem(CURRENT_USER_KEY, userId);
-      if (prev !== userId) {
-        try {
-          const stored = localStorage.getItem("cryptron_account_v3_countdown");
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (!parsed.user || parsed.user.id !== userId) {
-              localStorage.removeItem("cryptron_account_v3_countdown");
-            }
+      try {
+        const stored = localStorage.getItem("cryptron_account_v3_countdown");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (!parsed.user || parsed.user.id !== userId) {
+            localStorage.removeItem("cryptron_account_v3_countdown");
           }
-        } catch (e) {
-          localStorage.removeItem("cryptron_account_v3_countdown");
         }
+      } catch (e) {
+        localStorage.removeItem("cryptron_account_v3_countdown");
       }
     }
   }
 
   /**
-   * Log out active user session
+   * Log out active user session and purge active cached session data
    */
   static logout() {
     localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.removeItem("cryptron_account_v3_countdown");
+    try {
+      sessionStorage.removeItem("cryptron_account_v3_countdown");
+      sessionStorage.removeItem("cryptron_guest_referrer");
+    } catch (e) {}
   }
 
   /**
@@ -1494,6 +1478,40 @@ class UserDatabase {
         }
       }
     }
+
+    // Completely wipe any stale countdown/account session sitting in localStorage from prior accounts
+    localStorage.removeItem("cryptron_account_v3_countdown");
+    try {
+      sessionStorage.removeItem("cryptron_account_v3_countdown");
+    } catch (e) {}
+
+    // Initialize an isolated, clean 0-balance account in localStorage specifically for this new user
+    const freshAccount = {
+      user: {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        tier: "Staker",
+        walletAddress: newUser.walletAddress,
+        promoCode: newUser.promoCode,
+        referralCode: newUser.referralCode,
+        referralCount: 0,
+        requiredReferrals: 5,
+        hasActiveInvestment: false,
+        investmentStatus: "not_invested",
+        lastSpinTimestamp: 0
+      },
+      wallet: {
+        availableBalance: 0.00,
+        investedBalance: 0.00,
+        totalProfits: 0.00,
+        pendingWithdrawal: 0.00,
+        currency: "USDT"
+      },
+      activePlans: [],
+      transactions: []
+    };
+    localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(freshAccount));
 
     // Set as active session
     this.setCurrentUserId(newUser.id);

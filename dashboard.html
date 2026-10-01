@@ -717,9 +717,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.5.0"></script>
-  <script src="js/email.js?v=4.5.0"></script>
-  <script src="js/app.js?v=4.5.0"></script>
+  <script src="js/db.js?v=4.6.0"></script>
+  <script src="js/email.js?v=4.6.0"></script>
+  <script src="js/app.js?v=4.6.0"></script>
   <script>
     let countdownInterval = null;
 
@@ -1232,16 +1232,23 @@
       const totalPortfolio = data.wallet.availableBalance + data.wallet.investedBalance;
 
       // Update Top Account Profile Header
+      const currentActiveId = window.UserDatabase ? UserDatabase.getCurrentUserId() : null;
+      const dbUser = currentActiveId && window.UserDatabase ? UserDatabase.getUserById(currentActiveId) : null;
+      const effectiveName = user.name || (dbUser ? dbUser.name : "Valued Staker");
+      const effectiveId = user.id || currentActiveId || "--";
+      const effectiveEmail = user.email || (dbUser ? dbUser.email : "");
+      const effectiveWallet = user.walletAddress || (dbUser ? dbUser.walletAddress : "--");
+
       const nameEl = document.getElementById('user-display-name');
-      if (nameEl) nameEl.textContent = user.name || "Valued Staker";
+      if (nameEl) nameEl.textContent = effectiveName;
       const idEl = document.getElementById('user-display-id');
-      if (idEl) idEl.textContent = user.id || "USR-1001";
+      if (idEl) idEl.textContent = effectiveId;
       const emailEl = document.getElementById('user-display-email');
-      if (emailEl) emailEl.textContent = user.email || "";
+      if (emailEl) emailEl.textContent = effectiveEmail;
       const walletEl = document.getElementById('user-display-wallet');
-      if (walletEl) walletEl.textContent = user.walletAddress || "0x71...AF7";
+      if (walletEl) walletEl.textContent = effectiveWallet;
       const initialsEl = document.getElementById('user-avatar-initials');
-      if (initialsEl && user.name) initialsEl.textContent = user.name.substring(0, 2).toUpperCase();
+      if (initialsEl && effectiveName) initialsEl.textContent = effectiveName.substring(0, 2).toUpperCase();
 
       // Update Investment Status Badge
       const badgeEl = document.getElementById('user-investment-badge');
@@ -1307,13 +1314,13 @@
       const refModalCount = document.getElementById('ref-modal-count');
       if (refModalCount) refModalCount.textContent = `${invited} / ${required} Clients`;
       const refModalCode = document.getElementById('ref-modal-code');
+      const effectivePromo = (user.promoCode || user.referralCode) || (dbUser ? (dbUser.promoCode || dbUser.referralCode) : "PROMO");
       if (refModalCode) {
-        const rCode = (user.promoCode || user.referralCode) || "DAVID8821";
-        refModalCode.textContent = rCode;
+        refModalCode.textContent = effectivePromo;
       }
       const refModalLink = document.getElementById('ref-modal-link');
       if (refModalLink) {
-        refModalLink.textContent = (user.promoCode || user.referralCode) || "DAVID8821";
+        refModalLink.textContent = effectivePromo;
       }
       renderReferredFriendsList();
 
@@ -2016,10 +2023,23 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       // Auth Gate: ensure user is authenticated, otherwise redirect to signup
       const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : null;
-      if (!currentId || !UserDatabase.getUserById(currentId)) {
+      let user = currentId && window.UserDatabase ? UserDatabase.getUserById(currentId) : null;
+      
+      // If user ID exists in storage but not yet loaded into memory, try pulling from cloud before redirecting
+      if (currentId && !user && window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+        try {
+          await Promise.race([
+            CloudSyncEngine.pullUsers(),
+            new Promise(resolve => setTimeout(resolve, 1500))
+          ]);
+          user = UserDatabase.getUserById(currentId);
+        } catch (e) {}
+      }
+
+      if (!currentId || !user) {
         window.location.href = 'login.html?tab=signup';
         return;
       }

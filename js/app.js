@@ -9,6 +9,7 @@
 // Default blank account state for new or unauthenticated users
 const DEFAULT_ACCOUNT = {
   user: {
+    id: null,
     name: "New Investor",
     email: "",
     tier: "Staker",
@@ -38,17 +39,27 @@ const THEME_KEY = "cryptron_theme_preference";
 function getAccountData() {
   if (window.UserDatabase) {
     const currentUserId = UserDatabase.getCurrentUserId();
-    const dbUser = UserDatabase.getUserById(currentUserId);
+    const dbUser = currentUserId ? UserDatabase.getUserById(currentUserId) : null;
     if (dbUser) {
       const stored = localStorage.getItem(STORAGE_KEY);
-      let base;
-      try {
-        base = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_ACCOUNT));
-        // Isolate session to active dbUser: discard stored data if it belongs to a different user ID
-        if (base.user && base.user.id && base.user.id !== dbUser.id) {
-          base = JSON.parse(JSON.stringify(DEFAULT_ACCOUNT));
+      let base = null;
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          // Strictly isolate session: require both user ID and (if present) email to match dbUser
+          if (
+            parsed &&
+            parsed.user &&
+            parsed.user.id === dbUser.id &&
+            (!parsed.user.email || !dbUser.email || parsed.user.email.toLowerCase() === dbUser.email.toLowerCase())
+          ) {
+            base = parsed;
+          }
+        } catch (e) {
+          base = null;
         }
-      } catch(e) {
+      }
+      if (!base) {
         base = JSON.parse(JSON.stringify(DEFAULT_ACCOUNT));
       }
 
@@ -57,11 +68,11 @@ function getAccountData() {
       base.user.name = dbUser.name;
       base.user.email = dbUser.email;
       base.user.walletAddress = dbUser.walletAddress;
-      base.user.promoCode = dbUser.promoCode || dbUser.referralCode || "DAVID8821";
+      base.user.promoCode = dbUser.promoCode || dbUser.referralCode || ("USER" + (dbUser.id || '1000').replace(/\D/g, ''));
       base.user.referralCode = base.user.promoCode;
       base.user.referralCount = dbUser.referralCount !== undefined ? dbUser.referralCount : 0;
       base.user.referralBypassed = !!dbUser.referralBypassed;
-      base.user.investmentStatus = dbUser.investmentStatus || (dbUser.activePlans && dbUser.activePlans.length > 0 ? 'active' : 'not_invested');
+      base.user.investmentStatus = dbUser.investmentStatus || 'not_invested';
       base.user.pendingTxHash = dbUser.pendingTxHash || null;
       base.user.hasCustomPortfolio = !!dbUser.hasCustomPortfolio;
       base.user.customPortfolioValue = dbUser.customPortfolioValue !== undefined ? dbUser.customPortfolioValue : null;
@@ -76,7 +87,8 @@ function getAccountData() {
       base.activePlans = dbUser.activePlans || [];
 
       // Ensure that if user is active, they have an active 7-day vault plan with a running countdown
-      if (base.user.investmentStatus === 'active' && !base.user.withdrawalRequest && base.activePlans.length === 0) {
+      // STRICT RULE: Never trigger for uninvested accounts or newly registered clients!
+      if (dbUser.investmentStatus === 'active' && !base.user.withdrawalRequest && base.activePlans.length === 0) {
         const now = Date.now();
         const autoPlan = {
           id: "cryp-" + Math.floor(700 + Math.random() * 200),
@@ -244,56 +256,8 @@ function getAccountData() {
     }
   }
 
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ACCOUNT));
-    return DEFAULT_ACCOUNT;
-  }
-  try {
-    const data = JSON.parse(stored);
-    if (data.user && data.user.investmentStatus === 'not_invested') {
-      data.activePlans = [];
-      data.completedPlans = [];
-      data.transactions = [];
-      data.user.hasActiveInvestment = false;
-      data.user.withdrawalRequest = data.user.withdrawalRequest || null;
-      data.user.withdrawalHistory = [];
-      data.user.pendingTxHash = null;
-      data.user.depositSubmittedAt = null;
-      data.wallet = data.wallet || {};
-      data.wallet.availableBalance = data.user.hasCustomPortfolio ? (Number(data.wallet.availableBalance) || 0.00) : 0.00;
-      data.wallet.investedBalance = data.user.hasCustomPortfolio ? (Number(data.wallet.investedBalance) || 0.00) : 0.00;
-      data.wallet.totalProfits = data.user.hasCustomPortfolio ? (Number(data.wallet.totalProfits) || 0.00) : 0.00;
-      data.wallet.pendingWithdrawal = 0.00;
-      data.user.totalDeposited = 0.00;
-    } else if (data.user && (data.user.investmentStatus === 'active' || data.user.hasActiveInvestment) && (!data.activePlans || data.activePlans.length === 0)) {
-      const now = Date.now();
-      data.activePlans = [{
-        id: "cryp-701",
-        planName: "7-Day Crypto Yield Vault",
-        principal: 10.00,
-        totalPayout: 25.00,
-        createdAt: now,
-        maturityTimestamp: now + (7 * 86400000),
-        durationDays: 7,
-        status: "Active"
-      }];
-      data.user.lastSpinTimestamp = 0;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    }
-    // Ensure new properties exist
-    if (!data.user.referralCount && data.user.referralCount !== 0) data.user.referralCount = 3;
-    if (!data.user.requiredReferrals) data.user.requiredReferrals = 5;
-    if (data.user.hasActiveInvestment === undefined) data.user.hasActiveInvestment = (data.activePlans && data.activePlans.length > 0);
-    if (data.user.lastSpinTimestamp === undefined || data.user.lastSpinTimestamp === null) data.user.lastSpinTimestamp = 0;
-    if (data.activePlans && data.activePlans.length > 0 && data.user.lastSpinTimestamp && data.activePlans[0].createdAt && data.user.lastSpinTimestamp <= data.activePlans[0].createdAt) {
-      data.user.lastSpinTimestamp = 0;
-    }
-    return data;
-  } catch (e) {
-    console.error("Error parsing stored account data", e);
-    return DEFAULT_ACCOUNT;
-  }
+  // If no user is authenticated or found in database, never leak another client's session
+  return JSON.parse(JSON.stringify(DEFAULT_ACCOUNT));
 }
 
 function saveAccountData(data) {
@@ -1039,9 +1003,13 @@ function initMobileMenu() {
 function handleClientLogout() {
   if (window.UserDatabase) {
     UserDatabase.logout();
-  } else {
-    localStorage.removeItem('cryptron_current_user_id');
   }
+  localStorage.removeItem('cryptron_current_user_id');
+  localStorage.removeItem(STORAGE_KEY);
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem('cryptron_guest_referrer');
+  } catch (e) {}
   showToast("Logged out successfully.", "info");
   setTimeout(() => {
     window.location.href = 'login.html';

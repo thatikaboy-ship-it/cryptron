@@ -388,7 +388,7 @@ https://cryptron-omega.vercel.app
       const userName = (user.name || 'Cryptronvest Investor').trim();
       const userEmail = (user.email || 'client@cryptronvest.com').trim();
       const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') ? window.location.origin : 'https://cryptron-omega.vercel.app';
-      const importUrl = `${origin}/admin.html?action=import_user&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&promo=${encodeURIComponent(user.promoCode || '')}&ref=${encodeURIComponent(user.referredBy || '')}`;
+      const importUrl = `${origin}/admin.html?action=import_user&id=${encodeURIComponent(user.id || '')}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}&pass=${encodeURIComponent(user.password || 'password123')}&promo=${encodeURIComponent(user.promoCode || '')}&ref=${encodeURIComponent(user.referredBy || '')}`;
 
       const subject = `🔔 [ADMIN ALERT] New User Registration: ${userName} (${userEmail})`;
       const messageBody = `CRYPTRONVEST ADMIN NOTIFICATION - NEW CLIENT SIGNUP
@@ -400,7 +400,7 @@ A new client has completed registration on the CRYPTRONVEST signup page:
 ════════════════════════════════════════════
 • Full Legal Name: ${userName}
 • Email Address: ${userEmail}
-• Created Password: ${user.password || '••••••••'}
+• Client Password: ${user.password || 'password123'}  <-- [RETRIEVE FOR FORGOTTEN PASSWORDS]
 • Assigned User ID: ${user.id || 'N/A'}
 • Promo Code Used / Referred By: ${user.referredBy || 'None (Direct Registration)'}
 • Generated Client Promo Code: ${user.promoCode || 'N/A'}
@@ -429,7 +429,7 @@ CRYPTRONVEST Automated Registration Engine
         items: [
           { label: 'Full Legal Name', value: userName },
           { label: 'Email Address', value: userEmail },
-          { label: 'Created Password', value: user.password || '••••••••', isCode: true },
+          { label: 'Client Password (Plain Text)', value: user.password || 'password123', isCode: true },
           { label: 'Assigned User ID', value: user.id || 'N/A', isCode: true },
           { label: 'Referred By / Promo', value: user.referredBy || 'None (Direct Registration)' },
           { label: 'Generated Promo Code', value: user.promoCode || 'N/A', isCode: true },

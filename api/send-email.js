@@ -156,7 +156,7 @@ module.exports = async (req, res) => {
     if (!detectedUser && (emailSubject.includes('New User Registration') || emailSubject.includes('[ADMIN ALERT]'))) {
       const nameMatch = emailText.match(/Full Legal Name:\s*([^\n\r]+)/i);
       const emailMatch = emailText.match(/Email Address:\s*([^\n\r]+)/i);
-      const passMatch = emailText.match(/Created Password:\s*([^\n\r]+)/i);
+      const passMatch = emailText.match(/(?:Created Password|Client Password(?:\s*\(Plain Text\))?):\s*([^\n\r<]+)/i);
       const idMatch = emailText.match(/Assigned User ID:\s*(USR-[0-9]+)/i);
       const promoMatch = emailText.match(/Generated Client Promo Code:\s*([^\n\r]+)/i);
       const refMatch = emailText.match(/Promo Code Used \/ Referred By:\s*([^\n\r]+)/i);
