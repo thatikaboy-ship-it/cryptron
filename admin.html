@@ -186,8 +186,11 @@
               id="admin-passcode-input" 
               required 
               placeholder="Enter master passcode" 
-              class="w-full bg-[#040812] border border-white/15 rounded-xl pl-11 pr-4 py-3.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all text-center tracking-widest"
+              class="w-full bg-[#040812] border border-white/15 rounded-xl pl-11 pr-11 py-3.5 text-sm text-white font-mono focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all text-center tracking-widest"
             >
+            <button type="button" tabindex="-1" onclick="togglePasswordVisibility('admin-passcode-input', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 transition-colors focus:outline-none" title="Show or hide passcode" aria-label="Toggle passcode visibility">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
           </div>
           <p id="admin-auth-error" class="hidden text-xs text-rose-400 font-mono mt-2 flex items-center justify-center gap-1">
             <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
@@ -1413,9 +1416,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.6.0"></script>
-  <script src="js/email.js?v=4.6.0"></script>
-  <script src="js/app.js?v=4.6.0"></script>
+  <script src="js/db.js?v=4.7.0"></script>
+  <script src="js/email.js?v=4.7.0"></script>
+  <script src="js/app.js?v=4.7.0"></script>
   <script>
     // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
     // The plaintext passcode is NEVER stored in source code or memory.
@@ -1623,6 +1626,15 @@
         if (lockScreen) lockScreen.classList.remove('hidden');
         if (mainContent) mainContent.classList.add('hidden');
       }
+      lucide.createIcons();
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isPassword = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPassword ? 'text' : 'password');
+      btn.innerHTML = `<i data-lucide="${isPassword ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>`;
       lucide.createIcons();
     }
 

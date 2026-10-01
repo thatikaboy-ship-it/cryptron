@@ -82,7 +82,10 @@
           </div>
           <div class="relative">
             <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input type="password" id="signin-password" required placeholder="Enter password" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+            <input type="password" id="signin-password" required placeholder="Enter password" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-11 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+            <button type="button" tabindex="-1" onclick="togglePasswordVisibility('signin-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 transition-colors focus:outline-none" title="Show or hide password" aria-label="Toggle password visibility">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
           </div>
         </div>
 
@@ -143,7 +146,10 @@
           <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Create Password</label>
           <div class="relative">
             <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input type="password" id="signup-password" required placeholder="Minimum 8 characters" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+            <input type="password" id="signup-password" required placeholder="Minimum 8 characters" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-11 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+            <button type="button" tabindex="-1" onclick="togglePasswordVisibility('signup-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 transition-colors focus:outline-none" title="Show or hide password" aria-label="Toggle password visibility">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
           </div>
         </div>
 
@@ -235,7 +241,10 @@
             <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">New Security Password</label>
             <div class="relative">
               <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-              <input type="password" id="reset-new-password" required minlength="6" placeholder="At least 6 characters" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+              <input type="password" id="reset-new-password" required minlength="6" placeholder="At least 6 characters" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-11 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+              <button type="button" tabindex="-1" onclick="togglePasswordVisibility('reset-new-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 transition-colors focus:outline-none" title="Show or hide password" aria-label="Toggle password visibility">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
             </div>
           </div>
 
@@ -243,7 +252,10 @@
             <label class="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-2">Confirm New Password</label>
             <div class="relative">
               <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-              <input type="password" id="reset-confirm-password" required minlength="6" placeholder="Repeat new password" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+              <input type="password" id="reset-confirm-password" required minlength="6" placeholder="Repeat new password" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-11 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+              <button type="button" tabindex="-1" onclick="togglePasswordVisibility('reset-confirm-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 transition-colors focus:outline-none" title="Show or hide password" aria-label="Toggle password visibility">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
             </div>
           </div>
 
@@ -279,10 +291,19 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.6.0"></script>
-  <script src="js/email.js?v=4.6.0"></script>
-  <script src="js/app.js?v=4.6.0"></script>
+  <script src="js/db.js?v=4.7.0"></script>
+  <script src="js/email.js?v=4.7.0"></script>
+  <script src="js/app.js?v=4.7.0"></script>
   <script>
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isPassword = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPassword ? 'text' : 'password');
+      btn.innerHTML = `<i data-lucide="${isPassword ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>`;
+      lucide.createIcons();
+    }
+
     let activeResetEmail = '';
     let resendTimerInterval = null;
 
@@ -359,6 +380,39 @@
         }
 
         try {
+          const cleanEmail = email.toLowerCase().trim();
+
+          // Check if an account already exists with this email address
+          let existingUser = await UserDatabase.findUserByEmailOrCloud(cleanEmail);
+          if (existingUser) {
+            if (existingUser.password && existingUser.password === password) {
+              UserDatabase.setCurrentUserId(existingUser.id);
+              showToast(`Welcome back, ${existingUser.name}! Account found, signing you in...`, 'success');
+              setTimeout(() => {
+                window.location.href = 'dashboard.html';
+              }, 600);
+              return;
+            } else {
+              // Account already exists but user entered wrong password
+              showToast("Incorrect password. An account with this email address already exists, but the password you entered is incorrect. Please sign in or reset your password.", "error");
+              switchTab('signin');
+              const signinEmailInput = document.getElementById('signin-email');
+              if (signinEmailInput) signinEmailInput.value = cleanEmail;
+              const signinPassInput = document.getElementById('signin-password');
+              if (signinPassInput) {
+                signinPassInput.value = '';
+                signinPassInput.focus();
+              }
+              const helper = document.getElementById('login-failed-helper');
+              if (helper) helper.classList.remove('hidden');
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origBtnText;
+              }
+              return;
+            }
+          }
+
           // Pre-fetch latest cloud database state so we know highest existing ID across all devices
           if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
             await Promise.race([
@@ -419,13 +473,28 @@
         }
 
         try {
-          // If user isn't found locally, attempt cloud pull first
-          let user = UserDatabase.getUserByEmail(email);
+          const cleanEmail = email.toLowerCase().trim();
+
+          // Robust check across local storage and remote cloud
+          let user = await UserDatabase.findUserByEmailOrCloud(cleanEmail);
           if (!user && window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
             await CloudSyncEngine.pullUsers();
+            user = await UserDatabase.findUserByEmailOrCloud(cleanEmail);
           }
 
-          const loggedUser = UserDatabase.loginUser(email, password);
+          if (!user) {
+            throw new Error("No account found with this email address. Please check your spelling or click 'Sign Up' to register.");
+          }
+
+          if (user.password && password && !password.includes("••••")) {
+            if (user.password !== password) {
+              throw new Error("Incorrect password. The password you entered is incorrect. Please verify your credentials or click 'Forgot Password?' to reset it.");
+            }
+          }
+
+          UserDatabase.setCurrentUserId(user.id);
+          const loggedUser = user;
+
           if (window.EmailService && EmailService.sendSigninNotificationToAdmin) {
             try {
               await Promise.race([

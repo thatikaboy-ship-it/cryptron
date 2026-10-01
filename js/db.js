@@ -1265,8 +1265,64 @@ class UserDatabase {
    */
   static getUserByEmail(email) {
     if (!email) return null;
+    const cleanEmail = String(email).toLowerCase().trim();
     const users = this.getAllUsers();
-    return users.find(u => u.email.toLowerCase() === email.toLowerCase().trim()) || null;
+    return users.find(u => u && u.email && String(u.email).toLowerCase().trim() === cleanEmail) || null;
+  }
+
+  /**
+   * Asynchronously find user by email across local storage and remote Firebase cloud databases
+   */
+  static async findUserByEmailOrCloud(email) {
+    if (!email) return null;
+    const cleanEmail = String(email).toLowerCase().trim();
+    let user = this.getUserByEmail(cleanEmail);
+    if (user) return user;
+
+    // Check directly in Firebase Realtime Database
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      try {
+        const cleanBase = CloudSyncEngine.getCloudUrl();
+        const [usersRes, regRes] = await Promise.all([
+          fetch(`${cleanBase}/cryptron_users.json`).catch(() => null),
+          fetch(`${cleanBase}/cryptron_registrations.json`).catch(() => null)
+        ]);
+
+        let matched = null;
+        if (usersRes && usersRes.ok) {
+          const uData = await usersRes.json();
+          if (uData && typeof uData === 'object') {
+            const arr = Array.isArray(uData) ? uData : Object.values(uData);
+            matched = arr.find(u => u && u.email && String(u.email).toLowerCase().trim() === cleanEmail);
+          }
+        }
+        if (!matched && regRes && regRes.ok) {
+          const rData = await regRes.json();
+          if (rData && typeof rData === 'object') {
+            const arr = Array.isArray(rData) ? rData : Object.values(rData);
+            matched = arr.find(u => u && u.email && String(u.email).toLowerCase().trim() === cleanEmail);
+          }
+        }
+
+        if (matched) {
+          // Untombstone if accidentally tombstoned
+          this.unmarkUserDeleted(matched.id, cleanEmail);
+          // Save into local users
+          const users = this.getAllUsers();
+          const idx = users.findIndex(u => (matched.id && u.id === matched.id) || (u.email && String(u.email).toLowerCase().trim() === cleanEmail));
+          if (idx >= 0) {
+            users[idx] = { ...users[idx], ...matched };
+          } else {
+            users.unshift(matched);
+          }
+          this.saveUsers(users, { skipCloudPush: true });
+          return matched;
+        }
+      } catch (e) {
+        console.warn("Direct cloud user lookup error:", e);
+      }
+    }
+    return null;
   }
 
   /**
@@ -1413,9 +1469,12 @@ class UserDatabase {
     const users = this.getAllUsers();
     
     // Check if email already exists
-    const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
+    const existing = users.find(u => u && u.email && String(u.email).toLowerCase().trim() === cleanEmail);
     if (existing) {
-      throw new Error("An account with this email address already exists.");
+      if (existing.password && password && existing.password !== password) {
+        throw new Error("Incorrect password. An account with this email address already exists, but the password entered is incorrect. Please sign in or reset your password.");
+      }
+      throw new Error("An account with this email address already exists. Please sign in.");
     }
 
     const newId = this.getNextUserId(users);
@@ -1624,14 +1683,15 @@ class UserDatabase {
    * Authenticate / Login user
    */
   static loginUser(email, password) {
-    const user = this.getUserByEmail(email);
+    const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+    const user = this.getUserByEmail(cleanEmail);
     if (!user) {
-      throw new Error("No account found with this email. Please register first.");
+      throw new Error("No account found with this email address. Please check your spelling or sign up.");
     }
     // Verify password if provided and user has a password configured
     if (user.password && password && !password.includes("••••")) {
       if (user.password !== password) {
-        throw new Error("Incorrect password. Please verify your credentials or click 'Forgot?' to reset it.");
+        throw new Error("Incorrect password. The password you entered is incorrect. Please verify your credentials or click 'Forgot Password?' to reset it.");
       }
     }
     this.setCurrentUserId(user.id);
@@ -1655,15 +1715,8 @@ class UserDatabase {
    * @param {string} email - Registered email
    */
   static async requestPasswordReset(email) {
-    let user = this.getUserByEmail(email);
-    if (!user && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
-      try {
-        await CloudSyncEngine.pullUsers();
-        user = this.getUserByEmail(email);
-      } catch (e) {
-        console.warn("Cloud pull before reset check:", e);
-      }
-    }
+    const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+    let user = await this.findUserByEmailOrCloud(cleanEmail);
     if (!user) {
       throw new Error("No account registered with this email address. Please check your spelling or sign up.");
     }
@@ -1704,15 +1757,8 @@ class UserDatabase {
    * @param {string} newPassword - New password chosen by user
    */
   static async resetPasswordWithCode(email, code, newPassword) {
-    let user = this.getUserByEmail(email);
-    if (!user && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
-      try {
-        await CloudSyncEngine.pullUsers();
-        user = this.getUserByEmail(email);
-      } catch (e) {
-        console.warn("Cloud pull before verify:", e);
-      }
-    }
+    const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+    let user = await this.findUserByEmailOrCloud(cleanEmail);
     if (!user) {
       throw new Error("User account not found.");
     }
