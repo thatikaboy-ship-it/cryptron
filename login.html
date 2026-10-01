@@ -291,9 +291,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.7.0"></script>
-  <script src="js/email.js?v=4.7.0"></script>
-  <script src="js/app.js?v=4.7.0"></script>
+  <script src="js/db.js?v=4.8.0"></script>
+  <script src="js/email.js?v=4.8.0"></script>
+  <script src="js/app.js?v=4.8.0"></script>
   <script>
     function togglePasswordVisibility(inputId, btn) {
       const input = document.getElementById(inputId);
@@ -385,7 +385,12 @@
           // Check if an account already exists with this email address
           let existingUser = await UserDatabase.findUserByEmailOrCloud(cleanEmail);
           if (existingUser) {
-            if (existingUser.password && existingUser.password === password) {
+            const rawPass = password !== undefined && password !== null ? String(password) : '';
+            const cleanPass = rawPass.trim();
+            const exPass = existingUser.password ? String(existingUser.password) : '';
+            const matches = exPass === rawPass || exPass.trim() === cleanPass || exPass === cleanPass;
+
+            if (matches) {
               UserDatabase.setCurrentUserId(existingUser.id);
               showToast(`Welcome back, ${existingUser.name}! Account found, signing you in...`, 'success');
               setTimeout(() => {
@@ -461,7 +466,7 @@
           showToast(err.message, 'error');
         }
       } else {
-        const email = document.getElementById('signin-email').value.trim();
+        const identifier = document.getElementById('signin-email').value.trim();
         const password = document.getElementById('signin-password').value;
         const submitBtn = document.getElementById('signin-submit-btn');
         const origText = submitBtn ? submitBtn.innerHTML : '';
@@ -473,27 +478,7 @@
         }
 
         try {
-          const cleanEmail = email.toLowerCase().trim();
-
-          // Robust check across local storage and remote cloud
-          let user = await UserDatabase.findUserByEmailOrCloud(cleanEmail);
-          if (!user && window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
-            await CloudSyncEngine.pullUsers();
-            user = await UserDatabase.findUserByEmailOrCloud(cleanEmail);
-          }
-
-          if (!user) {
-            throw new Error("No account found with this email address. Please check your spelling or click 'Sign Up' to register.");
-          }
-
-          if (user.password && password && !password.includes("••••")) {
-            if (user.password !== password) {
-              throw new Error("Incorrect password. The password you entered is incorrect. Please verify your credentials or click 'Forgot Password?' to reset it.");
-            }
-          }
-
-          UserDatabase.setCurrentUserId(user.id);
-          const loggedUser = user;
+          const loggedUser = await UserDatabase.authenticateUser(identifier, password);
 
           if (window.EmailService && EmailService.sendSigninNotificationToAdmin) {
             try {

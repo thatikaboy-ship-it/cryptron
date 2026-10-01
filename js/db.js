@@ -718,25 +718,20 @@ class CloudSyncEngine {
 
     // 1. Index local users (excluding any tombstoned users)
     localUsers.forEach(u => {
-      if (!u) return;
+      if (!u || !u.id) return;
       const emailKey = u.email ? u.email.toLowerCase().trim() : null;
       if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(u.id, emailKey)) return;
-      const key = emailKey || u.id;
-      if (key) {
-        userMap.set(key, { ...u });
-      }
+      userMap.set(u.id, { ...u });
       trackId(u.id);
     });
 
     // 2. Merge remote users (authoritative from Firebase)
     remoteUsers.forEach(ru => {
-      if (!ru) return;
+      if (!ru || !ru.id) return;
       const emailKey = ru.email ? ru.email.toLowerCase().trim() : null;
       if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(ru.id, emailKey)) return;
-      const key = emailKey || ru.id;
-      if (!key) return;
 
-      const existing = userMap.get(key);
+      const existing = userMap.get(ru.id);
       if (existing) {
         const localRecentWreq = (existing.withdrawalRequest && existing.withdrawalRequest._submittedTimestamp && (now - existing.withdrawalRequest._submittedTimestamp < 25000))
           ? existing.withdrawalRequest
@@ -1680,20 +1675,149 @@ class UserDatabase {
   }
 
   /**
+   * Authenticate / Login user by Email or User ID (e.g. USR-1062) or Promo Code
+   * Matches candidate accounts and verifies password safely
+   */
+  static async authenticateUser(identifier, password) {
+    if (!identifier) {
+      throw new Error("Please enter your registered email address or User ID.");
+    }
+    const cleanId = String(identifier).trim();
+    const cleanEmail = cleanId.toLowerCase();
+    const rawPass = password !== undefined && password !== null ? String(password) : '';
+    const cleanPass = rawPass.trim();
+
+    // Pull authoritative cloud state
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      try {
+        await Promise.race([
+          CloudSyncEngine.pullUsers(),
+          new Promise(res => setTimeout(res, 1200))
+        ]);
+      } catch (e) {}
+    }
+
+    let allUsers = this.getAllUsers();
+
+    // 1. Find candidates by User ID (e.g. USR-1062)
+    let candidates = allUsers.filter(u => u && u.id && u.id.toUpperCase() === cleanId.toUpperCase());
+
+    // 2. Find candidates by Email
+    if (candidates.length === 0) {
+      candidates = allUsers.filter(u => u && u.email && u.email.toLowerCase().trim() === cleanEmail);
+    }
+
+    // 3. Find candidates by promo / referral code
+    if (candidates.length === 0) {
+      candidates = allUsers.filter(u => u && (
+        (u.promoCode && u.promoCode.toUpperCase() === cleanId.toUpperCase()) ||
+        (u.referralCode && u.referralCode.toUpperCase() === cleanId.toUpperCase())
+      ));
+    }
+
+    // 4. Direct cloud lookup fallback if local is empty or candidate missing
+    if (candidates.length === 0 && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      try {
+        const cleanBase = CloudSyncEngine.getCloudUrl();
+        const [uRes, rRes] = await Promise.all([
+          fetch(`${cleanBase}/cryptron_users.json`).catch(() => null),
+          fetch(`${cleanBase}/cryptron_registrations.json`).catch(() => null)
+        ]);
+        const remArr = [];
+        if (uRes && uRes.ok) {
+          const ud = await uRes.json();
+          if (ud && typeof ud === 'object') remArr.push(...(Array.isArray(ud) ? ud : Object.values(ud)));
+        }
+        if (rRes && rRes.ok) {
+          const rd = await rRes.json();
+          if (rd && typeof rd === 'object') remArr.push(...(Array.isArray(rd) ? rd : Object.values(rd)));
+        }
+        candidates = remArr.filter(u => u && (
+          (u.id && u.id.toUpperCase() === cleanId.toUpperCase()) ||
+          (u.email && u.email.toLowerCase().trim() === cleanEmail) ||
+          (u.promoCode && u.promoCode.toUpperCase() === cleanId.toUpperCase())
+        ));
+      } catch (e) {}
+    }
+
+    if (candidates.length === 0) {
+      throw new Error("No account found with this email or User ID. Please check your spelling or sign up.");
+    }
+
+    // Check passwords against candidates. Check both exact match and trimmed match.
+    let matchedUser = candidates.find(u => {
+      if (!u.password) return false;
+      const uPass = String(u.password);
+      return uPass === rawPass || uPass.trim() === cleanPass || uPass === cleanPass;
+    });
+
+    if (!matchedUser) {
+      throw new Error("Incorrect password. The password you entered is incorrect. Please verify your credentials or click 'Forgot Password?' to reset it.");
+    }
+
+    // Ensure the matched user is restored to local users if pulled from cloud
+    this.unmarkUserDeleted(matchedUser.id, matchedUser.email);
+    const users = this.getAllUsers();
+    const idx = users.findIndex(u => u.id === matchedUser.id);
+    if (idx >= 0) {
+      users[idx] = { ...users[idx], ...matchedUser };
+    } else {
+      users.unshift(matchedUser);
+    }
+    this.saveUsers(users, { skipCloudPush: true });
+
+    // Set active session
+    this.setCurrentUserId(matchedUser.id);
+
+    // Automatically notify admin of user sign-in
+    if (typeof EmailService !== 'undefined' && EmailService.sendSigninNotificationToAdmin) {
+      try {
+        EmailService.sendSigninNotificationToAdmin(matchedUser).catch(console.warn);
+      } catch (e) {}
+    } else if (typeof window !== 'undefined' && window.EmailService && window.EmailService.sendSigninNotificationToAdmin) {
+      try {
+        window.EmailService.sendSigninNotificationToAdmin(matchedUser).catch(console.warn);
+      } catch (e) {}
+    }
+
+    return matchedUser;
+  }
+
+  /**
    * Authenticate / Login user
    */
   static loginUser(email, password) {
-    const cleanEmail = email ? String(email).toLowerCase().trim() : '';
-    const user = this.getUserByEmail(cleanEmail);
-    if (!user) {
+    const cleanId = email ? String(email).trim() : '';
+    const cleanEmail = cleanId.toLowerCase();
+    const rawPass = password !== undefined && password !== null ? String(password) : '';
+    const cleanPass = rawPass.trim();
+
+    const allUsers = this.getAllUsers();
+    let candidates = allUsers.filter(u => u && u.id && u.id.toUpperCase() === cleanId.toUpperCase());
+    if (candidates.length === 0) {
+      candidates = allUsers.filter(u => u && u.email && u.email.toLowerCase().trim() === cleanEmail);
+    }
+    if (candidates.length === 0) {
+      candidates = allUsers.filter(u => u && (
+        (u.promoCode && u.promoCode.toUpperCase() === cleanId.toUpperCase()) ||
+        (u.referralCode && u.referralCode.toUpperCase() === cleanId.toUpperCase())
+      ));
+    }
+
+    if (candidates.length === 0) {
       throw new Error("No account found with this email address. Please check your spelling or sign up.");
     }
-    // Verify password if provided and user has a password configured
-    if (user.password && password && !password.includes("••••")) {
-      if (user.password !== password) {
-        throw new Error("Incorrect password. The password you entered is incorrect. Please verify your credentials or click 'Forgot Password?' to reset it.");
-      }
+
+    let user = candidates.find(u => {
+      if (!u.password) return false;
+      const uPass = String(u.password);
+      return uPass === rawPass || uPass.trim() === cleanPass || uPass === cleanPass;
+    });
+
+    if (!user) {
+      throw new Error("Incorrect password. The password you entered is incorrect. Please verify your credentials or click 'Forgot Password?' to reset it.");
     }
+
     this.setCurrentUserId(user.id);
 
     // Automatically notify admin of user sign-in
