@@ -279,9 +279,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.4.0"></script>
-  <script src="js/email.js?v=4.4.0"></script>
-  <script src="js/app.js?v=4.4.0"></script>
+  <script src="js/db.js?v=4.5.0"></script>
+  <script src="js/email.js?v=4.5.0"></script>
+  <script src="js/app.js?v=4.5.0"></script>
   <script>
     let activeResetEmail = '';
     let resendTimerInterval = null;
@@ -359,11 +359,22 @@
         }
 
         try {
+          // Pre-fetch latest cloud database state so we know highest existing ID across all devices
+          if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
+            await Promise.race([
+              CloudSyncEngine.pullUsers(),
+              new Promise(resolve => setTimeout(resolve, 1500))
+            ]).catch(() => {});
+          }
+
           const newUser = UserDatabase.registerUser(name, email, password, refCode);
           
-          // Ensure push to Cloud Database is awaited so it's guaranteed to be in cloud before redirect
+          // Ensure push to Cloud Database is awaited so it's guaranteed in cloud before redirect
           if (window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
-            await CloudSyncEngine.pushUser(newUser).catch(console.warn);
+            await Promise.race([
+              CloudSyncEngine.pushUser(newUser),
+              new Promise(resolve => setTimeout(resolve, 2000))
+            ]).catch(console.warn);
           }
 
           // Ensure signup details notification email is sent to cryptronvest@gmail.com

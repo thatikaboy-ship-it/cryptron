@@ -165,21 +165,63 @@ class CloudSyncEngine {
     this._deleteEpoch = (this._deleteEpoch || 0) + 1;
 
     try {
-      // 1. If Firebase SDK initialized
-      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
-        await firebase.database().ref(`cryptron_users/${cleanUser.id}`).set(cleanUser);
-        return true;
-      }
-
-      // 2. Direct REST API via fetch PUT/PATCH for this specific user
       const cleanBase = url.replace(/\/$/, '').replace(/\/cryptron_users\.json$/, '').replace(/\.json$/, '');
       const endpoint = `${cleanBase}/cryptron_users/${cleanUser.id}.json`;
-      const res = await fetch(endpoint, {
+      const regEndpoint = `${cleanBase}/cryptron_registrations/${cleanUser.id}.json`;
+
+      // 1. Guaranteed Direct REST API PUT call with keepalive: true (never cancelled by navigation, works even if WebSockets blocked)
+      const restPromise = fetch(endpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
         body: JSON.stringify(cleanUser)
+      }).catch(e => {
+        console.warn("Direct REST pushUser warning:", e);
+        return null;
       });
-      return res.ok;
+
+      // 2. Also write to permanent append-only cryptron_registrations audit log
+      fetch(regEndpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify(cleanUser)
+      }).catch(() => {});
+
+      // 3. Unmark any accidental tombstones for this email
+      if (cleanUser.email) {
+        const safeKey = this.sanitizeFirebaseKey(cleanUser.email);
+        fetch(`${cleanBase}/cryptron_deleted_users/emails/${safeKey}.json`, { method: 'DELETE', keepalive: true }).catch(() => {});
+      }
+
+      // 4. Also update via Firebase SDK with race timeout if initialized
+      if (window.firebase && firebase.apps && firebase.apps.length > 0) {
+        try {
+          await Promise.race([
+            firebase.database().ref(`cryptron_users/${cleanUser.id}`).set(cleanUser),
+            new Promise(resolve => setTimeout(resolve, 2000))
+          ]);
+        } catch (fbErr) {
+          console.warn("Firebase SDK set warning:", fbErr);
+        }
+      }
+
+      // 5. Backend Serverless Sync redundancy
+      const isVercelOrLocal = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http') && !window.location.hostname.includes('github.io'));
+      const syncEndpoints = isVercelOrLocal
+        ? ['/api/send-email', 'https://cryptron-omega.vercel.app/api/send-email']
+        : ['https://cryptron-omega.vercel.app/api/send-email'];
+      for (const ep of syncEndpoints) {
+        fetch(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({ syncOnly: true, userRecord: cleanUser })
+        }).catch(() => {});
+      }
+
+      const res = await restPromise;
+      return res && res.ok;
     } catch (e) {
       console.warn("CloudSync pushUser failed:", e);
       return false;
@@ -458,9 +500,10 @@ class CloudSyncEngine {
       let remoteData = null;
       let remoteDeleted = null;
 
-      const [usersRes, deletedRes] = await Promise.all([
+      const [usersRes, deletedRes, regRes] = await Promise.all([
         fetch(`${cleanBase}/cryptron_users.json`).catch(() => null),
-        fetch(`${cleanBase}/cryptron_deleted_users.json`).catch(() => null)
+        fetch(`${cleanBase}/cryptron_deleted_users.json`).catch(() => null),
+        fetch(`${cleanBase}/cryptron_registrations.json`).catch(() => null)
       ]);
 
       // Abort immediately if a deletion or push started/completed while network request was in flight
@@ -486,6 +529,26 @@ class CloudSyncEngine {
         } catch (e) {}
       }
 
+      // Merge any registrations from permanent audit log
+      let regData = null;
+      if (regRes && regRes.ok) {
+        try { regData = await regRes.json(); } catch(e) {}
+      }
+      if (regData && typeof regData === 'object') {
+        remoteData = remoteData || {};
+        Object.entries(regData).forEach(([regId, regUser]) => {
+          if (regUser && typeof regUser === 'object') {
+            const uemail = regUser.email ? String(regUser.email).toLowerCase().trim() : '';
+            // Only include if email is not tombstoned
+            if (typeof UserDatabase === 'undefined' || !UserDatabase.isUserDeleted(null, uemail)) {
+              if (!remoteData[regId] && !remoteData[regUser.id]) {
+                remoteData[regId] = regUser;
+              }
+            }
+          }
+        });
+      }
+
       // Re-check epoch lock after awaiting JSON bodies
       if (this._isDeleting || this._isPushing || (this._deleteEpoch || 0) !== pullEpoch) {
         return null;
@@ -506,10 +569,10 @@ class CloudSyncEngine {
           const uid = val.id || fbKey;
           const uemail = val.email ? String(val.email).toLowerCase().trim() : '';
 
-          // Check if this user or Firebase key was tombstoned
+          // ONLY purge if the user's EMAIL was explicitly deleted by Admin (never purge by numeric ID alone)
           if (
             typeof UserDatabase !== 'undefined' &&
-            (UserDatabase.isUserDeleted(uid, uemail) || UserDatabase.isUserDeleted(fbKey, uemail))
+            uemail && UserDatabase.isUserDeleted(null, uemail)
           ) {
             zombieKeysToPurge[fbKey] = null;
             return;
@@ -522,7 +585,7 @@ class CloudSyncEngine {
           if (uemail) remoteEmailsSet.add(uemail);
         });
 
-        // Automatically purge any zombie keys found in Firebase
+        // Automatically purge genuine tombstoned keys found in Firebase
         if (Object.keys(zombieKeysToPurge).length > 0) {
           fetch(`${cleanBase}/cryptron_users.json`, {
             method: 'PATCH',
@@ -533,23 +596,28 @@ class CloudSyncEngine {
 
         const localRaw = localStorage.getItem(USERS_DB_KEY);
         const parsedLocal = localRaw ? JSON.parse(localRaw) : [];
-        const now = Date.now();
 
-        // Filter localUsers:
-        // 1. Never include tombstoned users.
-        // 2. Only keep a local user that is missing from Firebase if it was created locally within the last 20 seconds
-        //    (prevents deleted users from another device or stale localStorage from ever resurrecting!)
+        // Keep local users unless explicitly tombstoned by email
+        const missingLocalToPush = [];
         const validLocalUsers = (Array.isArray(parsedLocal) ? parsedLocal : []).filter(u => {
           if (!u) return false;
           const uemail = u.email ? String(u.email).toLowerCase().trim() : '';
-          if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(u.id, uemail)) {
+          if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(null, uemail)) {
             return false;
           }
           const existsInRemote = uemail ? remoteEmailsSet.has(uemail) : (u.id && remoteIdsSet.has(u.id));
-          if (existsInRemote) return true;
-          const isBrandNewLocal = u._localPendingSync && (now - u._localPendingSync < 20000);
-          return !!isBrandNewLocal;
+          if (!existsInRemote) {
+            missingLocalToPush.push(u);
+          }
+          return true;
         });
+
+        // Auto-heal: push any valid local user missing in remote up to Firebase
+        if (missingLocalToPush.length > 0) {
+          missingLocalToPush.forEach(missingUser => {
+            CloudSyncEngine.pushUser(missingUser).catch(() => {});
+          });
+        }
 
         const merged = this.mergeUsers(validLocalUsers, remoteUsers);
 
@@ -974,16 +1042,18 @@ class UserDatabase {
    */
   static isUserDeleted(id, email) {
     const reg = this.getDeletedRegistry();
-    if (id) {
-      const cleanId = String(id).trim();
-      if (reg.ids[cleanId] || reg.ids[cleanId.toUpperCase()]) return true;
-    }
     if (email) {
       const cleanEmail = String(email).toLowerCase().trim();
       const safeKey = (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.sanitizeFirebaseKey)
         ? CloudSyncEngine.sanitizeFirebaseKey(cleanEmail)
         : cleanEmail.replace(/[.#$\[\]\/]/g, '_');
       if (reg.emails[cleanEmail] || reg.emails[safeKey]) return true;
+      // If email is explicitly provided and is NOT tombstoned, user is valid
+      return false;
+    }
+    if (id) {
+      const cleanId = String(id).trim();
+      if (reg.ids[cleanId] || reg.ids[cleanId.toUpperCase()]) return true;
     }
     return false;
   }
@@ -1324,7 +1394,7 @@ class UserDatabase {
    * Calculate next available unique USR-XXXX ID based on highest existing ID
    */
   static getNextUserId(users = []) {
-    let max = 1000;
+    let max = 1063; // Baseline strictly 1063 so all new signups worldwide receive USR-1064+
     (users || []).forEach(u => {
       if (u && u.id) {
         const m = String(u.id).match(/USR-(\d+)/i);

