@@ -717,9 +717,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=4.8.0"></script>
-  <script src="js/email.js?v=4.8.0"></script>
-  <script src="js/app.js?v=4.8.0"></script>
+  <script src="js/db.js?v=5.0.0"></script>
+  <script src="js/email.js?v=5.0.0"></script>
+  <script src="js/app.js?v=5.0.0"></script>
   <script>
     let countdownInterval = null;
 
@@ -2028,14 +2028,21 @@
       const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : null;
       let user = currentId && window.UserDatabase ? UserDatabase.getUserById(currentId) : null;
       
-      // If user ID exists in storage but not yet loaded into memory, try pulling from cloud before redirecting
+      // If user ID exists in storage but not yet loaded into memory, pull from cloud before redirecting
       if (currentId && !user && window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
         try {
           await Promise.race([
             CloudSyncEngine.pullUsers(),
-            new Promise(resolve => setTimeout(resolve, 1500))
+            new Promise(resolve => setTimeout(resolve, 3500))
           ]);
           user = UserDatabase.getUserById(currentId);
+        } catch (e) {}
+      }
+
+      // Secondary fallback: attempt direct lookup if still not in memory
+      if (currentId && !user && window.UserDatabase && UserDatabase.findUserByEmailOrCloud) {
+        try {
+          user = await UserDatabase.findUserByEmailOrCloud(currentId);
         } catch (e) {}
       }
 

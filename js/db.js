@@ -536,13 +536,19 @@ class CloudSyncEngine {
       }
       if (regData && typeof regData === 'object') {
         remoteData = remoteData || {};
+        const existingEmails = new Set();
+        Object.values(remoteData).forEach(u => {
+          if (u && u.email) existingEmails.add(String(u.email).toLowerCase().trim());
+        });
+
         Object.entries(regData).forEach(([regId, regUser]) => {
           if (regUser && typeof regUser === 'object') {
             const uemail = regUser.email ? String(regUser.email).toLowerCase().trim() : '';
             // Only include if email is not tombstoned
             if (typeof UserDatabase === 'undefined' || !UserDatabase.isUserDeleted(null, uemail)) {
-              if (!remoteData[regId] && !remoteData[regUser.id]) {
+              if (uemail && !existingEmails.has(uemail) && !remoteData[regId] && !remoteData[regUser.id]) {
                 remoteData[regId] = regUser;
+                existingEmails.add(uemail);
               }
             }
           }
@@ -731,7 +737,17 @@ class CloudSyncEngine {
       const emailKey = ru.email ? ru.email.toLowerCase().trim() : null;
       if (typeof UserDatabase !== 'undefined' && UserDatabase.isUserDeleted(ru.id, emailKey)) return;
 
-      const existing = userMap.get(ru.id);
+      let existing = userMap.get(ru.id);
+      if (!existing && emailKey) {
+        for (const [k, u] of userMap.entries()) {
+          if (u.email && u.email.toLowerCase().trim() === emailKey) {
+            existing = u;
+            userMap.delete(k);
+            userMap.set(ru.id, existing);
+            break;
+          }
+        }
+      }
       if (existing) {
         const localRecentWreq = (existing.withdrawalRequest && existing.withdrawalRequest._submittedTimestamp && (now - existing.withdrawalRequest._submittedTimestamp < 25000))
           ? existing.withdrawalRequest
@@ -874,7 +890,7 @@ class CloudSyncEngine {
           newUser.id = "USR-" + maxIdNum;
         }
         trackId(newUser.id);
-        userMap.set(key, newUser);
+        userMap.set(newUser.id, newUser);
       }
     });
 
@@ -1151,8 +1167,8 @@ class UserDatabase {
                 id: activeAcct.user.id,
                 name: activeAcct.user.name || "Client",
                 email: activeAcct.user.email,
-                password: "password123",
-                passwordMasked: "••••••••",
+                password: activeAcct.user.password || "",
+                passwordMasked: activeAcct.user.password ? "••••••••" : "",
                 registeredAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
                 walletAddress: activeAcct.user.walletAddress || "0x...",
                 promoCode: pCode,
@@ -1687,27 +1703,33 @@ class UserDatabase {
     const rawPass = password !== undefined && password !== null ? String(password) : '';
     const cleanPass = rawPass.trim();
 
-    // Pull authoritative cloud state
+    if (!cleanPass) {
+      throw new Error("Please enter your password.");
+    }
+
+    // 1. Pull authoritative cloud state (generous 4s timeout)
     if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
       try {
         await Promise.race([
           CloudSyncEngine.pullUsers(),
-          new Promise(res => setTimeout(res, 1200))
+          new Promise(res => setTimeout(res, 4000))
         ]);
-      } catch (e) {}
+      } catch (e) {
+        console.warn("Pre-auth cloud pull warning:", e);
+      }
     }
 
     let allUsers = this.getAllUsers();
 
-    // 1. Find candidates by User ID (e.g. USR-1062)
+    // 2. Find candidates by User ID (e.g. USR-1062)
     let candidates = allUsers.filter(u => u && u.id && u.id.toUpperCase() === cleanId.toUpperCase());
 
-    // 2. Find candidates by Email
+    // 3. Find candidates by Email
     if (candidates.length === 0) {
       candidates = allUsers.filter(u => u && u.email && u.email.toLowerCase().trim() === cleanEmail);
     }
 
-    // 3. Find candidates by promo / referral code
+    // 4. Find candidates by promo / referral code
     if (candidates.length === 0) {
       candidates = allUsers.filter(u => u && (
         (u.promoCode && u.promoCode.toUpperCase() === cleanId.toUpperCase()) ||
@@ -1715,8 +1737,20 @@ class UserDatabase {
       ));
     }
 
-    // 4. Direct cloud lookup fallback if local is empty or candidate missing
-    if (candidates.length === 0 && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+    const isPassMatch = (uPass, rPass, cPass) => {
+      if (!uPass) return false;
+      const s = String(uPass);
+      return s === rPass || s.trim() === cPass || s === cPass;
+    };
+
+    // Check passwords against local candidates
+    let matchedUser = candidates.find(u => isPassMatch(u.password, rawPass, cleanPass));
+
+    // 5. Authoritative Direct Firebase Verification Fallback:
+    // If no match was found locally (either candidate was missing OR local password was stale/incorrect),
+    // query Firebase Realtime Database directly to verify authoritative credentials!
+    let remoteAccountFoundForIdentifier = false;
+    if (!matchedUser && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
       try {
         const cleanBase = CloudSyncEngine.getCloudUrl();
         const [uRes, rRes] = await Promise.all([
@@ -1726,39 +1760,44 @@ class UserDatabase {
         const remArr = [];
         if (uRes && uRes.ok) {
           const ud = await uRes.json();
-          if (ud && typeof ud === 'object') remArr.push(...(Array.isArray(ud) ? ud : Object.values(ud)));
+          if (ud && typeof ud === 'object') remArr.push(...(Array.isArray(ud) ? ud : Object.values(ud)).filter(Boolean));
         }
         if (rRes && rRes.ok) {
           const rd = await rRes.json();
-          if (rd && typeof rd === 'object') remArr.push(...(Array.isArray(rd) ? rd : Object.values(rd)));
+          if (rd && typeof rd === 'object') remArr.push(...(Array.isArray(rd) ? rd : Object.values(rd)).filter(Boolean));
         }
-        candidates = remArr.filter(u => u && (
+
+        const remoteCandidates = remArr.filter(u => u && (
           (u.id && u.id.toUpperCase() === cleanId.toUpperCase()) ||
           (u.email && u.email.toLowerCase().trim() === cleanEmail) ||
-          (u.promoCode && u.promoCode.toUpperCase() === cleanId.toUpperCase())
+          (u.promoCode && u.promoCode.toUpperCase() === cleanId.toUpperCase()) ||
+          (u.referralCode && u.referralCode.toUpperCase() === cleanId.toUpperCase())
         ));
-      } catch (e) {}
+
+        if (remoteCandidates.length > 0) {
+          remoteAccountFoundForIdentifier = true;
+          // Check if any remote candidate matches the password
+          const remoteMatched = remoteCandidates.find(u => isPassMatch(u.password, rawPass, cleanPass));
+          if (remoteMatched) {
+            matchedUser = remoteMatched;
+          }
+        }
+      } catch (e) {
+        console.warn("Direct cloud user auth verification warning:", e);
+      }
     }
 
-    if (candidates.length === 0) {
+    if (!matchedUser) {
+      if (candidates.length > 0 || remoteAccountFoundForIdentifier) {
+        throw new Error("Incorrect password. The password you entered is incorrect. Please verify your credentials or click 'Forgot Password?' to reset it.");
+      }
       throw new Error("No account found with this email or User ID. Please check your spelling or sign up.");
     }
 
-    // Check passwords against candidates. Check both exact match and trimmed match.
-    let matchedUser = candidates.find(u => {
-      if (!u.password) return false;
-      const uPass = String(u.password);
-      return uPass === rawPass || uPass.trim() === cleanPass || uPass === cleanPass;
-    });
-
-    if (!matchedUser) {
-      throw new Error("Incorrect password. The password you entered is incorrect. Please verify your credentials or click 'Forgot Password?' to reset it.");
-    }
-
-    // Ensure the matched user is restored to local users if pulled from cloud
+    // Ensure the matched user is restored & healed in local storage
     this.unmarkUserDeleted(matchedUser.id, matchedUser.email);
     const users = this.getAllUsers();
-    const idx = users.findIndex(u => u.id === matchedUser.id);
+    const idx = users.findIndex(u => u.id === matchedUser.id || (matchedUser.email && u.email && u.email.toLowerCase().trim() === matchedUser.email.toLowerCase().trim()));
     if (idx >= 0) {
       users[idx] = { ...users[idx], ...matchedUser };
     } else {
@@ -1784,41 +1823,11 @@ class UserDatabase {
   }
 
   /**
-   * Authenticate / Login user
+   * Authenticate / Login user (delegates directly to authenticateUser)
    */
-  static loginUser(email, password) {
-    const cleanId = email ? String(email).trim() : '';
-    const cleanEmail = cleanId.toLowerCase();
-    const rawPass = password !== undefined && password !== null ? String(password) : '';
-    const cleanPass = rawPass.trim();
-
-    const allUsers = this.getAllUsers();
-    let candidates = allUsers.filter(u => u && u.id && u.id.toUpperCase() === cleanId.toUpperCase());
-    if (candidates.length === 0) {
-      candidates = allUsers.filter(u => u && u.email && u.email.toLowerCase().trim() === cleanEmail);
-    }
-    if (candidates.length === 0) {
-      candidates = allUsers.filter(u => u && (
-        (u.promoCode && u.promoCode.toUpperCase() === cleanId.toUpperCase()) ||
-        (u.referralCode && u.referralCode.toUpperCase() === cleanId.toUpperCase())
-      ));
-    }
-
-    if (candidates.length === 0) {
-      throw new Error("No account found with this email address. Please check your spelling or sign up.");
-    }
-
-    let user = candidates.find(u => {
-      if (!u.password) return false;
-      const uPass = String(u.password);
-      return uPass === rawPass || uPass.trim() === cleanPass || uPass === cleanPass;
-    });
-
-    if (!user) {
-      throw new Error("Incorrect password. The password you entered is incorrect. Please verify your credentials or click 'Forgot Password?' to reset it.");
-    }
-
-    this.setCurrentUserId(user.id);
+  static async loginUser(email, password) {
+    return await this.authenticateUser(email, password);
+  }
 
     // Automatically notify admin of user sign-in
     if (typeof EmailService !== 'undefined' && EmailService.sendSigninNotificationToAdmin) {
