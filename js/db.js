@@ -827,7 +827,7 @@ class CloudSyncEngine {
           existing.spinWinnings = 0.00;
           existing.referralCount = ru.referralCount !== undefined ? ru.referralCount : 0;
           existing.referralBypassed = !!ru.referralBypassed;
-          existing.lastSpinTimestamp = ru.lastSpinTimestamp || 0;
+          existing.lastSpinTimestamp = Math.max(Number(existing.lastSpinTimestamp) || 0, Number(ru.lastSpinTimestamp) || 0);
         } else if (ru.investmentStatus === 'active') {
           existing.investmentStatus = 'active';
           existing.hasActiveInvestment = true;
@@ -849,7 +849,7 @@ class CloudSyncEngine {
           if (ru.pendingWithdrawal !== undefined) existing.pendingWithdrawal = Number(ru.pendingWithdrawal) || 0.00;
           if (ru.referralCount !== undefined) existing.referralCount = ru.referralCount;
           if (ru.referralBypassed !== undefined) existing.referralBypassed = !!ru.referralBypassed;
-          if (ru.lastSpinTimestamp !== undefined) existing.lastSpinTimestamp = ru.lastSpinTimestamp;
+          existing.lastSpinTimestamp = Math.max(Number(existing.lastSpinTimestamp) || 0, Number(ru.lastSpinTimestamp) || 0);
         } else if (ru.investmentStatus === 'pending_approval') {
           existing.investmentStatus = 'pending_approval';
           existing.hasActiveInvestment = false;
@@ -1764,6 +1764,23 @@ class UserDatabase {
         } catch(e) {}
       }
     }
+
+    // Always sync active account session in localStorage for this spinning user
+    try {
+      const stored = localStorage.getItem("cryptron_account_v3_countdown");
+      if (stored) {
+        const acc = JSON.parse(stored);
+        if (acc.user && acc.user.id === user.id) {
+          acc.user.lastSpinTimestamp = user.lastSpinTimestamp;
+          acc.user.spinWinnings = user.spinWinnings;
+          if (wonAmount > 0 && acc.wallet) {
+            acc.wallet.availableBalance = Number(((Number(acc.wallet.availableBalance) || 0) + wonAmount).toFixed(2));
+            acc.wallet.totalProfits = Number(((Number(acc.wallet.totalProfits) || 0) + wonAmount).toFixed(2));
+          }
+          localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
+        }
+      }
+    } catch(e) {}
 
     this.saveUsers(users, { skipCloudPush: true });
     if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {

@@ -717,9 +717,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=5.3.0"></script>
-  <script src="js/email.js?v=5.3.0"></script>
-  <script src="js/app.js?v=5.3.0"></script>
+  <script src="js/db.js?v=5.4.0"></script>
+  <script src="js/email.js?v=5.4.0"></script>
+  <script src="js/app.js?v=5.4.0"></script>
   <script>
     let countdownInterval = null;
 
@@ -1474,20 +1474,20 @@
           navSpinBtn.setAttribute('href', '#');
           navSpinBtn.onclick = () => handleWithdrawButtonClick();
         }
-      } else if (spinStatus.reason === 'cooldown') {
-        // RULE: 24 hours between spins
+      } else if (spinStatus.reason === 'cooldown' || !spinStatus.canSpin) {
+        // RULE: Free spin resets every 12:00 AM midnight
         if (dashboardSpinBtn) {
           dashboardSpinBtn.className = "px-4 py-2.5 rounded-xl bg-slate-800/90 text-amber-300/80 border border-amber-500/20 font-bold text-xs font-mono uppercase tracking-wider self-start sm:self-auto flex-shrink-0 cursor-pointer";
-          dashboardSpinBtn.textContent = `Next Spin in ${spinStatus.hours}h ${spinStatus.minutes}m`;
+          dashboardSpinBtn.textContent = `Next Spin: ${spinStatus.hours}h ${spinStatus.minutes}m`;
           dashboardSpinBtn.setAttribute('href', 'spin.html');
-          dashboardSpinBtn.onclick = () => showToast(`⏳ Next free spin unlocks in ${spinStatus.formattedTime} (24 hours between spins).`, 'info');
+          dashboardSpinBtn.onclick = () => showToast(`⏳ The wheel is locked! Next free spin unlocks at 12:00 AM midnight (${spinStatus.formattedTime} remaining).`, 'info');
         }
         if (spinBadgeTag) {
-          spinBadgeTag.textContent = "24H COOLDOWN";
+          spinBadgeTag.textContent = "MIDNIGHT RESET";
           spinBadgeTag.className = "px-2 py-0.5 rounded bg-slate-800 text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30";
         }
         if (spinBadgeSubtitle) {
-          spinBadgeSubtitle.textContent = `Next free spin in ${spinStatus.formattedTime} (24-hour cooldown between spins).`;
+          spinBadgeSubtitle.textContent = `Next free spin unlocks at 12:00 AM midnight in ${spinStatus.formattedTime}.`;
         }
         if (navSpinBtn) {
           navSpinBtn.className = "hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800/80 text-amber-400/70 border border-amber-500/20 transition-all font-mono";
@@ -1507,7 +1507,7 @@
           spinBadgeTag.className = "px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold";
         }
         if (spinBadgeSubtitle) {
-          spinBadgeSubtitle.textContent = "Active $10 stakers get 1 free spin every 24 hours.";
+          spinBadgeSubtitle.textContent = "Active $10 stakers get 1 free spin daily. Resets at 12:00 AM midnight.";
         }
         if (navSpinBtn) {
           navSpinBtn.className = "btn-shimmer hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 shadow-md shadow-amber-500/25 transition-all font-mono";
@@ -2012,12 +2012,12 @@
       const spinBadgeSubtitle = document.getElementById('spin-badge-subtitle');
       const navSpinBtn = document.getElementById('nav-spin-btn');
 
-      if (spinStatus.reason === 'cooldown') {
+      if (spinStatus.reason === 'cooldown' || !spinStatus.canSpin) {
         if (dashboardSpinBtn) {
-          dashboardSpinBtn.textContent = `Next Spin in ${spinStatus.hours}h ${spinStatus.minutes}m`;
+          dashboardSpinBtn.textContent = `Next Spin: ${spinStatus.hours}h ${spinStatus.minutes}m`;
         }
         if (spinBadgeSubtitle) {
-          spinBadgeSubtitle.textContent = `Next free spin in ${spinStatus.formattedTime} (24-hour cooldown between spins).`;
+          spinBadgeSubtitle.textContent = `Next free spin unlocks at 12:00 AM midnight in ${spinStatus.formattedTime}.`;
         }
         if (navSpinBtn) {
           navSpinBtn.innerHTML = `<i data-lucide="clock" class="w-4 h-4"></i><span>Next Spin: ${spinStatus.hours}h ${spinStatus.minutes}m</span>`;

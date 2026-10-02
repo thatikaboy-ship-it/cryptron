@@ -77,10 +77,14 @@ function getAccountData() {
       base.user.hasCustomPortfolio = !!dbUser.hasCustomPortfolio;
       base.user.customPortfolioValue = dbUser.customPortfolioValue !== undefined ? dbUser.customPortfolioValue : null;
       
-      // Isolate lastSpinTimestamp cleanly to dbUser only (default to 0 so fresh staker can spin on day countdown starts)
-      base.user.lastSpinTimestamp = (dbUser.lastSpinTimestamp !== undefined && dbUser.lastSpinTimestamp !== null) 
-        ? dbUser.lastSpinTimestamp 
-        : 0;
+      // Isolate lastSpinTimestamp cleanly: take the latest non-zero timestamp between dbUser and base.user
+      const dbSpin = (dbUser.lastSpinTimestamp !== undefined && dbUser.lastSpinTimestamp !== null) ? Number(dbUser.lastSpinTimestamp) : 0;
+      const baseSpin = (base.user && base.user.lastSpinTimestamp) ? Number(base.user.lastSpinTimestamp) : 0;
+      const latestSpin = Math.max(dbSpin, baseSpin);
+      base.user.lastSpinTimestamp = latestSpin;
+      if (latestSpin > 0 && dbUser.lastSpinTimestamp !== latestSpin) {
+        dbUser.lastSpinTimestamp = latestSpin;
+      }
 
       base.user.withdrawalRequest = dbUser.withdrawalRequest || null;
       base.user.withdrawalHistory = dbUser.withdrawalHistory || [];
@@ -127,15 +131,6 @@ function getAccountData() {
         }
       }
 
-      // If user has an active contract and lastSpinTimestamp was prior to or at contract start:
-      // Client is guaranteed to be allowed to spin on the day their countdown starts!
-      if (base.activePlans && base.activePlans.length > 0) {
-        const primaryContract = base.activePlans[0];
-        if (base.user.lastSpinTimestamp && primaryContract.createdAt && base.user.lastSpinTimestamp <= primaryContract.createdAt) {
-          base.user.lastSpinTimestamp = 0;
-          dbUser.lastSpinTimestamp = 0;
-        }
-      }
 
       // Compute accumulated spin winnings during this 7-day contract
       const txSpinSum = Array.isArray(base.transactions)
@@ -672,16 +667,14 @@ function getSpinStatus(account) {
   }
 
   // State 3: Active 7-day countdown running - check calendar day / 12:00 AM midnight reset
-  const primaryPlan = (account.activePlans && account.activePlans.length > 0) ? account.activePlans[0] : null;
-  const contractCreatedAt = primaryPlan ? primaryPlan.createdAt : 0;
-  const lastSpin = account.user ? (account.user.lastSpinTimestamp || 0) : 0;
+  const lastSpin = account.user ? (Number(account.user.lastSpinTimestamp) || 0) : 0;
 
   const now = new Date();
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
   const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).getTime();
 
-  // First spin: if user has never spun, or last spin was before today's 12:00 AM midnight, or before/at contract start
-  if (!lastSpin || lastSpin <= 0 || (contractCreatedAt && lastSpin <= contractCreatedAt) || (lastSpin < todayMidnight)) {
+  // If user has NOT spun today (never spun, or last spin was before today's 12:00 AM midnight)
+  if (!lastSpin || lastSpin <= 0 || lastSpin < todayMidnight) {
     return {
       canSpin: true,
       reason: 'ready',
@@ -721,12 +714,11 @@ function getSpinStatus(account) {
 /**
  * Daily Midnight Reset Check: has the user spun since today's 12:00 AM midnight?
  */
-function hasUserSpunToday(timestamp, contractCreatedAt) {
-  if (!timestamp || timestamp <= 0) return false;
-  if (contractCreatedAt && timestamp <= contractCreatedAt) return false;
+function hasUserSpunToday(timestamp) {
+  if (!timestamp || Number(timestamp) <= 0) return false;
   const now = new Date();
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
-  return timestamp >= todayMidnight;
+  return Number(timestamp) >= todayMidnight;
 }
 
 /**
@@ -771,10 +763,11 @@ function isClientFundedAndActive(account) {
 }
 
 let isSpinning = false;
+window.isSpinning = false;
 let currentWheelRotation = 0;
 
 function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
-  if (isSpinning) return;
+  if (isSpinning || window.isSpinning) return;
 
   const account = getAccountData();
   const status = getSpinStatus(account);
@@ -792,16 +785,39 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
     return;
   }
 
-  // Check 3: 24-Hour cooldown between spins
-  if (status.reason === 'cooldown') {
-    showToast(`⏳ Please wait! Next free spin unlocks in ${status.formattedTime} (24 hours between spins).`, "warning");
+  // Check 3: Daily Midnight lock
+  if (status.reason === 'cooldown' || !status.canSpin) {
+    showToast(`⏳ Wheel is locked! Next free spin unlocks at 12:00 AM midnight in ${status.formattedTime}.`, "warning");
     return;
   }
 
-  const canvas = document.getElementById(wheelCanvasId);
-  if (!canvas) return;
-
   isSpinning = true;
+  window.isSpinning = true;
+
+  // Immediately lock wheel with current timestamp so reload / navigation during spin locks the wheel
+  const spinTimestamp = Date.now();
+  account.user.lastSpinTimestamp = spinTimestamp;
+  saveAccountData(account);
+
+  if (window.UserDatabase && account.user && account.user.id) {
+    try {
+      const allUsers = UserDatabase.getAllUsers();
+      const u = allUsers.find(x => x.id === account.user.id);
+      if (u) {
+        u.lastSpinTimestamp = spinTimestamp;
+        UserDatabase.saveUsers(allUsers, { skipCloudPush: true });
+      }
+    } catch(e) {}
+  }
+
+  const canvas = document.getElementById(wheelCanvasId);
+  if (!canvas) {
+    isSpinning = false;
+    window.isSpinning = false;
+    return;
+  }
+
+  canvas.style.cursor = 'not-allowed';
 
   // Pick a random prize from ALLOWED segments (Index 0 [$10,000] is NEVER picked)
   const winningPrizeIndex = ALLOWED_WIN_INDICES[Math.floor(Math.random() * ALLOWED_WIN_INDICES.length)];
@@ -827,15 +843,16 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
   const spinBtn = document.getElementById('spin-btn');
   if (spinBtn) {
     spinBtn.disabled = true;
-    spinBtn.classList.add('opacity-80');
+    spinBtn.className = "w-full py-4 rounded-2xl bg-slate-800/90 text-amber-300 border border-amber-500/30 font-bold text-sm uppercase tracking-wider font-mono shadow-lg transition-all opacity-85 cursor-not-allowed flex items-center justify-center gap-2";
     spinBtn.innerHTML = `<span>🌀 SPINNING THE WHEEL...</span>`;
   }
 
   // After animation finishes (5s), resolve prize
   setTimeout(() => {
     isSpinning = false;
+    window.isSpinning = false;
     
-    // Record spin timestamp to begin the 24-hour cooldown for the next spin
+    // Ensure final timestamp reflects the spin
     account.user.lastSpinTimestamp = Date.now();
 
     if (prize.payout > 0) {
@@ -853,28 +870,36 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
       });
     }
 
-    // Record user spin in UserDatabase (also persists spinWinnings & credits inviter on first spin)
+    // Record user spin in UserDatabase (also persists spinWinnings, sets lastSpinTimestamp & credits inviter on first spin)
     if (window.UserDatabase && account.user && account.user.id) {
       try {
         UserDatabase.recordUserSpin(account.user.id, prize.payout || 0);
       } catch(e) {}
     }
 
+    saveAccountData(account);
+
+    const freshStatus = getSpinStatus(account);
+
     if (prize.payout > 0) {
-      saveAccountData(account);
-      showToast(`🎉 You won ${formatUSD(prize.payout)} from the Lucky Wheel! Added to wallet. Next free spin unlocks in 24 hours.`, "success");
+      showToast(`🎉 You won ${formatUSD(prize.payout)} from the Lucky Wheel! Added to wallet. Next free spin unlocks at 12:00 AM midnight.`, "success");
     } else {
-      saveAccountData(account);
-      showToast(`🎯 The wheel landed on: "${prize.text}"! Next free spin unlocks in 24 hours.`, "info");
+      showToast(`🎯 The wheel landed on: "${prize.text}"! Next free spin unlocks at 12:00 AM midnight.`, "info");
     }
 
+    // LOCK the spin button strictly until 12:00 AM midnight next day
     if (spinBtn) {
-      spinBtn.disabled = false;
-      spinBtn.classList.remove('opacity-80');
-      spinBtn.innerHTML = `<span>🎰 SPIN FOR $10,000</span>`;
+      spinBtn.disabled = true;
+      spinBtn.className = "w-full py-4 rounded-2xl bg-slate-800/90 text-amber-300 border border-amber-500/30 font-bold text-sm uppercase tracking-wider font-mono shadow-lg transition-all opacity-85 cursor-not-allowed flex items-center justify-center gap-2";
+      spinBtn.innerHTML = `<i data-lucide="clock" class="w-4 h-4 text-amber-400"></i><span>⏳ NEXT SPIN AT 12:00 AM (${freshStatus.formattedTime})</span>`;
+    }
+
+    if (canvas) {
+      canvas.style.cursor = 'not-allowed';
     }
 
     if (typeof updateDashboardUI === 'function') updateDashboardUI();
+    if (typeof checkSpinEligibility === 'function') checkSpinEligibility();
     if (typeof resultCallback === 'function') resultCallback(prize);
   }, 5000);
 }
