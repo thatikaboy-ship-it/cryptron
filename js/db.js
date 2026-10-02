@@ -1829,20 +1829,6 @@ class UserDatabase {
     return await this.authenticateUser(email, password);
   }
 
-    // Automatically notify admin of user sign-in
-    if (typeof EmailService !== 'undefined' && EmailService.sendSigninNotificationToAdmin) {
-      try {
-        EmailService.sendSigninNotificationToAdmin(user).catch(console.warn);
-      } catch (e) {}
-    } else if (typeof window !== 'undefined' && window.EmailService && window.EmailService.sendSigninNotificationToAdmin) {
-      try {
-        window.EmailService.sendSigninNotificationToAdmin(user).catch(console.warn);
-      } catch (e) {}
-    }
-
-    return user;
-  }
-
   /**
    * Request a 6-digit verification code to reset password
    * @param {string} email - Registered email
