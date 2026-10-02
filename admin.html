@@ -1207,6 +1207,181 @@
     </div>
   </div>
 
+  <!-- MODAL: Edit / Select Client Referral Count (0, 1, 2, 3, 4, 5) -->
+  <div id="admin-edit-referrals-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel max-w-md w-full rounded-3xl p-6 sm:p-7 border border-purple-500/40 relative space-y-4 glow-purple max-h-[92vh] overflow-y-auto">
+      <button type="button" onclick="closeModal('admin-edit-referrals-modal')" class="absolute top-5 right-5 text-slate-400 hover:text-white cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 pr-8">
+        <div class="w-11 h-11 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center font-black text-lg">
+          👥
+        </div>
+        <div>
+          <h3 class="text-lg font-black text-white">Select Client Referrals</h3>
+          <p id="ref-modal-user-subtitle" class="text-xs text-purple-300 font-mono">Set 1, 2, 3, 4, or full 5 referrals</p>
+        </div>
+      </div>
+
+      <!-- Current Status -->
+      <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-white/10 flex items-center justify-between">
+        <div>
+          <div class="text-[10px] uppercase font-bold text-slate-400 font-mono">Current Client Referrals</div>
+          <div id="ref-modal-current-display" class="text-xl font-black text-amber-300 font-mono">0 / 5 Referrals</div>
+        </div>
+        <div id="ref-modal-status-badge">
+          <span class="px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">Locked</span>
+        </div>
+      </div>
+
+      <!-- Quick Set Buttons (0, 1, 2, 3, 4, 5) -->
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 font-mono">Choose Referrals (1-Click Set)</label>
+        <div class="grid grid-cols-6 gap-2">
+          <button type="button" onclick="setReferralCountDirect(0)" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 font-mono font-bold text-sm text-center cursor-pointer transition-all hover:scale-105 active:scale-95">0</button>
+          <button type="button" onclick="setReferralCountDirect(1)" class="py-2.5 rounded-xl bg-slate-800 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono font-bold text-sm text-center cursor-pointer transition-all hover:scale-105 active:scale-95">1</button>
+          <button type="button" onclick="setReferralCountDirect(2)" class="py-2.5 rounded-xl bg-slate-800 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono font-bold text-sm text-center cursor-pointer transition-all hover:scale-105 active:scale-95">2</button>
+          <button type="button" onclick="setReferralCountDirect(3)" class="py-2.5 rounded-xl bg-slate-800 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono font-bold text-sm text-center cursor-pointer transition-all hover:scale-105 active:scale-95">3</button>
+          <button type="button" onclick="setReferralCountDirect(4)" class="py-2.5 rounded-xl bg-slate-800 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono font-bold text-sm text-center cursor-pointer transition-all hover:scale-105 active:scale-95">4</button>
+          <button type="button" onclick="setReferralCountDirect(5)" class="py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono font-black text-sm text-center cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-sm shadow-emerald-500/20">5 ⭐</button>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-2 font-sans">Choosing <strong>5</strong> immediately unlocks withdrawals so the client can withdraw their USDT funds without referral restrictions.</p>
+      </div>
+
+      <!-- Quick Increments -->
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 font-mono">Quick Increment (+ Add to Count)</label>
+        <div class="grid grid-cols-4 gap-2">
+          <button type="button" onclick="addReferralIncrement(1)" class="py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-mono font-bold cursor-pointer transition-all">+1 Ref</button>
+          <button type="button" onclick="addReferralIncrement(2)" class="py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-mono font-bold cursor-pointer transition-all">+2 Refs</button>
+          <button type="button" onclick="addReferralIncrement(3)" class="py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-mono font-bold cursor-pointer transition-all">+3 Refs</button>
+          <button type="button" onclick="addReferralIncrement(5)" class="py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-bold cursor-pointer transition-all">+5 Full</button>
+        </div>
+      </div>
+
+      <!-- Custom Number Input -->
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 font-mono">Custom Number of Referrals</label>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="stepReferralInput(-1)" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-lg flex items-center justify-center border border-white/10 cursor-pointer">-</button>
+          <input type="number" id="edit-referrals-custom-input" min="0" max="100" class="flex-1 bg-black/60 border border-white/15 focus:border-purple-400 rounded-xl px-4 py-2.5 text-center text-white font-mono font-bold text-lg focus:outline-none" placeholder="0">
+          <button type="button" onclick="stepReferralInput(1)" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-lg flex items-center justify-center border border-white/10 cursor-pointer">+</button>
+          <button type="button" onclick="saveCustomReferrals()" class="btn-shimmer px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-400 to-indigo-400 hover:from-purple-300 hover:to-indigo-300 text-slate-950 font-bold text-xs font-mono uppercase tracking-wider cursor-pointer">Save</button>
+        </div>
+      </div>
+
+      <!-- Toggle Direct Bypass Button -->
+      <div class="pt-2 border-t border-white/10 flex items-center justify-between">
+        <span class="text-xs text-slate-400 font-mono">Withdrawal Bypass Flag:</span>
+        <button type="button" id="ref-modal-bypass-toggle-btn" onclick="toggleReferralBypassFromModal()" class="px-3 py-1.5 rounded-lg text-xs font-mono font-bold border cursor-pointer transition-all">
+          Toggle Bypass
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Tamper / Edit Remaining Investment Maturity Time Left -->
+  <div id="admin-edit-timer-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel max-w-lg w-full rounded-3xl p-6 sm:p-7 border border-emerald-500/40 relative space-y-4 glow-emerald max-h-[92vh] overflow-y-auto">
+      <button type="button" onclick="closeModal('admin-edit-timer-modal')" class="absolute top-5 right-5 text-slate-400 hover:text-white cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 pr-8">
+        <div class="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-lg">
+          ⏱️
+        </div>
+        <div>
+          <h3 class="text-lg font-black text-white">Edit Investment Time Left</h3>
+          <p id="timer-modal-user-subtitle" class="text-xs text-cyan-300 font-mono">Tamper remaining contract countdown</p>
+        </div>
+      </div>
+
+      <!-- Current Live Countdown Display -->
+      <div class="p-4 rounded-2xl bg-slate-900/90 border border-emerald-500/30 space-y-1">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] uppercase font-bold text-slate-400 font-mono">Current Live Time Left</span>
+          <span id="timer-modal-status-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300">Active</span>
+        </div>
+        <div id="timer-modal-current-countdown" class="text-2xl font-black text-emerald-300 font-mono tracking-wider">00d 00h 00m 00s</div>
+      </div>
+
+      <!-- Quick Presets (One-Click Tamper) -->
+      <div>
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 font-mono">⚡ Quick Presets (1-Click Tamper)</label>
+        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+          <button type="button" onclick="applyPresetTimeLeft(0)" class="p-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-sm">
+            <div>0s (Mature)</div>
+            <div class="text-[9px] text-amber-400/80">Unlock $25</div>
+          </button>
+          <button type="button" onclick="applyPresetTimeLeft(5 * 60 * 1000)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-white/10 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95">
+            <div>5 Mins</div>
+            <div class="text-[9px] text-slate-400">Demo test</div>
+          </button>
+          <button type="button" onclick="applyPresetTimeLeft(60 * 60 * 1000)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-white/10 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95">
+            <div>1 Hour</div>
+            <div class="text-[9px] text-slate-400">60m left</div>
+          </button>
+          <button type="button" onclick="applyPresetTimeLeft(6 * 3600 * 1000)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-white/10 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95">
+            <div>6 Hours</div>
+            <div class="text-[9px] text-slate-400">1/4 day</div>
+          </button>
+          <button type="button" onclick="applyPresetTimeLeft(12 * 3600 * 1000)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-white/10 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95">
+            <div>12 Hours</div>
+            <div class="text-[9px] text-slate-400">Half day</div>
+          </button>
+          <button type="button" onclick="applyPresetTimeLeft(1 * 86400 * 1000)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-white/10 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95">
+            <div>1 Day</div>
+            <div class="text-[9px] text-slate-400">24h left</div>
+          </button>
+          <button type="button" onclick="applyPresetTimeLeft(2 * 86400 * 1000)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-white/10 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95">
+            <div>2 Days</div>
+            <div class="text-[9px] text-slate-400">48h left</div>
+          </button>
+          <button type="button" onclick="applyPresetTimeLeft(3 * 86400 * 1000)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-white/10 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95">
+            <div>3 Days</div>
+            <div class="text-[9px] text-slate-400">72h left</div>
+          </button>
+          <button type="button" onclick="applyPresetTimeLeft(5 * 86400 * 1000)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-white/10 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95">
+            <div>5 Days</div>
+            <div class="text-[9px] text-slate-400">120h left</div>
+          </button>
+          <button type="button" onclick="applyPresetTimeLeft(7 * 86400 * 1000)" class="p-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold text-center cursor-pointer transition-all hover:scale-105 active:scale-95">
+            <div>7 Days</div>
+            <div class="text-[9px] text-emerald-400">Full timer</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Custom Exact Days, Hours, Minutes Form -->
+      <div class="pt-2 border-t border-white/10">
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 font-mono">Custom Time Left (Days, Hours, Minutes)</label>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="text-[10px] text-slate-400 font-mono uppercase block mb-1">Days (0 - 30)</label>
+            <input type="number" id="edit-timer-custom-days" min="0" max="30" value="0" class="w-full bg-black/60 border border-white/15 focus:border-emerald-400 rounded-xl px-3 py-2 text-center text-white font-mono font-bold focus:outline-none">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 font-mono uppercase block mb-1">Hours (0 - 23)</label>
+            <input type="number" id="edit-timer-custom-hours" min="0" max="23" value="0" class="w-full bg-black/60 border border-white/15 focus:border-emerald-400 rounded-xl px-3 py-2 text-center text-white font-mono font-bold focus:outline-none">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 font-mono uppercase block mb-1">Minutes (0 - 59)</label>
+            <input type="number" id="edit-timer-custom-minutes" min="0" max="59" value="0" class="w-full bg-black/60 border border-white/15 focus:border-emerald-400 rounded-xl px-3 py-2 text-center text-white font-mono font-bold focus:outline-none">
+          </div>
+        </div>
+        <div class="mt-4 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeModal('admin-edit-timer-modal')" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-mono text-xs font-bold hover:bg-slate-700 transition-colors">Cancel</button>
+          <button type="button" onclick="applyCustomTimeLeft()" class="btn-shimmer px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-black text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Apply Time Left</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: Edit / Gift User Account Balance & Total Portfolio -->
   <div id="admin-edit-portfolio-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="glass-panel max-w-2xl w-full rounded-3xl p-6 sm:p-7 border border-emerald-500/40 relative space-y-4 glow-emerald max-h-[92vh] overflow-y-auto">
@@ -1416,9 +1591,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=5.1.0"></script>
-  <script src="js/email.js?v=5.1.0"></script>
-  <script src="js/app.js?v=5.1.0"></script>
+  <script src="js/db.js?v=5.2.0"></script>
+  <script src="js/email.js?v=5.2.0"></script>
+  <script src="js/app.js?v=5.2.0"></script>
   <script>
     // Cryptographically Hashed Admin Authorization Key (SHA-256 + Salt)
     // The plaintext passcode is NEVER stored in source code or memory.
@@ -1951,9 +2126,12 @@
                     <span class="text-xs font-bold text-emerald-400 uppercase tracking-wide">Active (7-Day Timer)</span>
                     <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono">$10 ➔ $25${spinEarned > 0 ? ` + $${spinEarned.toFixed(2)} Spin` : ''}</span>
                   </div>
-                  <div class="text-[11px] font-mono text-white bg-slate-900/90 px-2 py-1 rounded border border-emerald-500/30 flex items-center gap-2">
-                    <span class="text-slate-400">Time Left:</span>
-                    <span id="admin-cd-${user.id}" class="text-emerald-300 font-bold tracking-wider">${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s</span>
+                  <div class="text-[11px] font-mono text-white bg-slate-900/90 px-2 py-1 rounded border border-emerald-500/30 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-slate-400">Time Left:</span>
+                      <span id="admin-cd-${user.id}" class="text-emerald-300 font-bold tracking-wider">${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s</span>
+                    </div>
+                    <button type="button" onclick="openEditTimerModal('${user.id}')" title="Click to tamper or edit time left" class="px-1.5 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold cursor-pointer transition-all">Edit Timer</button>
                   </div>
                 </div>
               `;
@@ -2045,6 +2223,14 @@
 
           const isBypassed = !!user.referralBypassed;
           actionsHtml += `
+              <button type="button" onclick="openEditTimerModal('${user.id}')" title="Tamper or adjust remaining time left on contract" class="px-2.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-mono font-bold text-xs flex items-center gap-1 transition-all cursor-pointer">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i>
+                <span>Timer</span>
+              </button>
+              <button type="button" onclick="openEditReferralsModal('${user.id}')" title="Choose 1, 2, 3, 4, or 5 referrals for this client" class="px-2.5 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-mono font-bold text-xs flex items-center gap-1 transition-all cursor-pointer">
+                <i data-lucide="users" class="w-3.5 h-3.5 text-purple-400"></i>
+                <span>Refs (${user.referralCount || 0}/5)</span>
+              </button>
               <button type="button" onclick="openAdminEditPortfolioModal('${user.id}')" title="Gift or customize account balance & Total Portfolio for this user" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-200 border border-emerald-400/50 font-mono font-bold text-xs flex items-center gap-1 shadow-sm shadow-emerald-500/10 transition-all cursor-pointer">
                 <i data-lucide="gift" class="w-3.5 h-3.5 text-amber-300"></i>
                 <span>Edit Balance</span>
@@ -2099,7 +2285,7 @@
                       <span>${displayName}</span>
                       <i data-lucide="external-link" class="w-3 h-3 text-cyan-400"></i>
                     </button>
-                    <div class="text-[11px] text-emerald-400 font-mono">${safeId} · <span class="text-slate-300 font-bold" title="Promo Code">🎟️ ${safePromo}</span> · <span class="${(user.referralCount || 0) >= 5 ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${user.referralCount || 0}/5 Refs</span>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Unlocked</span>' : ''}${safeRefBy ? ` · <span class="text-cyan-300 font-bold" title="Used Promo Code">🎟️ ${safeRefBy}</span>` : ''}</div>
+                    <div class="text-[11px] text-emerald-400 font-mono">${safeId} · <span class="text-slate-300 font-bold" title="Promo Code">🎟️ ${safePromo}</span> · <button type="button" onclick="openEditReferralsModal('${user.id}')" class="px-1.5 py-0.5 rounded cursor-pointer ${(user.referralCount || 0) >= 5 ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold hover:scale-105'}" title="Click to choose 1, 2, 3, 4, or 5 referrals">${user.referralCount || 0}/5 Refs ✏️</button>${user.referralBypassed ? ' · <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">🔓 Refs Unlocked</span>' : ''}${safeRefBy ? ` · <span class="text-cyan-300 font-bold" title="Used Promo Code">🎟️ ${safeRefBy}</span>` : ''}</div>
                   </div>
                 </div>
               </td>
@@ -2203,9 +2389,12 @@
                     </span>
                     <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">$10 ➔ $25${spinEarned > 0 ? ` + $${spinEarned.toFixed(2)}` : ''}</span>
                   </div>
-                  <div class="text-xs font-mono text-white bg-black/60 px-3 py-1.5 rounded-lg border border-emerald-500/30 flex items-center justify-between">
-                    <span class="text-slate-400 text-[11px]">Time Left:</span>
-                    <span id="admin-cd-mobile-${user.id}" class="text-emerald-300 font-bold tracking-wider">${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s</span>
+                  <div class="text-xs font-mono text-white bg-black/60 px-3 py-1.5 rounded-lg border border-emerald-500/30 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-slate-400 text-[11px]">Time Left:</span>
+                      <span id="admin-cd-mobile-${user.id}" class="text-emerald-300 font-bold tracking-wider">${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s</span>
+                    </div>
+                    <button type="button" onclick="openEditTimerModal('${user.id}')" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold cursor-pointer">Edit</button>
                   </div>
                 </div>
               `;
@@ -2324,7 +2513,7 @@
               <!-- Badges Bar -->
               <div class="flex items-center gap-1.5 flex-wrap text-[11px] font-mono text-slate-400 pt-0.5">
                 <span class="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-slate-300 font-bold">🎟️ ${safePromo}</span>
-                <span class="px-2 py-0.5 rounded-md ${(user.referralCount || 0) >= 5 ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}">${user.referralCount || 0}/5 Refs</span>
+                <button type="button" onclick="openEditReferralsModal('${user.id}')" class="px-2 py-0.5 rounded-md cursor-pointer ${(user.referralCount || 0) >= 5 ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold hover:scale-105'}" title="Click to choose 1, 2, 3, 4, or 5 referrals">${user.referralCount || 0}/5 Refs ✏️</button>
                 ${user.referralBypassed ? '<span class="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">🔓 Refs Unlocked</span>' : ''}
                 ${safeRefBy ? `<span class="px-2 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Used: ${safeRefBy}</span>` : ''}
                 <span class="text-slate-500 text-[10px] ml-auto">Reg: ${safeRegAt ? safeRegAt.substring(0, 10) : ''}</span>
@@ -2338,25 +2527,29 @@
                 ${mobilePrimaryActions}
               </div>
 
-              <!-- Secondary Utility Actions (Portfolio, Skip Ref, Msg, Pass, Pages) -->
-              <div class="grid grid-cols-5 gap-1.5 pt-1 border-t border-white/5">
-                <button onclick="openAdminEditPortfolioModal('${user.id}')" title="Change Total Portfolio amount" class="py-2.5 px-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+              <!-- Secondary Utility Actions (Refs, Timer, Portfolio, Msg, Pass, Pages) -->
+              <div class="grid grid-cols-6 gap-1 pt-1 border-t border-white/5">
+                <button onclick="openEditReferralsModal('${user.id}')" title="Select 1, 2, 3, 4, or 5 referrals" class="py-2 px-1 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono text-[9px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                  <i data-lucide="users" class="w-3.5 h-3.5 text-purple-400"></i>
+                  <span>Refs (${user.referralCount || 0})</span>
+                </button>
+                <button onclick="openEditTimerModal('${user.id}')" title="Tamper time left" class="py-2 px-1 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono text-[9px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                  <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i>
+                  <span>Timer</span>
+                </button>
+                <button onclick="openAdminEditPortfolioModal('${user.id}')" title="Change Total Portfolio amount" class="py-2 px-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[9px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
                   <i data-lucide="dollar-sign" class="w-3.5 h-3.5 text-emerald-400"></i>
                   <span>Portfolio</span>
                 </button>
-                <button onclick="toggleUserReferralBypass('${user.id}')" title="${isBypassed ? 'Re-enforce 5-referral requirement' : 'Skip referral requirement for this client'}" class="py-2.5 px-1 rounded-xl ${isBypassed ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'bg-slate-800 text-slate-300 border border-white/10'} font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
-                  <i data-lucide="${isBypassed ? 'unlock' : 'lock'}" class="w-3.5 h-3.5 text-purple-400"></i>
-                  <span>${isBypassed ? 'Unlocked' : 'Skip Ref'}</span>
-                </button>
-                <button onclick="openAdminMessageModal('${user.id}')" title="Send direct message" class="py-2.5 px-1 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                <button onclick="openAdminMessageModal('${user.id}')" title="Send direct message" class="py-2 px-1 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 font-mono text-[9px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
                   <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
                   <span>Msg</span>
                 </button>
-                <button onclick="openAdminResetPassModal('${user.id}')" title="Reset password" class="py-2.5 px-1 rounded-xl bg-slate-800 text-slate-300 border border-white/10 font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                <button onclick="openAdminResetPassModal('${user.id}')" title="Reset password" class="py-2 px-1 rounded-xl bg-slate-800 text-slate-300 border border-white/10 font-mono text-[9px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
                   <i data-lucide="key" class="w-3.5 h-3.5 text-amber-400"></i>
                   <span>Pass</span>
                 </button>
-                <button onclick="openClientPagesModal('${user.id}')" title="Open any page for this client" class="py-2.5 px-1 rounded-xl bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 font-mono text-[10px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
+                <button onclick="openClientPagesModal('${user.id}')" title="Open any page for this client" class="py-2 px-1 rounded-xl bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 font-mono text-[9px] font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer">
                   <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
                   <span>Pages</span>
                 </button>
@@ -3375,6 +3568,212 @@
       } catch (err) {
         showToast(err.message, 'error');
       }
+    }
+
+    let currentReferralEditingUserId = null;
+    let currentTimerEditingUserId = null;
+    let timerModalInterval = null;
+
+    /**
+     * ADMIN ACTION: Open Edit Referrals Modal for any user
+     */
+    function openEditReferralsModal(userId) {
+      const user = UserDatabase.getUserById(userId);
+      if (!user) {
+        showToast('User not found', 'error');
+        return;
+      }
+      currentReferralEditingUserId = userId;
+
+      const subEl = document.getElementById('ref-modal-user-subtitle');
+      if (subEl) subEl.textContent = `Client: ${user.name} (${user.id}) · ${user.email}`;
+
+      const count = Number(user.referralCount) || 0;
+      const isUnlocked = !!user.referralBypassed || count >= 5;
+
+      const displayEl = document.getElementById('ref-modal-current-display');
+      if (displayEl) {
+        displayEl.textContent = `${count} / 5 Referrals`;
+        displayEl.className = count >= 5 ? "text-xl font-black text-emerald-300 font-mono" : "text-xl font-black text-amber-300 font-mono";
+      }
+
+      const badgeEl = document.getElementById('ref-modal-status-badge');
+      if (badgeEl) {
+        badgeEl.innerHTML = isUnlocked
+          ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Withdrawals Unlocked</span>`
+          : `<span class="px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">Locked (${Math.max(0, 5 - count)} needed)</span>`;
+      }
+
+      const inputEl = document.getElementById('edit-referrals-custom-input');
+      if (inputEl) inputEl.value = count;
+
+      const bypassBtn = document.getElementById('ref-modal-bypass-toggle-btn');
+      if (bypassBtn) {
+        bypassBtn.className = user.referralBypassed
+          ? "px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 cursor-pointer"
+          : "px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-800 text-slate-400 border border-white/10 hover:text-white cursor-pointer";
+        bypassBtn.textContent = user.referralBypassed ? "Bypass Active (Unlocked)" : "Enforce Requirement";
+      }
+
+      openModal('admin-edit-referrals-modal');
+    }
+
+    function setReferralCountDirect(count) {
+      if (!currentReferralEditingUserId) return;
+      try {
+        const updated = UserDatabase.setUserReferralCount(currentReferralEditingUserId, count);
+        recordAdminAction(`Set referrals for ${updated.name} to ${count}/5`);
+        showToast(
+          count >= 5
+            ? `🎉 Referrals set to ${count}/5! Withdrawals unlocked for ${updated.name}.`
+            : `Updated referrals for ${updated.name} to ${count}/5.`,
+          'success'
+        );
+        renderUsers();
+        openEditReferralsModal(currentReferralEditingUserId);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    function addReferralIncrement(delta) {
+      if (!currentReferralEditingUserId) return;
+      try {
+        const user = UserDatabase.getUserById(currentReferralEditingUserId);
+        const cur = Number(user ? user.referralCount : 0) || 0;
+        const newCount = Math.min(100, Math.max(0, cur + delta));
+        setReferralCountDirect(newCount);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    function stepReferralInput(delta) {
+      const input = document.getElementById('edit-referrals-custom-input');
+      if (input) {
+        const val = parseInt(input.value, 10) || 0;
+        input.value = Math.max(0, val + delta);
+      }
+    }
+
+    function saveCustomReferrals() {
+      const input = document.getElementById('edit-referrals-custom-input');
+      if (input) {
+        const val = parseInt(input.value, 10);
+        if (isNaN(val) || val < 0) {
+          showToast('Please enter a valid non-negative number of referrals.', 'error');
+          return;
+        }
+        setReferralCountDirect(val);
+      }
+    }
+
+    function toggleReferralBypassFromModal() {
+      if (!currentReferralEditingUserId) return;
+      try {
+        const updated = UserDatabase.toggleUserReferralBypass(currentReferralEditingUserId);
+        recordAdminAction(`${updated.referralBypassed ? 'Waived' : 'Enforced'} referral requirement for ${updated.name}`);
+        showToast(
+          updated.referralBypassed
+            ? `Withdrawals unlocked for ${updated.name}!`
+            : `Referral requirement re-enforced for ${updated.name}.`,
+          'info'
+        );
+        renderUsers();
+        openEditReferralsModal(currentReferralEditingUserId);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    /**
+     * ADMIN ACTION: Open Edit Investment Time Left Modal for any user
+     */
+    function openEditTimerModal(userId) {
+      const user = UserDatabase.getUserById(userId);
+      if (!user) {
+        showToast('User not found', 'error');
+        return;
+      }
+      currentTimerEditingUserId = userId;
+
+      const subEl = document.getElementById('timer-modal-user-subtitle');
+      if (subEl) subEl.textContent = `Client: ${user.name} (${user.id}) · ${user.email}`;
+
+      const updateModalTicker = () => {
+        const curUser = UserDatabase.getUserById(currentTimerEditingUserId);
+        if (!curUser) return;
+        const cdEl = document.getElementById('timer-modal-current-countdown');
+        const badgeEl = document.getElementById('timer-modal-status-badge');
+        if (!curUser.activePlans || curUser.activePlans.length === 0) {
+          if (cdEl) cdEl.textContent = "No Active Contract ($0)";
+          if (badgeEl) {
+            badgeEl.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-400";
+            badgeEl.textContent = "Uninvested";
+          }
+        } else {
+          const plan = curUser.activePlans[0];
+          const isMatured = plan.isMatured || (plan.maturityTimestamp <= Date.now());
+          const cd = formatCountdown(plan.maturityTimestamp);
+          if (cdEl) {
+            cdEl.textContent = isMatured ? "00d 00h 00m 00s (Matured - Ready for $25)" : `${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s`;
+          }
+          if (badgeEl) {
+            badgeEl.className = isMatured
+              ? "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"
+              : "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            badgeEl.textContent = isMatured ? "Matured" : "Active";
+          }
+        }
+      };
+
+      updateModalTicker();
+      if (timerModalInterval) clearInterval(timerModalInterval);
+      timerModalInterval = setInterval(updateModalTicker, 1000);
+
+      // Pre-fill inputs based on current remaining time
+      if (user.activePlans && user.activePlans.length > 0) {
+        const plan = user.activePlans[0];
+        const remMs = Math.max(0, plan.maturityTimestamp - Date.now());
+        const days = Math.floor(remMs / 86400000);
+        const hours = Math.floor((remMs % 86400000) / 3600000);
+        const mins = Math.floor((remMs % 3600000) / 60000);
+        const dInput = document.getElementById('edit-timer-custom-days');
+        const hInput = document.getElementById('edit-timer-custom-hours');
+        const mInput = document.getElementById('edit-timer-custom-minutes');
+        if (dInput) dInput.value = days;
+        if (hInput) hInput.value = hours;
+        if (mInput) mInput.value = mins;
+      }
+
+      openModal('admin-edit-timer-modal');
+    }
+
+    function applyPresetTimeLeft(remainingMs) {
+      if (!currentTimerEditingUserId) return;
+      try {
+        const updated = UserDatabase.setUserRemainingTime(currentTimerEditingUserId, remainingMs);
+        const desc = remainingMs <= 0 ? "Matured (0s)" : formatCountdown(Date.now() + remainingMs).days + "d " + formatCountdown(Date.now() + remainingMs).hours + "h left";
+        recordAdminAction(`Adjusted time left for ${updated.name} to ${desc}`);
+        showToast(`⏱️ Contract timer updated for ${updated.name}! Set to ${desc}.`, 'success');
+        renderUsers();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    function applyCustomTimeLeft() {
+      if (!currentTimerEditingUserId) return;
+      const dInput = document.getElementById('edit-timer-custom-days');
+      const hInput = document.getElementById('edit-timer-custom-hours');
+      const mInput = document.getElementById('edit-timer-custom-minutes');
+      const days = Math.max(0, parseInt(dInput ? dInput.value : 0, 10) || 0);
+      const hours = Math.max(0, Math.min(23, parseInt(hInput ? hInput.value : 0, 10) || 0));
+      const mins = Math.max(0, Math.min(59, parseInt(mInput ? mInput.value : 0, 10) || 0));
+
+      const totalMs = (days * 86400000) + (hours * 3600000) + (mins * 60000);
+      applyPresetTimeLeft(totalMs);
+      closeModal('admin-edit-timer-modal');
     }
 
     /**

@@ -717,9 +717,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=5.1.0"></script>
-  <script src="js/email.js?v=5.1.0"></script>
-  <script src="js/app.js?v=5.1.0"></script>
+  <script src="js/db.js?v=5.2.0"></script>
+  <script src="js/email.js?v=5.2.0"></script>
+  <script src="js/app.js?v=5.2.0"></script>
   <script>
     let countdownInterval = null;
 
@@ -2025,24 +2025,45 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
       // Auth Gate: ensure user is authenticated, otherwise redirect to signup
-      const currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : null;
+      let currentId = window.UserDatabase ? UserDatabase.getCurrentUserId() : null;
       let user = currentId && window.UserDatabase ? UserDatabase.getUserById(currentId) : null;
       
+      // Secondary fallback: attempt direct lookup by ID or Email if still not in memory
+      if (currentId && !user && window.UserDatabase && UserDatabase.findUserByIdOrEmailOrCloud) {
+        try {
+          user = await UserDatabase.findUserByIdOrEmailOrCloud(currentId);
+        } catch (e) {}
+      }
+
       // If user ID exists in storage but not yet loaded into memory, pull from cloud before redirecting
       if (currentId && !user && window.CloudSyncEngine && CloudSyncEngine.isConnected()) {
         try {
           await Promise.race([
             CloudSyncEngine.pullUsers(),
-            new Promise(resolve => setTimeout(resolve, 3500))
+            new Promise(resolve => setTimeout(resolve, 4000))
           ]);
           user = UserDatabase.getUserById(currentId);
+          if (!user && window.UserDatabase && UserDatabase.findUserByIdOrEmailOrCloud) {
+            user = await UserDatabase.findUserByIdOrEmailOrCloud(currentId);
+          }
         } catch (e) {}
       }
 
-      // Secondary fallback: attempt direct lookup if still not in memory
-      if (currentId && !user && window.UserDatabase && UserDatabase.findUserByEmailOrCloud) {
+      // Tertiary fallback: check cached countdown account session
+      if (!user) {
         try {
-          user = await UserDatabase.findUserByEmailOrCloud(currentId);
+          const raw = localStorage.getItem("cryptron_account_v3_countdown");
+          if (raw) {
+            const acc = JSON.parse(raw);
+            if (acc && acc.user && (acc.user.id || acc.user.email)) {
+              user = acc.user;
+              currentId = user.id;
+              if (window.UserDatabase) {
+                UserDatabase.setCurrentUserId(currentId);
+                UserDatabase.unmarkUserDeleted(user.id, user.email);
+              }
+            }
+          }
         } catch (e) {}
       }
 

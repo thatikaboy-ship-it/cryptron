@@ -825,8 +825,12 @@ class CloudSyncEngine {
         } else if (ru.investmentStatus === 'active') {
           existing.investmentStatus = 'active';
           existing.hasActiveInvestment = true;
-          if (ru.activePlans && Array.isArray(ru.activePlans) && ru.activePlans.length > 0) {
-            existing.activePlans = ru.activePlans;
+          let rPlans = ru.activePlans;
+          if (rPlans && typeof rPlans === 'object' && !Array.isArray(rPlans)) {
+            rPlans = Object.values(rPlans).filter(Boolean);
+          }
+          if (Array.isArray(rPlans) && rPlans.length > 0) {
+            existing.activePlans = rPlans;
           }
           if (!localPortfolioNewer) {
             if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
@@ -855,8 +859,12 @@ class CloudSyncEngine {
         } else if (ru.investmentStatus === 'matured') {
           existing.investmentStatus = 'matured';
           existing.hasActiveInvestment = false;
-          if (ru.activePlans && Array.isArray(ru.activePlans) && ru.activePlans.length > 0) {
-            existing.activePlans = ru.activePlans;
+          let rPlans = ru.activePlans;
+          if (rPlans && typeof rPlans === 'object' && !Array.isArray(rPlans)) {
+            rPlans = Object.values(rPlans).filter(Boolean);
+          }
+          if (Array.isArray(rPlans) && rPlans.length > 0) {
+            existing.activePlans = rPlans;
           }
           if (!localPortfolioNewer) {
             if (ru.availableBalance !== undefined) existing.availableBalance = Number(ru.availableBalance) || 0.00;
@@ -885,6 +893,9 @@ class CloudSyncEngine {
         // NEW PERSON FROM REMOTE! Preserve their exact Firebase ID unless completely missing
         const newUser = { ...ru };
         delete newUser._fbKey;
+        if (newUser.activePlans && typeof newUser.activePlans === 'object' && !Array.isArray(newUser.activePlans)) {
+          newUser.activePlans = Object.values(newUser.activePlans).filter(Boolean);
+        }
         if (!newUser.id) {
           maxIdNum++;
           newUser.id = "USR-" + maxIdNum;
@@ -1041,6 +1052,17 @@ class UserDatabase {
    * Check whether a user ID or email has been permanently deleted
    */
   static isUserDeleted(id, email) {
+    // Session protection: The currently authenticated user can NEVER be deleted or filtered
+    try {
+      const activeId = localStorage.getItem(CURRENT_USER_KEY) || sessionStorage.getItem(CURRENT_USER_KEY);
+      if (activeId) {
+        const cleanActiveId = String(activeId).trim().toUpperCase();
+        if (id && String(id).trim().toUpperCase() === cleanActiveId) {
+          return false;
+        }
+      }
+    } catch (e) {}
+
     const reg = this.getDeletedRegistry();
     if (email) {
       const cleanEmail = String(email).toLowerCase().trim();
@@ -1282,58 +1304,130 @@ class UserDatabase {
   }
 
   /**
-   * Asynchronously find user by email across local storage and remote Firebase cloud databases
+   * Asynchronously find user by User ID, Email, or Promo Code across local storage, session storage,
+   * local countdown cache, and remote Firebase cloud databases.
+   * Auto-heals and untombstones any matched user.
    */
-  static async findUserByEmailOrCloud(email) {
-    if (!email) return null;
-    const cleanEmail = String(email).toLowerCase().trim();
-    let user = this.getUserByEmail(cleanEmail);
-    if (user) return user;
+  static async findUserByIdOrEmailOrCloud(identifier) {
+    if (!identifier) return null;
+    const cleanStr = String(identifier).trim();
+    const cleanLower = cleanStr.toLowerCase();
+    const cleanUpper = cleanStr.toUpperCase();
 
-    // Check directly in Firebase Realtime Database
-    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+    // 1. Direct local lookup by ID
+    let user = this.getUserById(cleanStr);
+    if (!user) {
+      // 2. Direct local lookup by Email
+      user = this.getUserByEmail(cleanLower);
+    }
+    if (!user) {
+      // 3. Scan local users array by ID, email, or promoCode
+      try {
+        const rawLocal = localStorage.getItem(USERS_DB_KEY);
+        const parsed = rawLocal ? JSON.parse(rawLocal) : [];
+        if (Array.isArray(parsed)) {
+          user = parsed.find(u => u && (
+            (u.id && u.id.toUpperCase() === cleanUpper) ||
+            (u.email && u.email.toLowerCase().trim() === cleanLower) ||
+            (u.promoCode && u.promoCode.toUpperCase() === cleanUpper) ||
+            (u.referralCode && u.referralCode.toUpperCase() === cleanUpper)
+          )) || null;
+        }
+      } catch (e) {}
+    }
+
+    if (!user) {
+      // 4. Check cached countdown storage
+      try {
+        const cdRaw = localStorage.getItem("cryptron_account_v3_countdown");
+        if (cdRaw) {
+          const cd = JSON.parse(cdRaw);
+          if (cd && cd.user && (
+            (cd.user.id && cd.user.id.toUpperCase() === cleanUpper) ||
+            (cd.user.email && cd.user.email.toLowerCase().trim() === cleanLower)
+          )) {
+            user = {
+              ...cd.user,
+              activePlans: cd.activePlans || [],
+              availableBalance: (cd.wallet && cd.wallet.availableBalance) || 0,
+              investedBalance: (cd.wallet && cd.wallet.investedBalance) || 0,
+              totalProfits: (cd.wallet && cd.wallet.totalProfits) || 0
+            };
+          }
+        }
+      } catch(e) {}
+    }
+
+    // 5. Remote Firebase Realtime Database lookup
+    if (!user && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
       try {
         const cleanBase = CloudSyncEngine.getCloudUrl();
-        const [usersRes, regRes] = await Promise.all([
+        // Check direct key if identifier looks like USR-XXXX
+        let directPromise = Promise.resolve(null);
+        if (cleanUpper.startsWith('USR-')) {
+          directPromise = fetch(`${cleanBase}/cryptron_users/${cleanUpper}.json`).then(r => r.ok ? r.json() : null).catch(() => null);
+        }
+
+        const [directRes, usersRes, regRes] = await Promise.all([
+          directPromise,
           fetch(`${cleanBase}/cryptron_users.json`).catch(() => null),
           fetch(`${cleanBase}/cryptron_registrations.json`).catch(() => null)
         ]);
 
-        let matched = null;
-        if (usersRes && usersRes.ok) {
-          const uData = await usersRes.json();
-          if (uData && typeof uData === 'object') {
-            const arr = Array.isArray(uData) ? uData : Object.values(uData);
-            matched = arr.find(u => u && u.email && String(u.email).toLowerCase().trim() === cleanEmail);
-          }
-        }
-        if (!matched && regRes && regRes.ok) {
-          const rData = await regRes.json();
-          if (rData && typeof rData === 'object') {
-            const arr = Array.isArray(rData) ? rData : Object.values(rData);
-            matched = arr.find(u => u && u.email && String(u.email).toLowerCase().trim() === cleanEmail);
-          }
+        if (directRes && typeof directRes === 'object' && directRes.id) {
+          user = directRes;
         }
 
-        if (matched) {
-          // Untombstone if accidentally tombstoned
-          this.unmarkUserDeleted(matched.id, cleanEmail);
-          // Save into local users
-          const users = this.getAllUsers();
-          const idx = users.findIndex(u => (matched.id && u.id === matched.id) || (u.email && String(u.email).toLowerCase().trim() === cleanEmail));
-          if (idx >= 0) {
-            users[idx] = { ...users[idx], ...matched };
-          } else {
-            users.unshift(matched);
+        if (!user) {
+          const candidates = [];
+          if (usersRes && usersRes.ok) {
+            const ud = await usersRes.json();
+            if (ud && typeof ud === 'object') {
+              candidates.push(...(Array.isArray(ud) ? ud : Object.values(ud)).filter(Boolean));
+            }
           }
-          this.saveUsers(users, { skipCloudPush: true });
-          return matched;
+          if (regRes && regRes.ok) {
+            const rd = await regRes.json();
+            if (rd && typeof rd === 'object') {
+              candidates.push(...(Array.isArray(rd) ? rd : Object.values(rd)).filter(Boolean));
+            }
+          }
+
+          user = candidates.find(u => u && (
+            (u.id && u.id.toUpperCase() === cleanUpper) ||
+            (u.email && u.email.toLowerCase().trim() === cleanLower) ||
+            (u.promoCode && u.promoCode.toUpperCase() === cleanUpper) ||
+            (u.referralCode && u.referralCode.toUpperCase() === cleanUpper)
+          )) || null;
         }
       } catch (e) {
         console.warn("Direct cloud user lookup error:", e);
       }
     }
+
+    if (user) {
+      // Auto-heal: unmark any accidental deletion tombstones
+      this.unmarkUserDeleted(user.id, user.email);
+      // Restore into local users database
+      const users = this.getAllUsers();
+      const idx = users.findIndex(u => (user.id && u.id === user.id) || (user.email && u.email && u.email.toLowerCase().trim() === user.email.toLowerCase().trim()));
+      if (idx >= 0) {
+        users[idx] = { ...users[idx], ...user };
+      } else {
+        users.unshift(user);
+      }
+      this.saveUsers(users, { skipCloudPush: true });
+      return user;
+    }
+
     return null;
+  }
+
+  /**
+   * Asynchronously find user by email or ID across local storage and remote Firebase cloud databases
+   */
+  static async findUserByEmailOrCloud(emailOrId) {
+    return await this.findUserByIdOrEmailOrCloud(emailOrId);
   }
 
   /**
@@ -1359,7 +1453,22 @@ class UserDatabase {
         }
       }
     } catch (e) {}
-    return localStorage.getItem(CURRENT_USER_KEY) || null;
+
+    let storedId = localStorage.getItem(CURRENT_USER_KEY) || sessionStorage.getItem(CURRENT_USER_KEY);
+    if (!storedId) {
+      try {
+        const cdRaw = localStorage.getItem("cryptron_account_v3_countdown");
+        if (cdRaw) {
+          const cd = JSON.parse(cdRaw);
+          if (cd && cd.user && cd.user.id) {
+            storedId = cd.user.id;
+            localStorage.setItem(CURRENT_USER_KEY, storedId);
+            sessionStorage.setItem(CURRENT_USER_KEY, storedId);
+          }
+        }
+      } catch (e) {}
+    }
+    return storedId || null;
   }
 
   /**
@@ -1368,9 +1477,11 @@ class UserDatabase {
   static setCurrentUserId(userId) {
     if (!userId) {
       localStorage.removeItem(CURRENT_USER_KEY);
+      sessionStorage.removeItem(CURRENT_USER_KEY);
       localStorage.removeItem("cryptron_account_v3_countdown");
     } else {
       localStorage.setItem(CURRENT_USER_KEY, userId);
+      sessionStorage.setItem(CURRENT_USER_KEY, userId);
       try {
         const stored = localStorage.getItem("cryptron_account_v3_countdown");
         if (stored) {
@@ -1964,6 +2075,20 @@ class UserDatabase {
       throw new Error(`User with ID ${userId} not found.`);
     }
 
+    // SAFEGUARD: If user already has an active, unexpired plan running, DO NOT RESET THE TIMER!
+    if (user.investmentStatus === 'active' && user.activePlans && user.activePlans.length > 0) {
+      const existingPlan = user.activePlans[0];
+      if (existingPlan && existingPlan.maturityTimestamp && existingPlan.maturityTimestamp > Date.now()) {
+        user.investedBalance = 10.00;
+        user.pendingTxHash = null;
+        this.saveUsers(users);
+        if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+          CloudSyncEngine.pushUser(user).catch(console.warn);
+        }
+        return user;
+      }
+    }
+
     const now = Date.now();
     const durationDays = 7;
     // Exactly 7 days from right now (7 * 24 * 60 * 60 * 1000 ms)
@@ -1981,8 +2106,7 @@ class UserDatabase {
       activatedAt: new Date(now).toISOString().replace('T', ' ').substring(0, 19)
     };
 
-    user.activePlans = user.activePlans || [];
-    user.activePlans.unshift(newPlan);
+    user.activePlans = [newPlan];
     user.investmentStatus = "active";
     user.investedBalance = 10.00;
     user.totalDeposited = (user.totalDeposited || 0) + 10.00;
@@ -2709,6 +2833,155 @@ class UserDatabase {
         });
       } catch(e) {}
     }
+
+    return user;
+  }
+
+  /**
+   * ADMIN ACTION: Set or Adjust Client Referral Count (0, 1, 2, 3, 4, 5)
+   * Choosing 5 automatically completes requirements and unlocks withdrawals.
+   * Admin can choose 1, 2, 3, 4, or 5 referrals.
+   */
+  static setUserReferralCount(userId, count) {
+    const users = this.getAllUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) throw new Error(`User ${userId} not found.`);
+
+    const cleanCount = Math.max(0, parseInt(count, 10) || 0);
+    user.referralCount = cleanCount;
+
+    // If referrals reach or exceed 5, unlock withdrawals automatically
+    if (cleanCount >= 5) {
+      user.referralBypassed = true;
+    }
+
+    this.saveUsers(users);
+
+    // Sync to cloud database
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
+
+    // Sync active countdown session storage if this user is active locally
+    try {
+      const stored = localStorage.getItem("cryptron_account_v3_countdown");
+      if (stored) {
+        const acc = JSON.parse(stored);
+        if (acc && acc.user && acc.user.id === userId) {
+          acc.user.referralCount = user.referralCount;
+          acc.user.referralBypassed = user.referralBypassed;
+          localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
+        }
+      }
+    } catch (e) {}
+
+    // If referrals met or unlocked, dispatch protocol message to client
+    if (cleanCount >= 5) {
+      try {
+        this.sendMessage({
+          targetType: "individual",
+          targetUserId: userId,
+          targetUserName: user.name,
+          subject: "🎉 5/5 Referrals Reached - Withdrawals Unlocked!",
+          body: `Hello ${user.name}, congratulations! You have reached 5 referrals! Your account is now fully verified and eligible to submit your $25.00 USDT payout request. Paste your personal USDT address to withdraw.`,
+          priority: "success",
+          category: "Referral Milestone"
+        });
+      } catch (e) {}
+    }
+
+    return user;
+  }
+
+  /**
+   * ADMIN ACTION: Add to Client Referral Count (+1, +2, +3, +5)
+   */
+  static incrementUserReferralCount(userId, delta = 1) {
+    const users = this.getAllUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) throw new Error(`User ${userId} not found.`);
+    const current = Number(user.referralCount) || 0;
+    return this.setUserReferralCount(userId, Math.max(0, current + delta));
+  }
+
+  /**
+   * ADMIN ACTION: Tamper / Edit Remaining Time Left on User's Investment Contract
+   * Sets remaining duration until contract maturity (in milliseconds).
+   * If remainingMs <= 0, triggers full contract maturity ($25 unlocked).
+   * Otherwise, updates live countdown and maturityTimestamp.
+   */
+  static setUserRemainingTime(userId, remainingMs) {
+    const users = this.getAllUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) throw new Error(`User ${userId} not found.`);
+
+    const now = Date.now();
+    const cleanMs = Math.max(0, parseInt(remainingMs, 10) || 0);
+
+    if (cleanMs <= 0) {
+      // If setting 0 ms left, trigger full contract maturity
+      if (user.activePlans && user.activePlans.length > 0) {
+        return this.matureUserInvestment(userId);
+      } else {
+        this.activateUserInvestment(userId);
+        return this.matureUserInvestment(userId);
+      }
+    }
+
+    const durationDays = 7;
+    // If user has no active plans yet, activate them with this specific remaining time
+    if (!user.activePlans || user.activePlans.length === 0) {
+      const newPlan = {
+        id: "cryp-" + Math.floor(700 + Math.random() * 200),
+        planName: "7-Day Crypto Yield Vault",
+        principal: 10.00,
+        totalPayout: 25.00,
+        createdAt: now - Math.max(0, (durationDays * 86400000) - cleanMs),
+        maturityTimestamp: now + cleanMs,
+        durationDays: durationDays,
+        status: "Active",
+        activatedAt: new Date(now).toISOString().replace('T', ' ').substring(0, 19)
+      };
+      user.activePlans = [newPlan];
+      user.investmentStatus = "active";
+      user.investedBalance = 10.00;
+      user.totalDeposited = (user.totalDeposited || 0) > 0 ? user.totalDeposited : 10.00;
+      user.pendingTxHash = null;
+    } else {
+      // User has existing plan - adjust maturityTimestamp and createdAt accordingly
+      const plan = user.activePlans[0];
+      plan.maturityTimestamp = now + cleanMs;
+      plan.createdAt = now - Math.max(0, (durationDays * 86400000) - cleanMs);
+      plan.isMatured = false;
+      plan.status = "Active";
+      plan.yieldCredited = false;
+      user.investmentStatus = "active";
+      if (!user.investedBalance || user.investedBalance <= 0) user.investedBalance = 10.00;
+      user.pendingTxHash = null;
+    }
+
+    this.saveUsers(users);
+
+    // Sync to cloud database
+    if (typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
+      CloudSyncEngine.pushUser(user).catch(console.warn);
+    }
+
+    // Sync active countdown session storage if this user is active locally
+    try {
+      const stored = localStorage.getItem("cryptron_account_v3_countdown");
+      if (stored) {
+        const acc = JSON.parse(stored);
+        if (acc && acc.user && acc.user.id === userId) {
+          acc.activePlans = user.activePlans;
+          acc.user.hasActiveInvestment = true;
+          acc.user.investmentStatus = "active";
+          acc.wallet = acc.wallet || {};
+          acc.wallet.investedBalance = user.investedBalance;
+          localStorage.setItem("cryptron_account_v3_countdown", JSON.stringify(acc));
+        }
+      }
+    } catch (e) {}
 
     return user;
   }

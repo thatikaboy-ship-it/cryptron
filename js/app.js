@@ -89,31 +89,42 @@ function getAccountData() {
       // Ensure that if user is active, they have an active 7-day vault plan with a running countdown
       // STRICT RULE: Never trigger for uninvested accounts or newly registered clients!
       if (dbUser.investmentStatus === 'active' && !base.user.withdrawalRequest && base.activePlans.length === 0) {
-        const now = Date.now();
-        const autoPlan = {
-          id: "cryp-" + Math.floor(700 + Math.random() * 200),
-          planName: "7-Day Crypto Yield Vault",
-          principal: 10.00,
-          totalPayout: 25.00,
-          createdAt: now,
-          maturityTimestamp: now + (7 * 86400000),
-          durationDays: 7,
-          status: "Active"
-        };
-        base.activePlans = [autoPlan];
-        dbUser.activePlans = [autoPlan];
-        base.user.lastSpinTimestamp = 0; // Fresh daily spin guaranteed on countdown start day!
-        dbUser.lastSpinTimestamp = 0;
-        try {
-          const allU = UserDatabase.getAllUsers();
-          const target = allU.find(u => u.id === dbUser.id);
-          if (target) {
-            target.activePlans = [autoPlan];
-            target.investmentStatus = 'active';
-            target.lastSpinTimestamp = 0;
-            UserDatabase.saveUsers(allU);
+        if (dbUser.activePlans && Array.isArray(dbUser.activePlans) && dbUser.activePlans.length > 0) {
+          base.activePlans = dbUser.activePlans;
+        } else {
+          // Calculate start time based on original registration / activation time if available
+          let origStart = Date.now();
+          if (dbUser.registeredAt) {
+            const pTime = new Date(dbUser.registeredAt.replace(' ', 'T')).getTime();
+            if (!isNaN(pTime) && pTime > 0 && pTime <= Date.now()) {
+              origStart = pTime;
+            }
           }
-        } catch(e) {}
+          const autoPlan = {
+            id: "cryp-" + Math.floor(700 + Math.random() * 200),
+            planName: "7-Day Crypto Yield Vault",
+            principal: 10.00,
+            totalPayout: 25.00,
+            createdAt: origStart,
+            maturityTimestamp: origStart + (7 * 86400000),
+            durationDays: 7,
+            status: "Active"
+          };
+          base.activePlans = [autoPlan];
+          dbUser.activePlans = [autoPlan];
+          base.user.lastSpinTimestamp = 0; // Fresh daily spin guaranteed on countdown start day!
+          dbUser.lastSpinTimestamp = 0;
+          try {
+            const allU = UserDatabase.getAllUsers();
+            const target = allU.find(u => u.id === dbUser.id);
+            if (target) {
+              target.activePlans = [autoPlan];
+              target.investmentStatus = 'active';
+              target.lastSpinTimestamp = 0;
+              UserDatabase.saveUsers(allU);
+            }
+          } catch(e) {}
+        }
       }
 
       // If user has an active contract and lastSpinTimestamp was prior to or at contract start:
