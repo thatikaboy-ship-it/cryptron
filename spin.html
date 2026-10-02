@@ -283,8 +283,8 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=5.2.0"></script>
-  <script src="js/app.js?v=5.2.0"></script>
+  <script src="js/db.js?v=5.3.0"></script>
+  <script src="js/app.js?v=5.3.0"></script>
   <script>
     function updateSpinCountdownTicker(account) {
       const countdownEl = document.getElementById('spin-vault-countdown');
@@ -351,16 +351,16 @@
           spinBtn.innerHTML = `<i data-lucide="arrow-up-right" class="w-4 h-4"></i><span>🏁 SPINS ENDED • CLAIM $25 PAYOUT</span>`;
         }
       } else if (status.reason === 'cooldown') {
-        // RULE: 24 hours until next spin
+        // RULE: Free spin resets every day at 12:00 AM midnight
         if (prereq1Box) prereq1Box.classList.add('hidden');
         if (verifiedBanner) verifiedBanner.classList.remove('hidden');
         if (ruleBadgeNum) ruleBadgeNum.textContent = "1";
 
-        if (statusBadge) statusBadge.innerHTML = `<i data-lucide="clock" class="w-4 h-4 text-amber-400"></i><span class="text-amber-300 font-bold">Next Free Spin Unlocks in ${status.formattedTime} (24h Cooldown)</span>`;
+        if (statusBadge) statusBadge.innerHTML = `<i data-lucide="clock" class="w-4 h-4 text-amber-400"></i><span class="text-amber-300 font-bold">Next Free Spin Unlocks at 12:00 AM Midnight in ${status.formattedTime}</span>`;
         if (spinBtn) {
           spinBtn.className = "w-full py-4 rounded-2xl bg-slate-800/90 text-amber-300 border border-amber-500/30 font-bold text-sm uppercase tracking-wider font-mono shadow-lg transition-all opacity-85 cursor-not-allowed flex items-center justify-center gap-2";
           spinBtn.disabled = true;
-          spinBtn.innerHTML = `<i data-lucide="clock" class="w-4 h-4 text-amber-400"></i><span>⏳ NEXT SPIN IN ${status.formattedTime}</span>`;
+          spinBtn.innerHTML = `<i data-lucide="clock" class="w-4 h-4 text-amber-400"></i><span>⏳ NEXT SPIN AT 12:00 AM (${status.formattedTime})</span>`;
         }
       } else {
         // Ready to spin!

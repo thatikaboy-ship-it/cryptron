@@ -446,13 +446,18 @@ function processWithdrawal(amount, method, address) {
     return false;
   }
 
-  const maxAllowedWithdrawal = Math.max(
-    25.00,
-    Number(account.wallet.availableBalance) || 0,
-    Number((25.00 + (Number(account.user && account.user.spinWinnings) || 0)).toFixed(2))
-  );
+  const totalPortfolio = (Number(account.wallet.availableBalance) || 0) + (Number(account.wallet.investedBalance) || 0);
+  const isUninvestedOrWithdrawn = (account.user && (account.user.investmentStatus === 'not_invested' || account.user.investmentStatus === 'pending_withdrawal'));
+  const hasAdminCustomPortfolio = !!(account.user && account.user.hasCustomPortfolio && account.user.customPortfolioValue !== undefined && account.user.customPortfolioValue !== null);
+  const computedPortfolio = isUninvestedOrWithdrawn ? 0 : totalPortfolio;
+  let maxAllowedWithdrawal = hasAdminCustomPortfolio ? Number(account.user.customPortfolioValue) : computedPortfolio;
+  if (account.activePlans && account.activePlans.length > 0) {
+    maxAllowedWithdrawal = Math.max(maxAllowedWithdrawal, 25.00 + (Number(account.user && account.user.spinWinnings) || 0));
+  }
+  maxAllowedWithdrawal = Math.max(maxAllowedWithdrawal, Number(account.wallet.availableBalance) || 0);
+
   if (amount > maxAllowedWithdrawal + 0.01) {
-    showToast(`Maximum withdrawal amount is ${formatUSD(maxAllowedWithdrawal)} USDT.`, "error");
+    showToast(`Withdrawal amount cannot exceed your Total Portfolio of ${formatUSD(maxAllowedWithdrawal)} USDT.`, "error");
     return false;
   }
 
@@ -468,11 +473,6 @@ function processWithdrawal(amount, method, address) {
   const required = (account.user && account.user.requiredReferrals) || 5;
   if (!isBypassed && invited < required) {
     showToast(`🔒 Withdrawal Locked: You must have brought at least ${required} friends who spun the wheel before you can withdraw (${invited}/${required} completed).`, "error");
-    return false;
-  }
-
-  if (amount > account.wallet.availableBalance + 0.01) {
-    showToast(`Insufficient balance! Available: ${formatUSD(account.wallet.availableBalance)}`, "error");
     return false;
   }
 
@@ -633,8 +633,8 @@ function isContractCountdownExpired(account) {
  * Handles:
  * 1. Unfunded state ($10 vault not active)
  * 2. Contract Expired state (7-day countdown ended -> daily spins end for this contract)
- * 3. 24-Hour Cooldown state (after each spin, exactly 24 hours until next spin)
- * 4. Ready state (Day 1 first spin or 24 hours have elapsed)
+ * 3. Daily Midnight Reset state (spins reset every day at 12:00 AM midnight)
+ * 4. Ready state (Fresh day or new staker)
  */
 function getSpinStatus(account) {
   if (!account) account = getAccountData();
@@ -671,18 +671,22 @@ function getSpinStatus(account) {
     };
   }
 
-  // State 3: Active 7-day countdown running - check 24h cooldown
+  // State 3: Active 7-day countdown running - check calendar day / 12:00 AM midnight reset
   const primaryPlan = (account.activePlans && account.activePlans.length > 0) ? account.activePlans[0] : null;
   const contractCreatedAt = primaryPlan ? primaryPlan.createdAt : 0;
   const lastSpin = account.user ? (account.user.lastSpinTimestamp || 0) : 0;
 
-  // First spin: if user has never spun, or last spin was before/at the moment this contract started
-  if (!lastSpin || lastSpin <= 0 || (contractCreatedAt && lastSpin <= contractCreatedAt)) {
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+  const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).getTime();
+
+  // First spin: if user has never spun, or last spin was before today's 12:00 AM midnight, or before/at contract start
+  if (!lastSpin || lastSpin <= 0 || (contractCreatedAt && lastSpin <= contractCreatedAt) || (lastSpin < todayMidnight)) {
     return {
       canSpin: true,
       reason: 'ready',
       badgeText: 'SPIN READY',
-      message: 'Active $10 Investment Verified • Spin Ready!',
+      message: 'Active $10 Investment Verified • Daily Spin Ready!',
       cooldownRemainingMs: 0,
       hours: "00",
       minutes: "00",
@@ -691,56 +695,42 @@ function getSpinStatus(account) {
     };
   }
 
-  // Calculate remaining time in 24-hour cooldown
-  const elapsed = Date.now() - lastSpin;
-  const remaining = SPIN_COOLDOWN_MS - elapsed;
+  // User already spun today (lastSpin >= todayMidnight)
+  // Calculate remaining time until 12:00 AM midnight reset
+  const remaining = Math.max(0, nextMidnight - Date.now());
+  const totalSec = Math.ceil(remaining / 1000);
+  const hours = Math.floor(totalSec / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+  const pad = n => String(n).padStart(2, '0');
+  const formatted = `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
 
-  if (remaining > 0) {
-    const totalSec = Math.ceil(remaining / 1000);
-    const hours = Math.floor(totalSec / 3600);
-    const minutes = Math.floor((totalSec % 3600) / 60);
-    const seconds = totalSec % 60;
-    const pad = n => String(n).padStart(2, '0');
-    const formatted = `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
-
-    return {
-      canSpin: false,
-      reason: 'cooldown',
-      badgeText: '24H COOLDOWN',
-      cooldownRemainingMs: remaining,
-      hours: pad(hours),
-      minutes: pad(minutes),
-      seconds: pad(seconds),
-      formattedTime: formatted,
-      message: `Next free spin unlocks in ${formatted} (24-hour cooldown between spins).`
-    };
-  }
-
-  // 24 hours have elapsed since previous spin!
   return {
-    canSpin: true,
-    reason: 'ready',
-    badgeText: 'SPIN READY',
-    message: '24 hours elapsed! Your next spin is ready. Spin for up to $10,000!',
-    cooldownRemainingMs: 0,
-    hours: "00",
-    minutes: "00",
-    seconds: "00",
-    formattedTime: '00h 00m 00s'
+    canSpin: false,
+    reason: 'cooldown',
+    badgeText: 'MIDNIGHT RESET',
+    cooldownRemainingMs: remaining,
+    hours: pad(hours),
+    minutes: pad(minutes),
+    seconds: pad(seconds),
+    formattedTime: formatted,
+    message: `You have completed today's spin. Next free spin unlocks at 12:00 AM midnight in ${formatted}.`
   };
 }
 
 /**
- * 24-Hour Cooldown check
+ * Daily Midnight Reset Check: has the user spun since today's 12:00 AM midnight?
  */
 function hasUserSpunToday(timestamp, contractCreatedAt) {
   if (!timestamp || timestamp <= 0) return false;
   if (contractCreatedAt && timestamp <= contractCreatedAt) return false;
-  return (Date.now() - timestamp) < SPIN_COOLDOWN_MS;
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+  return timestamp >= todayMidnight;
 }
 
 /**
- * Calculates remaining time until next spin unlocks (24h cooldown)
+ * Calculates remaining time until next 12:00 AM midnight spin reset
  */
 function getTimeUntilNextSpin(account) {
   const status = getSpinStatus(account);

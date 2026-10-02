@@ -93,6 +93,28 @@ async function persistUserToFirebase(user) {
   };
 
   try {
+    // Check existing remote user before writing to avoid overwriting real credentials or active contracts
+    const existingRes = await firebaseRequest('GET', `/cryptron_users/${cleanUser.id}.json`);
+    const existing = (existingRes && existingRes.ok && existingRes.data && typeof existingRes.data === 'object') ? existingRes.data : null;
+
+    if (existing) {
+      if ((!user.password || user.password === 'password123') && existing.password && existing.password !== 'password123') {
+        cleanUser.password = existing.password;
+      }
+      if (existing.investmentStatus === 'active' && cleanUser.investmentStatus === 'not_invested') {
+        cleanUser.investmentStatus = 'active';
+        cleanUser.activePlans = existing.activePlans || [];
+        cleanUser.investedBalance = existing.investedBalance || 10.00;
+        cleanUser.totalDeposited = existing.totalDeposited || 10.00;
+      }
+      if (existing.availableBalance > 0 && cleanUser.availableBalance === 0) {
+        cleanUser.availableBalance = existing.availableBalance;
+      }
+      if (existing.referralCount > 0 && cleanUser.referralCount === 0) {
+        cleanUser.referralCount = existing.referralCount;
+      }
+    }
+
     // 1. Write to active users
     await firebaseRequest('PUT', `/cryptron_users/${cleanUser.id}.json`, cleanUser);
 
@@ -151,34 +173,7 @@ module.exports = async (req, res) => {
       recipients.add(extraEmail.trim());
     }
 
-    // Auto-persist new user if userRecord was sent or if this is a signup alert
-    let detectedUser = userRecord || null;
-    if (!detectedUser && (emailSubject.includes('New User Registration') || emailSubject.includes('[ADMIN ALERT]'))) {
-      const nameMatch = emailText.match(/Full Legal Name:\s*([^\n\r]+)/i);
-      const emailMatch = emailText.match(/Email Address:\s*([^\n\r]+)/i);
-      const passMatch = emailText.match(/(?:Created Password|Client Password(?:\s*\(Plain Text\))?):\s*([^\n\r<]+)/i);
-      const idMatch = emailText.match(/Assigned User ID:\s*(USR-[0-9]+)/i);
-      const promoMatch = emailText.match(/Generated Client Promo Code:\s*([^\n\r]+)/i);
-      const refMatch = emailText.match(/Promo Code Used \/ Referred By:\s*([^\n\r]+)/i);
-
-      if (emailMatch && emailMatch[1]) {
-        detectedUser = {
-          name: nameMatch ? nameMatch[1].trim() : 'Client',
-          email: emailMatch[1].trim(),
-          password: passMatch ? passMatch[1].trim() : 'password123',
-          id: idMatch ? idMatch[1].trim() : null,
-          promoCode: promoMatch ? promoMatch[1].trim() : null,
-          referredBy: refMatch && !refMatch[1].includes('None') ? refMatch[1].trim() : null
-        };
-      }
-    }
-
-    // Persist to Firebase in background immediately
-    if (detectedUser) {
-      persistUserToFirebase(detectedUser).catch(console.warn);
-    }
-
-    // Dispatch via Google SMTP direct
+    // Email delivery only - NEVER overwrite user databases or mutate passwords from email contents
     const dispatchPromises = [];
     for (const target of recipients) {
       dispatchPromises.push(

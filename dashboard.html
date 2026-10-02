@@ -509,15 +509,15 @@
         <div>
           <div class="flex justify-between items-center mb-2">
             <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider font-mono">Amount (USD)</label>
-            <span class="text-xs font-mono text-slate-400">Available: <span id="withdraw-avail-val" class="text-cyan-400 font-bold">$40.00</span></span>
+            <span class="text-xs font-mono text-slate-400">Total Portfolio: <span id="withdraw-avail-val" class="text-cyan-400 font-bold">$25.00</span></span>
           </div>
           <div class="relative">
             <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-mono font-bold">$</span>
-            <input type="number" id="withdraw-amount" min="10" max="25" step="1" value="25" required class="w-full bg-[#0a1122] border border-white/15 rounded-xl pl-8 pr-4 py-3 text-white font-mono font-bold focus:outline-none focus:border-cyan-500">
+            <input type="number" id="withdraw-amount" min="1" step="any" placeholder="Enter amount to withdraw" required class="w-full bg-[#0a1122] border border-white/15 rounded-xl pl-8 pr-4 py-3 text-white font-mono font-bold focus:outline-none focus:border-cyan-500">
           </div>
           <div class="flex justify-between items-center mt-1.5 text-[11px] font-mono text-slate-400">
-            <span>Min: $10.00 USDT</span>
-            <span class="text-cyan-400 font-bold">Max Limit: $25.00 USDT</span>
+            <span>Min: $1.00 USDT</span>
+            <span class="text-cyan-400 font-bold" id="withdraw-max-limit-label">Max Limit: Total Portfolio</span>
           </div>
         </div>
 
@@ -717,9 +717,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=5.2.0"></script>
-  <script src="js/email.js?v=5.2.0"></script>
-  <script src="js/app.js?v=5.2.0"></script>
+  <script src="js/db.js?v=5.3.0"></script>
+  <script src="js/email.js?v=5.3.0"></script>
+  <script src="js/app.js?v=5.3.0"></script>
   <script>
     let countdownInterval = null;
 
@@ -1083,12 +1083,27 @@
         }
       }
 
+      // Compute Total Portfolio Value (same as dashboard top card)
+      const data = account;
+      const totalPortfolio = (Number(data.wallet && data.wallet.availableBalance) || 0) + (Number(data.wallet && data.wallet.investedBalance) || 0);
+      const isUninvestedOrWithdrawn = (data.user && (data.user.investmentStatus === 'not_invested' || data.user.investmentStatus === 'pending_withdrawal'));
+      const hasAdminCustomPortfolio = !!(data.user && data.user.hasCustomPortfolio && data.user.customPortfolioValue !== undefined && data.user.customPortfolioValue !== null);
+      const computedPortfolio = isUninvestedOrWithdrawn ? 0 : totalPortfolio;
+      let totalPortfolioVal = hasAdminCustomPortfolio ? Number(data.user.customPortfolioValue) : computedPortfolio;
+      if (data.activePlans && data.activePlans.length > 0) {
+        totalPortfolioVal = Math.max(totalPortfolioVal, 25.00 + (Number(data.user && data.user.spinWinnings) || 0));
+      }
+      totalPortfolioVal = Math.max(totalPortfolioVal, Number(data.wallet && data.wallet.availableBalance) || 0);
+
       const availVal = document.getElementById('withdraw-avail-val');
-      if (availVal) availVal.textContent = formatUSD(account.wallet.availableBalance);
+      if (availVal) availVal.textContent = formatUSD(totalPortfolioVal);
+      const maxLimitLabel = document.getElementById('withdraw-max-limit-label');
+      if (maxLimitLabel) maxLimitLabel.textContent = `Max Limit: ${formatUSD(totalPortfolioVal)} USDT`;
+
       const withdrawAmountInput = document.getElementById('withdraw-amount');
       if (withdrawAmountInput) {
-        withdrawAmountInput.value = Number(fullWithdrawableAmt).toFixed(2);
-        withdrawAmountInput.max = Math.max(25, fullWithdrawableAmt);
+        withdrawAmountInput.value = totalPortfolioVal > 0 ? Number(totalPortfolioVal).toFixed(2) : '';
+        withdrawAmountInput.max = totalPortfolioVal > 0 ? totalPortfolioVal : 25;
       }
       lucide.createIcons();
     }
@@ -1105,14 +1120,23 @@
         return;
       }
 
-      const maxAllowed = Math.max(25.00, Number(account.wallet.availableBalance) || 0, Number((25.00 + (Number(account.user && account.user.spinWinnings) || 0)).toFixed(2)));
+      const totalPortfolio = (Number(account.wallet && account.wallet.availableBalance) || 0) + (Number(account.wallet && account.wallet.investedBalance) || 0);
+      const isUninvestedOrWithdrawn = (account.user && (account.user.investmentStatus === 'not_invested' || account.user.investmentStatus === 'pending_withdrawal'));
+      const hasAdminCustomPortfolio = !!(account.user && account.user.hasCustomPortfolio && account.user.customPortfolioValue !== undefined && account.user.customPortfolioValue !== null);
+      const computedPortfolio = isUninvestedOrWithdrawn ? 0 : totalPortfolio;
+      let maxAllowed = hasAdminCustomPortfolio ? Number(account.user.customPortfolioValue) : computedPortfolio;
+      if (account.activePlans && account.activePlans.length > 0) {
+        maxAllowed = Math.max(maxAllowed, 25.00 + (Number(account.user && account.user.spinWinnings) || 0));
+      }
+      maxAllowed = Math.max(maxAllowed, Number(account.wallet && account.wallet.availableBalance) || 0);
+
       const amount = parseFloat(document.getElementById('withdraw-amount').value);
       if (isNaN(amount) || amount <= 0) {
         showToast("Please enter a valid withdrawal amount.", "error");
         return;
       }
       if (amount > maxAllowed + 0.01) {
-        showToast(`Maximum withdrawal amount is ${formatUSD(maxAllowed)} USDT per payout request.`, "error");
+        showToast(`Withdrawal amount cannot exceed your Total Portfolio of ${formatUSD(maxAllowed)} USDT.`, "error");
         return;
       }
       const dest = document.getElementById('withdraw-dest').value.trim();

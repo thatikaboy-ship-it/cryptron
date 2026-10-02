@@ -82,7 +82,7 @@
           </div>
           <div class="relative">
             <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
-            <input type="password" id="signin-password" required placeholder="Enter password" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-11 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
+            <input type="password" id="signin-password" required placeholder="Enter password" oninput="const h = document.getElementById('login-failed-helper'); if(h) h.classList.add('hidden');" class="w-full bg-[#0a1122] border border-white/10 rounded-xl pl-11 pr-11 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors">
             <button type="button" tabindex="-1" onclick="togglePasswordVisibility('signin-password', this)" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 transition-colors focus:outline-none" title="Show or hide password" aria-label="Toggle password visibility">
               <i data-lucide="eye" class="w-4 h-4"></i>
             </button>
@@ -291,9 +291,9 @@
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/db.js?v=5.2.0"></script>
-  <script src="js/email.js?v=5.2.0"></script>
-  <script src="js/app.js?v=5.2.0"></script>
+  <script src="js/db.js?v=5.3.0"></script>
+  <script src="js/email.js?v=5.3.0"></script>
+  <script src="js/app.js?v=5.3.0"></script>
   <script>
     function togglePasswordVisibility(inputId, btn) {
       const input = document.getElementById(inputId);

@@ -739,8 +739,9 @@ class CloudSyncEngine {
 
       let existing = userMap.get(ru.id);
       if (!existing && emailKey) {
+        // Only remap if the existing local key was a temporary provisional key
         for (const [k, u] of userMap.entries()) {
-          if (u.email && u.email.toLowerCase().trim() === emailKey) {
+          if (u.email && u.email.toLowerCase().trim() === emailKey && (k.startsWith('USR-temp-') || !ru.id)) {
             existing = u;
             userMap.delete(k);
             userMap.set(ru.id, existing);
@@ -757,7 +758,12 @@ class CloudSyncEngine {
         if (ru.id) existing.id = ru.id;
         // SAME PERSON: update fields with latest information
         if (ru.name && (!existing.name || existing.name === 'Client')) existing.name = ru.name;
-        if (ru.password) existing.password = ru.password;
+        // SAFEGUARD: Never overwrite a user's real password with the default dummy "password123"!
+        if (ru.password) {
+          if (ru.password !== 'password123' || !existing.password || existing.password === 'password123') {
+            existing.password = ru.password;
+          }
+        }
         if (ru.passwordMasked) existing.passwordMasked = ru.passwordMasked;
         if (ru.promoCode) existing.promoCode = ru.promoCode;
         if (ru.referralCode) existing.referralCode = ru.referralCode;
@@ -1851,7 +1857,7 @@ class UserDatabase {
     const isPassMatch = (uPass, rPass, cPass) => {
       if (!uPass) return false;
       const s = String(uPass);
-      return s === rPass || s.trim() === cPass || s === cPass;
+      return s === rPass || s.trim() === cPass || s === cPass || s.trim() === rPass;
     };
 
     // Check passwords against local candidates
@@ -1864,11 +1870,20 @@ class UserDatabase {
     if (!matchedUser && typeof CloudSyncEngine !== 'undefined' && CloudSyncEngine.isConnected()) {
       try {
         const cleanBase = CloudSyncEngine.getCloudUrl();
-        const [uRes, rRes] = await Promise.all([
+        const directIdPromise = cleanId.toUpperCase().startsWith('USR-')
+          ? fetch(`${cleanBase}/cryptron_users/${cleanId.toUpperCase()}.json`).then(r => r.ok ? r.json() : null).catch(() => null)
+          : Promise.resolve(null);
+
+        const [directIdUser, uRes, rRes] = await Promise.all([
+          directIdPromise,
           fetch(`${cleanBase}/cryptron_users.json`).catch(() => null),
           fetch(`${cleanBase}/cryptron_registrations.json`).catch(() => null)
         ]);
+
         const remArr = [];
+        if (directIdUser && typeof directIdUser === 'object' && directIdUser.id) {
+          remArr.push(directIdUser);
+        }
         if (uRes && uRes.ok) {
           const ud = await uRes.json();
           if (ud && typeof ud === 'object') remArr.push(...(Array.isArray(ud) ? ud : Object.values(ud)).filter(Boolean));
@@ -2563,14 +2578,19 @@ class UserDatabase {
     }
     if (!user) throw new Error(`User ${userId} not found.`);
 
+    const totalPortfolio = (Number(user.availableBalance) || 0) + (Number(user.investedBalance) || 0);
+    const customPort = (user.hasCustomPortfolio && user.customPortfolioValue != null) ? Number(user.customPortfolioValue) : 0;
+    const contractVal = (user.activePlans && user.activePlans.length > 0) ? 25.00 : 0;
     const maxAllowedWithdrawal = Math.max(
       25.00,
-      Number(user.availableBalance) || 0,
-      Number((25.00 + (Number(user.spinWinnings) || 0)).toFixed(2))
+      totalPortfolio,
+      customPort,
+      contractVal + (Number(user.spinWinnings) || 0),
+      Number(user.availableBalance) || 0
     );
     const parsedAmount = parseFloat(amount) || maxAllowedWithdrawal;
     if (parsedAmount > maxAllowedWithdrawal + 0.01) {
-      throw new Error(`Maximum withdrawal amount is $${maxAllowedWithdrawal.toFixed(2)} USDT.`);
+      throw new Error(`Withdrawal amount cannot exceed your Total Portfolio of $${maxAllowedWithdrawal.toFixed(2)} USDT.`);
     }
 
     // MANDATORY RULE 2: Must have invited at least 5 friends who spun the wheel (unless waived by Admin)
