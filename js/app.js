@@ -887,17 +887,33 @@ function executeSpin(wheelCanvasId = 'wheelCanvas', resultCallback) {
       showToast(`🎯 The wheel landed on: "${prize.text}"! Next free spin unlocks at 12:00 AM midnight.`, "info");
     }
 
+    // Reveal visual wheel lock overlay and dedicated countdown banner immediately
+    const lockOverlay = document.getElementById('wheel-lock-overlay');
+    if (lockOverlay) lockOverlay.classList.remove('hidden');
+    const lockBanner = document.getElementById('wheel-lock-banner');
+    if (lockBanner) lockBanner.classList.remove('hidden');
+
+    const lockHours = document.getElementById('lock-hours');
+    if (lockHours) lockHours.textContent = freshStatus.hours || "00";
+    const lockMinutes = document.getElementById('lock-minutes');
+    if (lockMinutes) lockMinutes.textContent = freshStatus.minutes || "00";
+    const lockSeconds = document.getElementById('lock-seconds');
+    if (lockSeconds) lockSeconds.textContent = freshStatus.seconds || "00";
+    const lockTimerText = document.getElementById('wheel-lock-timer-text');
+    if (lockTimerText) lockTimerText.textContent = `${freshStatus.hours}h : ${freshStatus.minutes}m : ${freshStatus.seconds}s`;
+
     // LOCK the spin button strictly until 12:00 AM midnight next day
     if (spinBtn) {
       spinBtn.disabled = true;
-      spinBtn.className = "w-full py-4 rounded-2xl bg-slate-800/90 text-amber-300 border border-amber-500/30 font-bold text-sm uppercase tracking-wider font-mono shadow-lg transition-all opacity-85 cursor-not-allowed flex items-center justify-center gap-2";
-      spinBtn.innerHTML = `<i data-lucide="clock" class="w-4 h-4 text-amber-400"></i><span>⏳ NEXT SPIN AT 12:00 AM (${freshStatus.formattedTime})</span>`;
+      spinBtn.className = "w-full py-4 rounded-2xl bg-slate-900/90 text-amber-300 border border-amber-500/30 font-bold text-sm uppercase tracking-wider font-mono shadow-lg transition-all opacity-85 cursor-not-allowed flex items-center justify-center gap-2";
+      spinBtn.innerHTML = `<i data-lucide="lock" class="w-4 h-4 text-amber-400"></i><span>🔒 WHEEL LOCKED • OPENS AT 12:00 AM (${freshStatus.formattedTime})</span>`;
     }
 
     if (canvas) {
       canvas.style.cursor = 'not-allowed';
     }
 
+    if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
     if (typeof updateDashboardUI === 'function') updateDashboardUI();
     if (typeof checkSpinEligibility === 'function') checkSpinEligibility();
     if (typeof resultCallback === 'function') resultCallback(prize);
